@@ -270,5 +270,7 @@ docs/     API-Referenz (Grundlage für die iOS-App)
 - [ ] Dokument mit mehreren Einträgen an alle Einträge hängen (heute: an den ersten)
 - [ ] Automatisch übernehmen, wenn die KI sicher ist
 - [ ] Bordzeit vs. Ortszeit (Schiffe stellen die Uhr nicht immer auf Ortszeit um)
-- [ ] Erinnerungen (z. B. 60 min vor *Alle an Bord*)
+- [x] Erinnerungen nach Uhrzeit (Alle an Bord, Ausflug, Abflug, Abfahrt) per Web Push, siehe oben
+- [ ] Erinnerungen nach Standort (nur mit der iOS-App möglich)
+- [ ] **Version der App in den Einstellungen anzeigen** (Versionsnummer und Stand, damit man nach einem Update sieht, was läuft)
 - [ ] Packliste & Kostenübersicht pro Person
