@@ -200,6 +200,10 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 825 -keyout bordbuch-key.pem -ou
 **Einschalten:** In Bordbuch (vom Home-Bildschirm geöffnet) unter *Einstellungen → Erinnerungen* **Auf diesem Gerät aktivieren**,
 Mitteilungen erlauben, dann **Testnachricht senden**. Danach stellst du ein, wofür und wie früh erinnert wird.
 
+**Logo auf dem Home-Bildschirm:** iOS liest das Symbol nur in dem Moment, in dem die Kachel angelegt wird, und merkt es sich dann. Das Logo ist
+in die Seite eingebettet, damit dafür kein zweiter Abruf nötig ist. Erscheint trotzdem ein Buchstabe oder ein Seitenbild, löschst du die Kachel
+(lange drücken → App entfernen) und legst sie neu an, über die HTTPS-Adresse und mit vertrautem Zertifikat.
+
 **Fehlersuche:** Kommt die Testnachricht nicht an, steht in den Einstellungen der Grund (z. B. `HTTP 403`). Meist fehlt die HTTPS-Adresse
 oder der ausgehende Zugriff der Syno. Das Protokoll siehst du im Container Manager. Für die Kennung gegenüber den Push-Diensten gibt es die
 Umgebungsvariable `PUSH_SUBJECT` (Standard `mailto:bordbuch@example.com`). Setze dort bei Bedarf eine eigene Adresse in der `.env` ein,
