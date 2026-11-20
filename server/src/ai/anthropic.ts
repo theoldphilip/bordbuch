@@ -18,6 +18,7 @@ Allgemeine Regeln:
 - notes: nützliche Hinweise aus dem Dokument (Gepäck, Check-in-Zeiten, Treffpunkt, Stornobedingungen, Passagiernamen), kurz.
 - confidence: high = alle wichtigen Angaben stehen eindeutig im Dokument, medium = etwas musste gefolgert werden, low = unsicher oder unleserlich.
 - Ist das Dokument keine Reiseunterlage oder enthält es keine verwertbaren Reisedaten, gib items als leere Liste zurück und erkläre es in summary.
+- suggestedTripTitle: kurzer Reisename (z. B. "Mittelmeer mit MS Aurora, Mai 2027"), nur wenn er sich sinnvoll aus dem Dokument ableiten lässt, sonst null.
 - warnings: Dinge, die der Nutzer prüfen sollte (unleserlich, widersprüchliche Angaben, fehlende Uhrzeit, mehrere mögliche Deutungen).
 
 Einträge (items), ein Eintrag pro Leistung:

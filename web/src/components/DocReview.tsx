@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, errorMessage } from '../api.ts';
 import { fmtDate, fmtMoney, itemSubtitle, itemTypeInfo } from '../format.ts';
-import type { AnalysisView, Cruise, Item, ItemData, ItemProposal } from '../types.ts';
+import type { AnalysisView, Cruise, CruiseData, CruiseDay, Item, ItemData, ItemProposal } from '../types.ts';
+import { CruiseDayForm } from './CruiseForms.tsx';
 import { ItemForm } from './ItemForm.tsx';
 import { ErrorBox, Modal, Spinner } from './ui.tsx';
 
@@ -26,10 +27,12 @@ function when(d: ItemData): string {
 
 const CONFIDENCE = { high: ['sicher', 'conf-high'], medium: ['prüfen', 'conf-medium'], low: ['unsicher', 'conf-low'] } as const;
 
-export function DocReview({ attachmentId, tripId, cruises, onClose, onApplied }: { attachmentId: string; tripId: string; cruises: Cruise[]; onClose: () => void; onApplied: () => void }) {
+export function DocReview({ attachmentId, tripId, cruises, position, onClose, onApplied }: { attachmentId: string; tripId: string; cruises: Cruise[]; /** Set while several documents are reviewed one after another. */ position?: { index: number; total: number }; onClose: () => void; onApplied: () => void }) {
   const [view, setView] = useState<AnalysisView | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [cruiseAction, setCruiseAction] = useState<'apply' | 'skip'>('apply');
+  const [cruiseData, setCruiseData] = useState<CruiseData | null>(null);
+  const [editingDay, setEditingDay] = useState<number | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -47,6 +50,8 @@ export function DocReview({ attachmentId, tripId, cruises, onClose, onApplied }:
         })),
       );
       setCruiseAction(v.cruise && !v.cruise.problems.length ? 'apply' : 'skip');
+      setCruiseData(v.cruise?.data ?? null);
+      setEditingDay(null);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -66,7 +71,7 @@ export function DocReview({ attachmentId, tripId, cruises, onClose, onApplied }:
     try {
       await api.post(`/api/attachments/${attachmentId}/apply`, {
         items: rows.map((r) => ({ action: r.action, itemId: r.action === 'update' ? r.proposal.match?.itemId : undefined, data: r.data })),
-        cruise: view.cruise ? { action: cruiseAction === 'skip' ? 'skip' : view.cruise.match ? 'update' : 'create', cruiseId: view.cruise.match?.cruiseId, data: view.cruise.data } : null,
+        cruise: view.cruise && cruiseData ? { action: cruiseAction === 'skip' ? 'skip' : view.cruise.match ? 'update' : 'create', cruiseId: view.cruise.match?.cruiseId, data: cruiseData } : null,
       });
       onApplied();
     } catch (err) {
@@ -100,6 +105,23 @@ export function DocReview({ attachmentId, tripId, cruises, onClose, onApplied }:
     }
   };
 
+  if (editingDay !== null && cruiseData?.days[editingDay]) {
+    const draftCruise: Cruise = { id: '', tripId, shipName: cruiseData.shipName, cruiseLine: null, cabin: null, bookingRef: null, notes: null, days: cruiseData.days.map((d) => ({ ...d, id: '', cruiseId: '' }) as CruiseDay) };
+    return (
+      <CruiseDayForm
+        cruise={draftCruise}
+        day={draftCruise.days[editingDay]}
+        onClose={() => setEditingDay(null)}
+        onSaved={() => {}}
+        onSubmit={(payload) => {
+          setCruiseData({ ...cruiseData, days: cruiseData.days.map((d, n) => (n === editingDay ? (payload as unknown as CruiseData['days'][number]) : d)).sort((a, b) => a.date.localeCompare(b.date)) });
+          setCruiseAction('apply');
+          setEditingDay(null);
+        }}
+      />
+    );
+  }
+
   if (editing !== null && rows[editing]) {
     const row = rows[editing]!;
     return (
@@ -119,7 +141,7 @@ export function DocReview({ attachmentId, tripId, cruises, onClose, onApplied }:
 
   return (
     <Modal
-      title="Dokument prüfen"
+      title={position && position.total > 1 ? `Dokument ${position.index} von ${position.total} prüfen` : 'Dokument prüfen'}
       onClose={onClose}
       footer={
         <>
@@ -152,19 +174,27 @@ export function DocReview({ attachmentId, tripId, cruises, onClose, onApplied }:
             </ul>
           )}
 
-          {view.cruise && (
+          {view.cruise && cruiseData && (
             <section className={`proposal${cruiseAction === 'skip' ? ' skipped' : ''}`}>
               <header>
-                <strong>🛳️ Kreuzfahrt {view.cruise.data.shipName}</strong>
-                <span className="muted">{view.cruise.data.days.length} Tage</span>
+                <strong>🛳️ Kreuzfahrt</strong>
+                <span className="muted">{cruiseData.days.length} Tage</span>
               </header>
-              <p className="muted">{[view.cruise.data.cruiseLine, view.cruise.data.cabin && `Kabine ${view.cruise.data.cabin}`, view.cruise.data.bookingRef && `Buchung ${view.cruise.data.bookingRef}`].filter(Boolean).join(' · ')}</p>
+              <div className="form cruise-edit">
+                <label className="field wide"><span className="field-label">Schiff</span><input value={cruiseData.shipName} onChange={(e) => setCruiseData({ ...cruiseData, shipName: e.target.value })} /></label>
+                <label className="field"><span className="field-label">Kabine</span><input value={cruiseData.cabin ?? ''} onChange={(e) => setCruiseData({ ...cruiseData, cabin: e.target.value || null })} /></label>
+                <label className="field"><span className="field-label">Buchungsnummer</span><input value={cruiseData.bookingRef ?? ''} onChange={(e) => setCruiseData({ ...cruiseData, bookingRef: e.target.value || null })} /></label>
+              </div>
+              <p className="muted small-print">Tippe auf einen Tag, um ihn zu korrigieren, oder entferne ihn mit ✕.</p>
               <ul className="route-preview">
-                {view.cruise.data.days.map((d, i) => (
+                {cruiseData.days.map((d, i) => (
                   <li key={i}>
-                    <span>{fmtDate(d.date, { day: 'numeric', month: 'short' })}</span>
-                    <span>{d.kind === 'sea' ? 'Seetag' : [d.portName, d.country].filter(Boolean).join(', ') || d.kind}</span>
-                    <span className="muted">{[d.arrival, d.departure].filter(Boolean).join(' – ')}</span>
+                    <button className="route-day" onClick={() => setEditingDay(i)}>
+                      <span>{fmtDate(d.date, { day: 'numeric', month: 'short' })}</span>
+                      <span>{d.kind === 'sea' ? 'Seetag' : [d.portName, d.country].filter(Boolean).join(', ') || d.kind}</span>
+                      <span className="muted">{[d.arrival, d.departure].filter(Boolean).join(' – ')}</span>
+                    </button>
+                    <button className="icon-btn small" aria-label="Tag entfernen" onClick={() => setCruiseData({ ...cruiseData, days: cruiseData.days.filter((_, n) => n !== i) })}>✕</button>
                   </li>
                 ))}
               </ul>

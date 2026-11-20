@@ -20,7 +20,7 @@ const aiItem = (p: Partial<AiResult['items'][number]> = {}): AiResult['items'][n
   location: null, confirmation: 'AB12345', provider: null, cost: null, currency: null, notes: null, cruiseDayId: null,
   details: [], confidence: 'high', ...p,
 });
-const aiResult = (p: Partial<AiResult> = {}): AiResult => ({ documentKind: 'Hotelbuchung', summary: 'ok', items: [aiItem()], cruise: null, warnings: [], ...p });
+const aiResult = (p: Partial<AiResult> = {}): AiResult => ({ suggestedTripTitle: null, documentKind: 'Hotelbuchung', summary: 'ok', items: [aiItem()], cruise: null, warnings: [], ...p });
 
 const item = (p: Partial<Item> & Pick<Item, 'id' | 'type' | 'startLocal'>): Item => ({
   tripId: 't', title: p.id, startTz: null, endLocal: null, endTz: null, location: null, confirmation: null, provider: null,

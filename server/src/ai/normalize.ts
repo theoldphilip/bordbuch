@@ -74,6 +74,7 @@ export function normalizeExtraction(ai: AiResult, ctx: ExtractionContext, model:
     : null;
 
   return {
+    suggestedTripTitle: clean(ai.suggestedTripTitle),
     documentKind: ai.documentKind.trim(),
     summary: ai.summary.trim(),
     items: items as (ItemData & { confidence: 'high' | 'medium' | 'low' })[],

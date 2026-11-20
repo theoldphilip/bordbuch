@@ -216,6 +216,7 @@ export interface CruiseProposal {
 }
 
 export interface AnalysisView {
+  suggestedTripTitle: string | null;
   status: Attachment['analysisStatus'];
   attachment: Attachment;
   documentKind: string;

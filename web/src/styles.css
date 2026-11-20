@@ -321,7 +321,12 @@ small.inline-warn.info { background: var(--info-bg); color: var(--info); }
 .conf-medium { background: var(--warning-bg); color: var(--warning); }
 .conf-low { background: var(--error-bg); color: var(--error); }
 .route-preview { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 0.88rem; }
-.route-preview li { display: grid; grid-template-columns: 64px 1fr auto; gap: 8px; }
+.cruise-edit { margin-top: 2px; }
+.route-preview li { display: flex; align-items: center; gap: 4px; }
+.route-day { appearance: none; flex: 1; min-width: 0; text-align: left; font: inherit; color: inherit; background: transparent; border: 0; cursor: pointer; padding: 6px 4px; border-radius: 8px; display: grid; grid-template-columns: 64px 1fr auto; gap: 8px; }
+.route-day:hover { background: var(--surface-2); }
+.ai-start { border: 1px dashed var(--primary); background: var(--info-bg); border-radius: var(--radius); padding: 14px; display: grid; gap: 8px; }
+.clear-btn { margin-left: auto; color: var(--muted); }
 .small-print { font-size: 0.78rem; }
 .inbox { border: 1px solid var(--info); background: var(--info-bg); }
 .inbox ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }

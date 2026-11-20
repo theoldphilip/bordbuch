@@ -96,6 +96,22 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
 
   const view = (id: string) => attachmentFromRow(attachmentRow(id));
 
+  /**
+   * Excursions without a port day are linked to the one port day on their date. Documents arrive in any
+   * order (an excursion voucher can be applied before the cruise itself), so this runs after every apply.
+   */
+  function linkExcursions(tripId: string): void {
+    const byDate = new Map<string, string[]>();
+    for (const c of loadCruises(db, tripId)) {
+      for (const d of c.days) if (d.kind === 'port') byDate.set(d.date, [...(byDate.get(d.date) ?? []), d.id]);
+    }
+    const open = db.prepare("SELECT id, start_local FROM items WHERE trip_id = ? AND type = 'excursion' AND cruise_day_id IS NULL").all(tripId) as Row[];
+    for (const row of open) {
+      const days = byDate.get(String(row.start_local).slice(0, 10));
+      if (days?.length === 1) db.prepare('UPDATE items SET cruise_day_id = ? WHERE id = ?').run(days[0], row.id);
+    }
+  }
+
   // ----- status & key check -----
   app.get('/api/ai/status', async () => ({ enabled: !!extractor, model: extractor?.model ?? null }));
 
@@ -256,6 +272,8 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
       }
 
       if (created.length + updated.length === 0 && !cruiseId) throw new HttpError(400, 'Es wurde nichts zum Übernehmen ausgewählt');
+
+      linkExcursions(tripId);
 
       // 3) File the document under the first item it produced or updated.
       const primary = created[0] ?? updated[0] ?? null;

@@ -97,7 +97,7 @@ export function CruiseForm({ tripId, cruise, onClose, onSaved }: { tripId: strin
   );
 }
 
-export function CruiseDayForm({ cruise, day, onClose, onSaved }: { cruise: Cruise; day?: CruiseDay; onClose: () => void; onSaved: () => void }) {
+export function CruiseDayForm({ cruise, day, onSubmit, onClose, onSaved }: { cruise: Cruise; day?: CruiseDay; /** When set, the payload is handed back instead of saved (editing an AI proposal). */ onSubmit?: (payload: Record<string, unknown>) => void | Promise<void>; onClose: () => void; onSaved: () => void }) {
   const lastDay = cruise.days.at(-1);
   const [date, setDate] = useState(day?.date ?? (lastDay ? addDays(lastDay.date, 1) : ''));
   const [kind, setKind] = useState<CruiseDayKind>(day?.kind ?? 'port');
@@ -144,6 +144,10 @@ export function CruiseDayForm({ cruise, day, onClose, onSaved }: { cruise: Cruis
     };
     setBusy(true);
     try {
+      if (onSubmit) {
+        await onSubmit(payload);
+        return;
+      }
       if (day) await api.patch(`/api/cruise-days/${day.id}`, payload);
       else await api.post(`/api/cruises/${cruise.id}/days`, payload);
       onSaved();
@@ -168,14 +172,14 @@ export function CruiseDayForm({ cruise, day, onClose, onSaved }: { cruise: Cruis
 
   return (
     <Modal
-      title={day ? 'Reisetag bearbeiten' : 'Reisetag hinzufügen'}
+      title={onSubmit ? 'Reisetag prüfen' : day ? 'Reisetag bearbeiten' : 'Reisetag hinzufügen'}
       onClose={onClose}
       footer={
         <>
-          {day && <button className="btn btn-danger-ghost" onClick={remove} disabled={busy}>Löschen</button>}
+          {day && !onSubmit && <button className="btn btn-danger-ghost" onClick={remove} disabled={busy}>Löschen</button>}
           <span className="spacer" />
           <button className="btn" onClick={onClose}>Abbrechen</button>
-          <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? 'Speichert…' : 'Speichern'}</button>
+          <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? 'Speichert…' : onSubmit ? 'Übernehmen' : 'Speichern'}</button>
         </>
       }
     >

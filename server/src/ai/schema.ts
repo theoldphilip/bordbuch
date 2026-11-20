@@ -49,6 +49,7 @@ export const aiCruiseSchema = z.object({
 });
 
 export const aiResultSchema = z.object({
+  suggestedTripTitle: nullableText,
   documentKind: z.string(),
   summary: z.string(),
   items: z.array(aiItemSchema),

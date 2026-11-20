@@ -76,6 +76,7 @@ Bei `disembarkation` bedeutet `departure` „von Bord bis“.
 | POST | `/trips/:id/items` | neuer Eintrag |
 | PATCH | `/items/:id` | Teil-Update (wird mit dem bestehenden Eintrag zusammengeführt und komplett validiert) |
 | DELETE | `/items/:id` | inkl. angehängter Dokumente |
+| POST | `/trips/:id/items/delete` | `{ids: string[]}` löscht mehrere Einträge (z. B. einen ganzen Abschnitt) in einer Transaktion; 204 |
 
 `Item`:
 ```json
@@ -117,6 +118,8 @@ Setzt `ANTHROPIC_API_KEY` auf dem Server voraus. `GET /ai/status` zeigt, ob sie 
 
 `Attachment.analysisStatus`: `null` (nie analysiert) · `pending` · `done` (Vorschläge warten) · `failed` (`analysisError` nennt den Grund) · `applied` · `dismissed`.
 
+`suggestedTripTitle` (oder `null`) ist ein Vorschlag für den Reisenamen, den die Web-App beim Start einer Reise aus Dokumenten übernimmt.
+
 `items[]` der Analyse: `{index, data, confidence: high|medium|low, match: {itemId, title, reason, changes[]} | null, problems[]}`.
 `match` verweist auf einen vorhandenen Eintrag derselben Buchung. `cruise`: `{data, match, newDays, updatedDays, problems[]}`.
 
@@ -134,7 +137,8 @@ Setzt `ANTHROPIC_API_KEY` auf dem Server voraus. `GET /ai/status` zeigt, ob sie 
 `create` validiert wie `POST /trips/:id/items`. `update` führt `data` in den vorhandenen Eintrag ein (vorhandener Titel und
 Notizen bleiben, neue Angaben ersetzen leere oder abweichende Felder, `details` werden zusammengeführt). Die Kreuzfahrt wird
 zuerst verarbeitet. Schlägt ein Teil fehl, wird nichts gespeichert. Das Dokument wird am ersten angelegten oder aktualisierten
-Eintrag abgelegt.
+Eintrag abgelegt. Nach jedem Übernehmen werden Landausflüge ohne Hafentag dem einzigen Hafentag ihres Datums zugeordnet, damit die
+Reihenfolge der Dokumente keine Rolle spielt.
 
 ## Timeline
 

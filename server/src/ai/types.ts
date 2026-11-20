@@ -66,6 +66,8 @@ export interface CruiseData {
 }
 
 export interface NormalizedExtraction {
+  /** Missing in analyses stored before this field existed. */
+  suggestedTripTitle?: string | null;
   documentKind: string;
   summary: string;
   items: (ItemData & { confidence: 'high' | 'medium' | 'low' })[];

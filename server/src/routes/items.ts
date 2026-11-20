@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import type { Ctx } from '../app.ts';
 import { requireTripRole, requireUser } from '../auth.ts';
 import { tx, type DB } from '../db.ts';
@@ -39,7 +40,27 @@ const columns = (i: ItemInput) =>
     i.cruiseDayId,
   ] as const;
 
+const bulkDeleteInput = z.object({ ids: z.array(z.string()).min(1).max(500) });
+
 export function registerItemRoutes(app: FastifyInstance, { db, uploadDir }: Ctx) {
+  /** Deletes several entries at once (e.g. a whole phase). All or nothing. */
+  app.post<{ Params: { tripId: string } }>('/api/trips/:tripId/items/delete', async (req, reply) => {
+    const user = requireUser(req);
+    const { tripId } = req.params;
+    requireTripRole(db, tripId, user.id, 'editor');
+    const { ids } = bulkDeleteInput.parse(req.body);
+    const unique = [...new Set(ids)];
+    for (const id of unique) {
+      if (!db.prepare('SELECT 1 FROM items WHERE id = ? AND trip_id = ?').get(id, tripId)) throw new HttpError(400, 'Ein Eintrag gehört nicht zu dieser Reise');
+    }
+    for (const id of unique) unlinkAttachmentFiles(db, uploadDir, 'item_id = ?', id);
+    tx(db, () => {
+      for (const id of unique) db.prepare('DELETE FROM items WHERE id = ?').run(id);
+      touchTrip(db, tripId);
+    });
+    return reply.status(204).send();
+  });
+
   app.post<{ Params: { tripId: string } }>('/api/trips/:tripId/items', async (req, reply) => {
     const user = requireUser(req);
     const { tripId } = req.params;

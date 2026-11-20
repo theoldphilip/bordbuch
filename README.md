@@ -54,7 +54,16 @@ Der Port muss **nicht** ins Internet freigegeben werden.
 
 Funktioniert mit der Claude-API von Anthropic. Ohne API-Schlüssel ist die Funktion aus, alles andere läuft normal.
 
-**Ablauf:** *Dokumente → Hochladen – KI ordnet zu*. Nach etwa 10 bis 60 Sekunden erscheint der Prüfbildschirm mit den Vorschlägen:
+**Reise direkt aus Dokumenten starten:** Unter *Neue Reise → Mit KI aus Dokumenten* wählst du mehrere Dateien aus
+(Kreuzfahrt-Buchung oder Reiseplan, Flüge, Hotel, Parkplatz, Transfer, Ausflüge). Die KI liest alle, schlägt einen Reisenamen vor und
+baut die Reise auf. Du prüfst die Dokumente nacheinander, die Kreuzfahrt zuerst. In der Route kannst du Schiff, Kabine und einzelne
+Tage ändern oder entfernen. Landausflüge werden automatisch dem passenden Hafentag zugeordnet, egal in welcher Reihenfolge die
+Dokumente ankommen. Auch in einer bestehenden, leeren Reise gibt es dafür den Knopf *Mit KI aus Dokumenten aufbauen*.
+
+**Jederzeit selbst ändern:** Einträge, Kreuzfahrt und einzelne Reisetage lassen sich wie bisher von Hand anlegen, ändern und löschen.
+*Leeren* im Kopf von Anreise, Abreise oder Zwischenprogramm löscht alle Einträge dieses Abschnitts auf einmal (mit Rückfrage).
+
+**Einzelne Dokumente:** *Dokumente → Hochladen – KI ordnet zu*. Nach etwa 10 bis 60 Sekunden erscheint der Prüfbildschirm mit den Vorschlägen:
 neuer Eintrag, Aktualisierung eines vorhandenen Eintrags (gleiche Buchungsnummer, Flugnummer oder Titel am gleichen Tag),
 oder die Route einer Kreuzfahrt. Du kannst jeden Vorschlag bearbeiten, überspringen oder übernehmen. **Es wird nichts gespeichert,
 bevor du bestätigst.** Das Dokument hängt danach am ersten übernommenen Eintrag. Unlesbare oder fehlgeschlagene Dokumente bleiben

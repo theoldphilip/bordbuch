@@ -170,6 +170,7 @@ export interface CruiseProposal {
 }
 
 export interface AnalysisView {
+  suggestedTripTitle: string | null;
   documentKind: string;
   summary: string;
   warnings: string[];
@@ -218,6 +219,7 @@ export function buildProposals(ex: NormalizedExtraction, trip: { items: Item[]; 
   }
 
   return {
+    suggestedTripTitle: ex.suggestedTripTitle ?? null,
     documentKind: ex.documentKind,
     summary: ex.summary,
     warnings: ex.warnings,

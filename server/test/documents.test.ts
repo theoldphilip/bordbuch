@@ -9,7 +9,7 @@ const item = (p: Partial<AiResult['items'][number]> = {}): AiResult['items'][num
   location: 'Via Nazionale 22, Rom', confirmation: 'AB12345', provider: 'Artemide', cost: 410, currency: 'EUR', notes: null, cruiseDayId: null,
   details: [{ key: 'room', value: '12' }], confidence: 'high', ...p,
 });
-const result = (p: Partial<AiResult> = {}): AiResult => ({ documentKind: 'Hotelbuchung', summary: 'Hotel in Rom', items: [item()], cruise: null, warnings: [], ...p });
+const result = (p: Partial<AiResult> = {}): AiResult => ({ suggestedTripTitle: 'Mittelmeer mit MS Aurora', documentKind: 'Hotelbuchung', summary: 'Hotel in Rom', items: [item()], cruise: null, warnings: [], ...p });
 
 describe('document inbox', () => {
   // What the fake "AI" returns is chosen per file name, so every test controls its own document.
@@ -144,6 +144,43 @@ describe('document inbox', () => {
     const after = (await detail()).cruises;
     assert.equal(after.length, 1);
     assert.equal(after[0].days.length, 2);
+  });
+
+  test('an excursion applied before the cruise is linked to its port day once the cruise exists', async () => {
+    const t2 = (await ctx.call('POST', '/api/trips', admin, { title: 'Reihenfolge' })).body.trip.id;
+    const sendTo = (name: string) => upload(ctx.app, admin, `/api/trips/${t2}/documents`, name, 'application/pdf', '%PDF-1.4 x');
+    replies.set('erst-ausflug.pdf', () => result({ suggestedTripTitle: null, items: [item({ type: 'excursion', title: 'Stadtrundgang', startLocal: '2027-06-02T10:00', endLocal: '2027-06-02T13:00', confirmation: 'EX-9', details: [] })] }));
+    const ex = await sendTo('erst-ausflug.pdf');
+    const exA = (await ctx.call('GET', `/api/attachments/${ex.body.attachment.id}/analysis`, admin)).body;
+    assert.equal(exA.suggestedTripTitle, null);
+    await ctx.call('POST', `/api/attachments/${ex.body.attachment.id}/apply`, admin, { items: [{ action: 'create', data: exA.items[0].data }] });
+    assert.equal((await ctx.call('GET', `/api/trips/${t2}`, admin)).body.items[0].cruiseDayId, null);
+
+    replies.set('dann-schiff.pdf', () =>
+      result({ items: [], cruise: { shipName: 'MS Nordlicht', cruiseLine: null, cabin: null, bookingRef: null, notes: null, days: [
+        { date: '2027-06-01', kind: 'embarkation', portName: 'Kiel', country: null, timezone: 'Europe/Berlin', arrival: null, departure: '17:00', allAboard: '16:30', tender: false, notes: null },
+        { date: '2027-06-02', kind: 'port', portName: 'Oslo', country: 'Norwegen', timezone: 'Europe/Oslo', arrival: '08:00', departure: '18:00', allAboard: '17:30', tender: false, notes: null },
+      ] } }),
+    );
+    const ship = await sendTo('dann-schiff.pdf');
+    const shipA = (await ctx.call('GET', `/api/attachments/${ship.body.attachment.id}/analysis`, admin)).body;
+    assert.equal(shipA.suggestedTripTitle, 'Mittelmeer mit MS Aurora');
+    await ctx.call('POST', `/api/attachments/${ship.body.attachment.id}/apply`, admin, { items: [], cruise: { action: 'create', data: shipA.cruise.data } });
+    const d = (await ctx.call('GET', `/api/trips/${t2}`, admin)).body;
+    const oslo = d.cruises[0].days.find((x: any) => x.portName === 'Oslo');
+    assert.equal(d.items[0].cruiseDayId, oslo.id);
+  });
+
+  test('bulk delete removes several entries, rejects foreign ids and needs edit rights', async () => {
+    const t3 = (await ctx.call('POST', '/api/trips', admin, { title: 'Aufräumen' })).body.trip.id;
+    const mk = async (title: string) => (await ctx.call('POST', `/api/trips/${t3}/items`, admin, { type: 'note', title, startLocal: '2027-07-01' })).body.id;
+    const [a, b, c] = [await mk('a'), await mk('b'), await mk('c')];
+    await ctx.call('PUT', `/api/trips/${t3}/members/${viewerId}`, admin, { role: 'viewer' });
+    assert.equal((await ctx.call('POST', `/api/trips/${t3}/items/delete`, viewer, { ids: [a] })).status, 403);
+    assert.equal((await ctx.call('POST', `/api/trips/${t3}/items/delete`, admin, { ids: [a, 'fremd'] })).status, 400);
+    assert.equal((await ctx.call('GET', `/api/trips/${t3}`, admin)).body.items.length, 3, 'nothing deleted by the failed call');
+    assert.equal((await ctx.call('POST', `/api/trips/${t3}/items/delete`, admin, { ids: [a, b] })).status, 204);
+    assert.deepEqual((await ctx.call('GET', `/api/trips/${t3}`, admin)).body.items.map((i: any) => i.id), [c]);
   });
 
   test('apply validates again; one bad entry rolls everything back', async () => {

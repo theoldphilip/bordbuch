@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { failedText, importDocuments } from '../aiImport.ts';
 import { api, errorMessage } from '../api.ts';
 import { useAuth } from '../App.tsx';
 import {
@@ -39,6 +40,24 @@ export function TripPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('timeline');
   const [dialog, setDialog] = useState<Dialog>(null);
+  const [queue, setQueue] = useState<string[]>([]);
+  const [queueTotal, setQueueTotal] = useState(0);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const consumedNav = useRef(false);
+
+  useEffect(() => {
+    api.get<{ enabled: boolean }>('/api/ai/status').then((s) => setAiEnabled(s.enabled)).catch(() => {});
+  }, []);
+
+  /** Reviews documents one after another; leaving the dialog keeps the rest in the inbox. */
+  const openReview = useCallback((ids: string[]) => {
+    if (!ids.length) return;
+    setQueue(ids);
+    setQueueTotal(ids.length);
+    setDialog({ kind: 'review', attachmentId: ids[0]! });
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -61,6 +80,16 @@ export function TripPage() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [load]);
 
+  useEffect(() => {
+    if (!detail || consumedNav.current) return;
+    const state = location.state as { reviewQueue?: string[]; importErrors?: string } | null;
+    if (!state) return;
+    consumedNav.current = true;
+    navigate(location.pathname, { replace: true, state: null });
+    if (state.importErrors) setError(`Nicht gelesen:\n${state.importErrors}`);
+    if (state.reviewQueue?.length) openReview(state.reviewQueue);
+  }, [detail, location, navigate, openReview]);
+
   if (!detail || !timeline) return error ? <ErrorBox error={error} /> : <Spinner />;
 
   const canEdit = detail.role !== 'viewer';
@@ -68,8 +97,33 @@ export function TripPage() {
   const close = () => setDialog(null);
   const saved = () => {
     setDialog(null);
+    setQueue([]);
     load();
   };
+  const reviewDone = () => {
+    const rest = queue.slice(1);
+    load();
+    if (rest.length) {
+      setQueue(rest);
+      setDialog({ kind: 'review', attachmentId: rest[0]! });
+    } else {
+      setQueue([]);
+      setDialog(null);
+    }
+  };
+  const clearPhase = async (ids: string[], title: string) => {
+    if (!confirm(`Alle ${ids.length} Einträge im Abschnitt „${title}“ löschen?\n\nAngehängte Dokumente werden ebenfalls gelöscht. Mehrtägige Einträge (z. B. Parkplatz) verschwinden auch in anderen Abschnitten.`)) return;
+    try {
+      await api.post(`/api/trips/${detail.trip.id}/items/delete`, { ids });
+      load();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+  const aiImport: ReactNode =
+    canEdit && aiEnabled ? (
+      <AiImportButton tripId={detail.trip.id} label="✨ Mit KI aus Dokumenten aufbauen" onReady={openReview} onError={setError} />
+    ) : null;
 
   return (
     <div className="page">
@@ -105,7 +159,9 @@ export function TripPage() {
           onOpenItem={(item) => setDialog({ kind: 'item', item })}
           onAdd={(date, cruiseDayId, type) => setDialog({ kind: 'item', date, cruiseDayId, type })}
           onAddCruise={() => setDialog({ kind: 'cruise' })}
-          onReview={(id) => setDialog({ kind: 'review', attachmentId: id })}
+          onReview={(id) => openReview([id])}
+          onClear={clearPhase}
+          aiImport={aiImport}
           onOpenDay={(day) => {
             const cruise = detail.cruises.find((c) => c.id === day.cruiseId);
             if (cruise && canEdit) setDialog({ kind: 'day', cruise, day });
@@ -113,9 +169,9 @@ export function TripPage() {
         />
       )}
       {tab === 'cruise' && (
-        <CruiseTab detail={detail} canEdit={canEdit} onEditCruise={(cruise) => setDialog({ kind: 'cruise', cruise })} onEditDay={(cruise, day) => setDialog({ kind: 'day', cruise, day })} />
+        <CruiseTab detail={detail} canEdit={canEdit} aiImport={aiImport} onEditCruise={(cruise) => setDialog({ kind: 'cruise', cruise })} onEditDay={(cruise, day) => setDialog({ kind: 'day', cruise, day })} />
       )}
-      {tab === 'docs' && <DocsTab detail={detail} canEdit={canEdit} onChanged={load} onReview={(id) => setDialog({ kind: 'review', attachmentId: id })} />}
+      {tab === 'docs' && <DocsTab detail={detail} canEdit={canEdit} onChanged={load} onReview={(id) => openReview([id])} />}
       {tab === 'share' && <ShareTab detail={detail} onChanged={load} />}
 
       {canEdit && tab === 'timeline' && (
@@ -138,7 +194,7 @@ export function TripPage() {
       {dialog?.kind === 'cruise' && <CruiseForm tripId={detail.trip.id} cruise={dialog.cruise} onClose={close} onSaved={saved} />}
       {dialog?.kind === 'day' && <CruiseDayForm cruise={dialog.cruise} day={dialog.day} onClose={close} onSaved={saved} />}
       {dialog?.kind === 'trip' && <TripSettings detail={detail} onClose={close} onSaved={saved} />}
-      {dialog?.kind === 'review' && <DocReview attachmentId={dialog.attachmentId} tripId={detail.trip.id} cruises={detail.cruises} onClose={saved} onApplied={saved} />}
+      {dialog?.kind === 'review' && <DocReview key={dialog.attachmentId} attachmentId={dialog.attachmentId} tripId={detail.trip.id} cruises={detail.cruises} position={{ index: queueTotal - queue.length + 1, total: queueTotal }} onClose={saved} onApplied={reviewDone} />}
     </div>
   );
 }
@@ -154,6 +210,8 @@ function TimelineView({
   onAdd,
   onAddCruise,
   onReview,
+  onClear,
+  aiImport,
   onOpenDay,
 }: {
   timeline: Timeline;
@@ -163,6 +221,8 @@ function TimelineView({
   onAdd: (date?: string, cruiseDayId?: string, type?: ItemType) => void;
   onAddCruise: () => void;
   onReview: (attachmentId: string) => void;
+  onClear: (ids: string[], title: string) => void;
+  aiImport: ReactNode;
   onOpenDay: (day: CruiseDay) => void;
 }) {
   const attachmentCount = (itemId: string) => detail.attachments.filter((a) => a.itemId === itemId).length;
@@ -198,6 +258,7 @@ function TimelineView({
         <p>Füge Flüge, Hotels und Transfers hinzu – oder lege direkt die Kreuzfahrt mit ihrer Route an.</p>
         {canEdit && (
           <div className="btn-row">
+            {aiImport}
             <button className="btn btn-primary" onClick={onAddCruise}>🛳️ Kreuzfahrt anlegen</button>
             <button className="btn" onClick={() => onAdd()}>+ Eintrag</button>
           </div>
@@ -228,6 +289,7 @@ function TimelineView({
           dayWarnings={dayWarnings}
           onOpenItem={onOpenItem}
           onAdd={onAdd}
+          onClear={onClear}
           onOpenDay={onOpenDay}
         />
       ))}
@@ -277,6 +339,7 @@ function PhaseSection({
   dayWarnings,
   onOpenItem,
   onAdd,
+  onClear,
   onOpenDay,
 }: {
   phase: TimelinePhase;
@@ -288,8 +351,10 @@ function PhaseSection({
   dayWarnings: (id: string) => Timeline['warnings'];
   onOpenItem: (item: Item) => void;
   onAdd: (date?: string, cruiseDayId?: string, type?: ItemType) => void;
+  onClear: (ids: string[], title: string) => void;
   onOpenDay: (day: CruiseDay) => void;
 }) {
+  const itemIds = [...new Set(phase.days.flatMap((d) => d.entries.map((e) => e.itemId)))];
   return (
     <section className={`phase phase-${phase.kind}`}>
       <header className="phase-head">
@@ -298,6 +363,9 @@ function PhaseSection({
           <h2>{phase.title}</h2>
           <p>{fmtRange(phase.startDate, phase.endDate)}{phase.kind === 'cruise' ? ` · ${phase.days.length} Tage` : ''}</p>
         </div>
+        {canEdit && phase.kind !== 'cruise' && itemIds.length > 0 && (
+          <button className="btn btn-ghost small clear-btn" onClick={() => onClear(itemIds, phase.title)} aria-label={`Abschnitt ${phase.title} leeren`}>Leeren</button>
+        )}
       </header>
       {canEdit && (phase.kind === 'pre' || phase.kind === 'post') && (
         <div className="quick-add" aria-label={`${phase.title} planen`}>
@@ -407,12 +475,17 @@ function EntryRow({ entry, defaultTz, attachments, warnings, onClick }: { entry:
 // ---------------------------------------------------------------------------
 // Cruise tab
 // ---------------------------------------------------------------------------
-function CruiseTab({ detail, canEdit, onEditCruise, onEditDay }: { detail: TripDetail; canEdit: boolean; onEditCruise: (c?: Cruise) => void; onEditDay: (c: Cruise, d?: CruiseDay) => void }) {
+function CruiseTab({ detail, canEdit, aiImport, onEditCruise, onEditDay }: { detail: TripDetail; canEdit: boolean; aiImport: ReactNode; onEditCruise: (c?: Cruise) => void; onEditDay: (c: Cruise, d?: CruiseDay) => void }) {
   if (detail.cruises.length === 0) {
     return (
       <Empty icon="🛳️" title="Keine Kreuzfahrt">
         <p>Lege Schiff, Kabine und Route an. Hafentage mit „Alle an Bord“-Zeiten werden dann im Ablauf angezeigt und geprüft.</p>
-        {canEdit && <button className="btn btn-primary" onClick={() => onEditCruise()}>Kreuzfahrt anlegen</button>}
+        {canEdit && (
+          <div className="btn-row">
+            {aiImport}
+            <button className="btn btn-primary" onClick={() => onEditCruise()}>Kreuzfahrt von Hand anlegen</button>
+          </div>
+        )}
       </Empty>
     );
   }
@@ -731,5 +804,34 @@ function TripSettings({ detail, onClose, onSaved }: { detail: TripDetail; onClos
       </div>
       <ErrorBox error={error} />
     </Modal>
+  );
+}
+
+/** Picks documents, uploads and analyses them, then hands the ids with proposals to the review queue. */
+function AiImportButton({ tripId, label, onReady, onError }: { tripId: string; label: string; onReady: (ids: string[]) => void; onError: (message: string | null) => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState<string | null>(null);
+
+  const run = async (files: FileList | null) => {
+    if (!files?.length) return;
+    onError(null);
+    try {
+      const res = await importDocuments(tripId, Array.from(files), setProgress);
+      if (res.failed.length) onError(`Nicht gelesen:\n${failedText(res.failed)}`);
+      onReady(res.ready);
+    } finally {
+      setProgress(null);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  return (
+    <>
+      <input ref={fileRef} type="file" multiple hidden accept="application/pdf,image/*,.eml,.txt,.html" onChange={(e) => run(e.target.files)} />
+      <button className="btn btn-primary" onClick={() => fileRef.current?.click()} disabled={progress !== null}>
+        {progress ? 'Analysiert…' : label}
+      </button>
+      {progress && <p className="muted wide-line center">{progress}. Das kann pro Dokument bis zu einer Minute dauern.</p>}
+    </>
   );
 }
