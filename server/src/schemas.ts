@@ -145,7 +145,7 @@ export const itemInput = z
     details: z.record(z.string(), z.unknown()).default({}),
   })
   .superRefine((v, ctx) => {
-    if (v.endLocal && v.endLocal < v.startLocal && (v.endTz ?? v.startTz) === v.startTz) {
+    if (v.endLocal && /^\d{4}-\d{2}-\d{2}/.test(v.startLocal) && v.endLocal < v.startLocal && (v.endTz ?? v.startTz) === v.startTz) {
       ctx.addIssue({ code: 'custom', path: ['endLocal'], message: 'Ende liegt vor dem Beginn' });
     }
   });

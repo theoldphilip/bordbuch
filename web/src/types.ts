@@ -105,6 +105,8 @@ export interface Attachment {
   mime: string;
   size: number;
   createdAt: string;
+  analysisStatus: 'pending' | 'done' | 'failed' | 'applied' | 'dismissed' | null;
+  analysisError: string | null;
 }
 
 export interface TripDetail {
@@ -155,4 +157,72 @@ export interface Timeline {
   defaultTimezone: string;
   phases: TimelinePhase[];
   warnings: TimelineWarning[];
+}
+
+// ---------- document analysis (server/src/ai/proposals.ts) ----------
+export interface ItemData {
+  type: ItemType;
+  title: string;
+  startLocal: string;
+  startTz: string | null;
+  endLocal: string | null;
+  endTz: string | null;
+  location: string | null;
+  confirmation: string | null;
+  provider: string | null;
+  cost: number | null;
+  currency: string | null;
+  notes: string | null;
+  cruiseDayId: string | null;
+  details: Record<string, string>;
+}
+
+export interface ItemProposal {
+  index: number;
+  data: ItemData;
+  confidence: 'high' | 'medium' | 'low';
+  match: { itemId: string; title: string; reason: string; changes: string[] } | null;
+  problems: string[];
+}
+
+export interface CruiseDayData {
+  date: string;
+  kind: CruiseDayKind;
+  portName: string | null;
+  country: string | null;
+  timezone: string | null;
+  arrival: string | null;
+  departure: string | null;
+  allAboard: string | null;
+  tender: boolean;
+  notes: string | null;
+}
+
+export interface CruiseData {
+  shipName: string;
+  cruiseLine: string | null;
+  cabin: string | null;
+  bookingRef: string | null;
+  notes: string | null;
+  days: CruiseDayData[];
+}
+
+export interface CruiseProposal {
+  data: CruiseData;
+  match: { cruiseId: string; shipName: string; reason: string } | null;
+  newDays: number;
+  updatedDays: number;
+  problems: string[];
+}
+
+export interface AnalysisView {
+  status: Attachment['analysisStatus'];
+  attachment: Attachment;
+  documentKind: string;
+  summary: string;
+  warnings: string[];
+  model: string;
+  analyzedAt: string;
+  items: ItemProposal[];
+  cruise: CruiseProposal | null;
 }

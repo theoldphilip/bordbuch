@@ -103,6 +103,11 @@ const migrations: string[] = [
   );
   CREATE INDEX attachments_trip ON attachments(trip_id);
   `,
+  `
+  ALTER TABLE attachments ADD COLUMN analysis TEXT;
+  ALTER TABLE attachments ADD COLUMN analysis_status TEXT;
+  ALTER TABLE attachments ADD COLUMN analysis_error TEXT;
+  `,
 ];
 
 export function openDb(file: string): DB {

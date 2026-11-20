@@ -14,6 +14,9 @@ import { registerTripRoutes } from './routes/trips.ts';
 import { registerCruiseRoutes } from './routes/cruises.ts';
 import { registerItemRoutes } from './routes/items.ts';
 import { registerAttachmentRoutes } from './routes/attachments.ts';
+import { registerDocumentRoutes } from './routes/documents.ts';
+import { createAnthropicExtractor } from './ai/anthropic.ts';
+import type { Extractor } from './ai/types.ts';
 
 export const VERSION = '0.1.0';
 
@@ -21,14 +24,22 @@ export interface Ctx {
   db: DB;
   config: AppConfig;
   uploadDir: string;
+  /** null = document analysis is not set up (no API key). */
+  extractor: Extractor | null;
 }
 
-export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFile?: string; backups?: number } = {}) {
+export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFile?: string; backups?: number; extractor?: Extractor | null } = {}) {
   fs.mkdirSync(config.dataDir, { recursive: true });
   const uploadDir = path.join(config.dataDir, 'uploads');
   fs.mkdirSync(uploadDir, { recursive: true });
   const db = openDb(opts.dbFile ?? path.join(config.dataDir, 'bordbuch.db'));
-  const ctx: Ctx = { db, config, uploadDir };
+  const extractor =
+    opts.extractor !== undefined
+      ? opts.extractor
+      : config.anthropicApiKey
+        ? createAnthropicExtractor({ apiKey: config.anthropicApiKey, model: config.aiModel })
+        : null;
+  const ctx: Ctx = { db, config, uploadDir, extractor };
 
   const app: FastifyInstance = Fastify({
     logger: opts.logger ?? false,
@@ -67,6 +78,7 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
   registerCruiseRoutes(app, ctx);
   registerItemRoutes(app, ctx);
   registerAttachmentRoutes(app, ctx);
+  registerDocumentRoutes(app, ctx);
 
   // Web app (PWA) with SPA fallback.
   const webDir = config.webDir;

@@ -44,11 +44,13 @@ interface Props {
   initialDate?: string;
   initialCruiseDayId?: string;
   readOnly?: boolean;
+  /** When set, the form hands the payload back instead of saving it (used to edit AI proposals). */
+  onSubmit?: (payload: Record<string, unknown>) => void | Promise<void>;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function ItemForm({ tripId, cruises, item, initialType, initialDate, initialCruiseDayId, readOnly, onClose, onSaved }: Props) {
+export function ItemForm({ tripId, cruises, item, initialType, initialDate, initialCruiseDayId, readOnly, onSubmit, onClose, onSaved }: Props) {
   const [type, setType] = useState<ItemType>(item?.type ?? initialType ?? 'flight');
   const [title, setTitle] = useState(item?.title ?? '');
   const s = split(item?.startLocal ?? initialDate ?? null);
@@ -107,6 +109,10 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
     };
     setBusy(true);
     try {
+      if (onSubmit) {
+        await onSubmit(payload);
+        return;
+      }
       if (item) await api.patch(`/api/items/${item.id}`, payload);
       else await api.post(`/api/trips/${tripId}/items`, payload);
       onSaved();
@@ -133,14 +139,14 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
 
   return (
     <Modal
-      title={item ? (readOnly ? item.title : 'Eintrag bearbeiten') : 'Neuer Eintrag'}
+      title={onSubmit ? 'Vorschlag bearbeiten' : item ? (readOnly ? item.title : 'Eintrag bearbeiten') : 'Neuer Eintrag'}
       onClose={onClose}
       footer={
         readOnly ? (
           <button className="btn" onClick={onClose}>Schließen</button>
         ) : (
           <>
-            {item && <button className="btn btn-danger-ghost" onClick={remove} disabled={busy}>Löschen</button>}
+            {item && !onSubmit && <button className="btn btn-danger-ghost" onClick={remove} disabled={busy}>Löschen</button>}
             <span className="spacer" />
             <button className="btn" onClick={onClose}>Abbrechen</button>
             <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? 'Speichert…' : 'Speichern'}</button>

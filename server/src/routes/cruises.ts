@@ -6,7 +6,7 @@ import { cruiseDayFromRow, loadCruises, touchTrip } from '../model.ts';
 import { cruiseCreateInput, cruiseDayInput, cruiseInput, type CruiseDayInput } from '../schemas.ts';
 import { HttpError, newId, nowIso } from '../util.ts';
 
-function insertDay(db: DB, cruiseId: string, d: CruiseDayInput): string {
+export function insertDay(db: DB, cruiseId: string, d: CruiseDayInput): string {
   const id = newId();
   db.prepare(
     `INSERT INTO cruise_days (id, cruise_id, date, kind, port_name, country, timezone, arrival, departure, all_aboard, tender, notes)

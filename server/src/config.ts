@@ -5,6 +5,9 @@ export interface AppConfig {
   webDir: string | null;
   defaultTz: string;
   maxUploadMb: number;
+  /** Enables document analysis when set. Never logged or sent to clients. */
+  anthropicApiKey: string | null;
+  aiModel: string;
 }
 
 export function configFromEnv(): AppConfig & { port: number; host: string } {
@@ -15,5 +18,7 @@ export function configFromEnv(): AppConfig & { port: number; host: string } {
     webDir: process.env.WEB_DIR ? path.resolve(process.env.WEB_DIR) : null,
     defaultTz: process.env.DEFAULT_TZ ?? 'Europe/Zurich',
     maxUploadMb: Number(process.env.MAX_UPLOAD_MB ?? 25),
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY?.trim() || null,
+    aiModel: process.env.AI_MODEL?.trim() || 'claude-opus-5-5',
   };
 }

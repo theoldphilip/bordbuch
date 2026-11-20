@@ -10,6 +10,10 @@ services:
       DEFAULT_TZ: Europe/Zurich   # Zeitzone für Einträge ohne eigene Zeitzone
       MAX_UPLOAD_MB: 25           # max. Größe pro Dokument
       BACKUP_KEEP: 14             # Anzahl täglicher DB-Backups in /data/backups
+      # Dokumente automatisch zuordnen (KI). Die Werte kommen aus der Datei .env neben dieser Datei,
+      # siehe README. Ohne Schlüssel ist die Funktion aus, der Rest läuft normal.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-claude-opus-5-5}
     volumes:
       - ./data:/data              # Datenbank, Uploads, Backups
     # Auf der Synology: UID/GID des DSM-Benutzers, dem der Ordner ./data gehört

@@ -7,7 +7,7 @@ import { itemFromRow, touchTrip } from '../model.ts';
 import { itemInput, type ItemInput } from '../schemas.ts';
 import { HttpError, newId, nowIso } from '../util.ts';
 
-function checkCruiseDay(db: DB, tripId: string, cruiseDayId: string | null) {
+export function checkCruiseDay(db: DB, tripId: string, cruiseDayId: string | null) {
   if (!cruiseDayId) return;
   const ok = db
     .prepare('SELECT 1 FROM cruise_days d JOIN cruises c ON c.id = d.cruise_id WHERE d.id = ? AND c.trip_id = ?')

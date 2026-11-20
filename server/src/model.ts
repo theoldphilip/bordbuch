@@ -77,6 +77,9 @@ export interface Attachment {
   mime: string;
   size: number;
   createdAt: string;
+  /** null = never analysed. 'done' = proposals wait for review. */
+  analysisStatus: 'pending' | 'done' | 'failed' | 'applied' | 'dismissed' | null;
+  analysisError: string | null;
 }
 
 export interface TripDetail {
@@ -146,6 +149,8 @@ export const attachmentFromRow = (r: Row): Attachment => ({
   mime: r.mime,
   size: r.size,
   createdAt: r.created_at,
+  analysisStatus: r.analysis_status ?? null,
+  analysisError: r.analysis_error ?? null,
 });
 
 // ---------- loaders ----------

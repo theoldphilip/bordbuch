@@ -1,14 +1,44 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Ctx } from '../app.ts';
 import { requireTripRole, requireUser } from '../auth.ts';
 import { tx } from '../db.ts';
 import { attachmentFromRow, touchTrip } from '../model.ts';
 import { HttpError, newId, nowIso } from '../util.ts';
 
-export function registerAttachmentRoutes(app: FastifyInstance, { db, uploadDir, config }: Ctx) {
+/** Streams the multipart "file" field to disk and records it. Returns the new attachment id. */
+export async function receiveUpload(
+  { db, uploadDir, config }: Pick<Ctx, 'db' | 'uploadDir' | 'config'>,
+  req: FastifyRequest,
+  tripId: string,
+  userId: string,
+  itemId: string | null,
+): Promise<string> {
+  const file = await req.file();
+  if (!file) throw new HttpError(400, 'Keine Datei übermittelt');
+  const id = newId();
+  const target = path.join(uploadDir, id);
+  await pipeline(file.file, fs.createWriteStream(target));
+  if (file.file.truncated) {
+    fs.rmSync(target, { force: true });
+    throw new HttpError(413, `Datei ist größer als ${config.maxUploadMb} MB`);
+  }
+  const size = fs.statSync(target).size;
+  const filename = path.basename(file.filename || 'Dokument').slice(0, 200);
+  tx(db, () => {
+    db.prepare(
+      `INSERT INTO attachments (id, trip_id, item_id, filename, mime, size, stored_name, uploaded_by, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(id, tripId, itemId, filename, file.mimetype || 'application/octet-stream', size, id, userId, nowIso());
+    touchTrip(db, tripId);
+  });
+  return id;
+}
+
+export function registerAttachmentRoutes(app: FastifyInstance, ctx: Ctx) {
+  const { db, uploadDir } = ctx;
   const attachmentRow = (id: string) => {
     const row = db.prepare('SELECT * FROM attachments WHERE id = ?').get(id) as Record<string, any> | undefined;
     if (!row) throw new HttpError(404, 'Dokument nicht gefunden');
@@ -26,26 +56,7 @@ export function registerAttachmentRoutes(app: FastifyInstance, { db, uploadDir, 
       if (itemId && !db.prepare('SELECT 1 FROM items WHERE id = ? AND trip_id = ?').get(itemId, tripId)) {
         throw new HttpError(400, 'Eintrag gehört nicht zu dieser Reise');
       }
-      const file = await req.file();
-      if (!file) throw new HttpError(400, 'Keine Datei übermittelt');
-
-      const id = newId();
-      const storedName = id;
-      const target = path.join(uploadDir, storedName);
-      await pipeline(file.file, fs.createWriteStream(target));
-      if (file.file.truncated) {
-        fs.rmSync(target, { force: true });
-        throw new HttpError(413, `Datei ist größer als ${config.maxUploadMb} MB`);
-      }
-      const size = fs.statSync(target).size;
-      const filename = path.basename(file.filename || 'Dokument').slice(0, 200);
-      tx(db, () => {
-        db.prepare(
-          `INSERT INTO attachments (id, trip_id, item_id, filename, mime, size, stored_name, uploaded_by, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ).run(id, tripId, itemId, filename, file.mimetype || 'application/octet-stream', size, storedName, user.id, nowIso());
-        touchTrip(db, tripId);
-      });
+      const id = await receiveUpload(ctx, req, tripId, user.id, itemId);
       return reply.status(201).send(attachmentFromRow(attachmentRow(id)));
     },
   );

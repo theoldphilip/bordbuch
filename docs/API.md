@@ -101,6 +101,41 @@ Transfer `mode, from, to, phone` · Hotel `room, phone, breakfast` · Parkplatz 
 | PATCH | `/attachments/:id` | `{filename?, itemId?}` |
 | DELETE | `/attachments/:id` | |
 
+### Dokument-Analyse (KI)
+
+Setzt `ANTHROPIC_API_KEY` auf dem Server voraus. `GET /ai/status` zeigt, ob sie aktiv ist.
+
+| Methode | Pfad | Rolle | Beschreibung |
+|---|---|---|---|
+| GET | `/ai/status` | – | `{enabled, model}` |
+| POST | `/ai/check` | Admin | Testanfrage an die Claude-API; 502 mit Klartext bei Schlüssel-/Netzwerkproblem |
+| POST | `/trips/:id/documents?itemId=` | editor | `multipart/form-data` (Feld `file`), speichert und analysiert. Antwort: `{attachment, aiEnabled, analyzable}`; die Anfrage dauert bis zum Ende der Analyse (bis ca. 1 Minute) |
+| POST | `/attachments/:id/analyze` | editor | Analyse erneut starten |
+| GET | `/attachments/:id/analysis` | viewer | Vorschläge: `{status, attachment, documentKind, summary, warnings, items[], cruise}` |
+| POST | `/attachments/:id/apply` | editor | Vorschläge übernehmen (siehe unten), alles in einer Transaktion |
+| POST | `/attachments/:id/dismiss` | editor | Dokument ohne Übernahme behalten |
+
+`Attachment.analysisStatus`: `null` (nie analysiert) · `pending` · `done` (Vorschläge warten) · `failed` (`analysisError` nennt den Grund) · `applied` · `dismissed`.
+
+`items[]` der Analyse: `{index, data, confidence: high|medium|low, match: {itemId, title, reason, changes[]} | null, problems[]}`.
+`match` verweist auf einen vorhandenen Eintrag derselben Buchung. `cruise`: `{data, match, newDays, updatedDays, problems[]}`.
+
+`POST /attachments/:id/apply`:
+```json
+{
+  "items": [
+    { "action": "create", "data": { "type": "hotel", "title": "…", "startLocal": "2027-05-08T14:00", "…": "…" } },
+    { "action": "update", "itemId": "<id aus match>", "data": { "startLocal": "2027-05-08T15:00" } },
+    { "action": "skip", "data": {} }
+  ],
+  "cruise": { "action": "create | update | skip", "cruiseId": "<bei update>", "data": { "shipName": "…", "days": [ … ] } }
+}
+```
+`create` validiert wie `POST /trips/:id/items`. `update` führt `data` in den vorhandenen Eintrag ein (vorhandener Titel und
+Notizen bleiben, neue Angaben ersetzen leere oder abweichende Felder, `details` werden zusammengeführt). Die Kreuzfahrt wird
+zuerst verarbeitet. Schlägt ein Teil fehl, wird nichts gespeichert. Das Dokument wird am ersten angelegten oder aktualisierten
+Eintrag abgelegt.
+
 ## Timeline
 
 `GET /trips/:id/timeline`

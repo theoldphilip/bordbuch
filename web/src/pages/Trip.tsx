@@ -16,9 +16,10 @@ import {
   itemTypeInfo,
   tzLabel,
 } from '../format.ts';
-import type { Cruise, CruiseDay, Item, ItemType, Role, Timeline, TimelineEntry, TimelinePhase, TripDetail, User } from '../types.ts';
+import type { Attachment, Cruise, CruiseDay, Item, ItemType, Role, Timeline, TimelineEntry, TimelinePhase, TripDetail, User } from '../types.ts';
 import { Empty, ErrorBox, Field, Modal, Spinner } from '../components/ui.tsx';
 import { ItemForm } from '../components/ItemForm.tsx';
+import { DocReview } from '../components/DocReview.tsx';
 import { CruiseDayForm, CruiseForm } from '../components/CruiseForms.tsx';
 
 type Tab = 'timeline' | 'cruise' | 'docs' | 'share';
@@ -28,6 +29,7 @@ type Dialog =
   | { kind: 'cruise'; cruise?: Cruise }
   | { kind: 'day'; cruise: Cruise; day?: CruiseDay }
   | { kind: 'trip' }
+  | { kind: 'review'; attachmentId: string }
   | null;
 
 export function TripPage() {
@@ -84,7 +86,7 @@ export function TripPage() {
           [
             ['timeline', 'Ablauf'],
             ['cruise', 'Kreuzfahrt'],
-            ['docs', `Dokumente${detail.attachments.length ? ` (${detail.attachments.length})` : ''}`],
+            ['docs', `Dokumente${detail.attachments.length ? ` (${detail.attachments.length})` : ''}${canEdit && detail.attachments.some((a) => a.analysisStatus === 'done') ? ' 📥' : ''}`],
             ['share', 'Teilen'],
           ] as [Tab, string][]
         ).map(([t, label]) => (
@@ -103,6 +105,7 @@ export function TripPage() {
           onOpenItem={(item) => setDialog({ kind: 'item', item })}
           onAdd={(date, cruiseDayId, type) => setDialog({ kind: 'item', date, cruiseDayId, type })}
           onAddCruise={() => setDialog({ kind: 'cruise' })}
+          onReview={(id) => setDialog({ kind: 'review', attachmentId: id })}
           onOpenDay={(day) => {
             const cruise = detail.cruises.find((c) => c.id === day.cruiseId);
             if (cruise && canEdit) setDialog({ kind: 'day', cruise, day });
@@ -112,7 +115,7 @@ export function TripPage() {
       {tab === 'cruise' && (
         <CruiseTab detail={detail} canEdit={canEdit} onEditCruise={(cruise) => setDialog({ kind: 'cruise', cruise })} onEditDay={(cruise, day) => setDialog({ kind: 'day', cruise, day })} />
       )}
-      {tab === 'docs' && <DocsTab detail={detail} canEdit={canEdit} onChanged={load} />}
+      {tab === 'docs' && <DocsTab detail={detail} canEdit={canEdit} onChanged={load} onReview={(id) => setDialog({ kind: 'review', attachmentId: id })} />}
       {tab === 'share' && <ShareTab detail={detail} onChanged={load} />}
 
       {canEdit && tab === 'timeline' && (
@@ -135,6 +138,7 @@ export function TripPage() {
       {dialog?.kind === 'cruise' && <CruiseForm tripId={detail.trip.id} cruise={dialog.cruise} onClose={close} onSaved={saved} />}
       {dialog?.kind === 'day' && <CruiseDayForm cruise={dialog.cruise} day={dialog.day} onClose={close} onSaved={saved} />}
       {dialog?.kind === 'trip' && <TripSettings detail={detail} onClose={close} onSaved={saved} />}
+      {dialog?.kind === 'review' && <DocReview attachmentId={dialog.attachmentId} tripId={detail.trip.id} cruises={detail.cruises} onClose={saved} onApplied={saved} />}
     </div>
   );
 }
@@ -149,6 +153,7 @@ function TimelineView({
   onOpenItem,
   onAdd,
   onAddCruise,
+  onReview,
   onOpenDay,
 }: {
   timeline: Timeline;
@@ -157,6 +162,7 @@ function TimelineView({
   onOpenItem: (item: Item) => void;
   onAdd: (date?: string, cruiseDayId?: string, type?: ItemType) => void;
   onAddCruise: () => void;
+  onReview: (attachmentId: string) => void;
   onOpenDay: (day: CruiseDay) => void;
 }) {
   const attachmentCount = (itemId: string) => detail.attachments.filter((a) => a.itemId === itemId).length;
@@ -171,8 +177,23 @@ function TimelineView({
         ? (cruisePhases.at(-1)?.endDate ?? undefined)
         : undefined;
 
+  const pendingDocs = detail.attachments.filter((a) => a.analysisStatus === 'done');
+  const banner =
+    canEdit && pendingDocs.length > 0 ? (
+      <button className="inbox-banner" onClick={() => onReview(pendingDocs[0]!.id)}>
+        <span aria-hidden>📥</span>
+        <span>
+          <strong>{pendingDocs.length === 1 ? '1 Dokument wartet' : `${pendingDocs.length} Dokumente warten`} auf Zuordnung</strong>
+          <br />
+          <small>Die KI hat Vorschläge erstellt. Tippe zum Prüfen.</small>
+        </span>
+      </button>
+    ) : null;
+
   if (timeline.phases.length === 0) {
     return (
+      <>
+      {banner}
       <Empty icon="🗺️" title="Noch nichts geplant">
         <p>Füge Flüge, Hotels und Transfers hinzu – oder lege direkt die Kreuzfahrt mit ihrer Route an.</p>
         {canEdit && (
@@ -182,11 +203,13 @@ function TimelineView({
           </div>
         )}
       </Empty>
+      </>
     );
   }
 
   return (
     <div className="timeline">
+      {banner}
       {timeline.warnings.length > 0 && <WarningList timeline={timeline} detail={detail} onOpenItem={onOpenItem} />}
       {detail.cruises.length === 0 && canEdit && (
         <button className="hint-card" onClick={onAddCruise}>
@@ -304,7 +327,7 @@ function PhaseSection({
             </div>
             {cd && <PortCard day={cd} defaultTz={timeline.defaultTimezone} warnings={dayWarnings(cd.id)} onClick={() => onOpenDay(cd)} />}
             {day.entries.map((e) => (
-              <EntryRow key={`${e.itemId}-${e.role}`} entry={e} defaultTz={timeline.defaultTimezone} attachments={attachmentCount(e.itemId)} warnings={warningsFor(e.itemId, e.role)} onClick={() => onOpenItem(e.item)} />
+              <EntryRow key={`${e.itemId}-${e.role}`} entry={e} defaultTz={timeline.defaultTimezone} attachments={e.role === 'start' ? attachmentCount(e.itemId) : 0} warnings={warningsFor(e.itemId, e.role)} onClick={() => onOpenItem(e.item)} />
             ))}
           </div>
         );
@@ -437,32 +460,62 @@ function CruiseTab({ detail, canEdit, onEditCruise, onEditDay }: { detail: TripD
 // ---------------------------------------------------------------------------
 // Documents tab
 // ---------------------------------------------------------------------------
-function DocsTab({ detail, canEdit, onChanged }: { detail: TripDetail; canEdit: boolean; onChanged: () => void }) {
+function DocsTab({ detail, canEdit, onChanged, onReview }: { detail: TripDetail; canEdit: boolean; onChanged: () => void; onReview: (attachmentId: string) => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [itemId, setItemId] = useState('');
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ai, setAi] = useState<{ enabled: boolean; model: string | null } | null>(null);
+  useEffect(() => {
+    api.get<{ enabled: boolean; model: string | null }>('/api/ai/status').then(setAi).catch(() => setAi({ enabled: false, model: null }));
+  }, []);
 
   const upload = async (files: FileList | null) => {
     if (!files?.length) return;
     setBusy(true);
     setError(null);
+    let firstReady: string | null = null;
+    const list = Array.from(files);
     try {
-      for (const file of Array.from(files)) {
+      for (const [n, file] of list.entries()) {
+        setProgress(`${n + 1} von ${list.length}: ${file.name}`);
         const fd = new FormData();
         fd.append('file', file);
-        await api.post(`/api/trips/${detail.trip.id}/attachments${itemId ? `?itemId=${itemId}` : ''}`, fd);
+        const query = itemId ? `?itemId=${itemId}` : '';
+        if (ai?.enabled) {
+          const res = await api.post<{ attachment: Attachment }>(`/api/trips/${detail.trip.id}/documents${query}`, fd);
+          if (!firstReady && res.attachment.analysisStatus === 'done') firstReady = res.attachment.id;
+        } else {
+          await api.post(`/api/trips/${detail.trip.id}/attachments${query}`, fd);
+        }
       }
       onChanged();
+      if (firstReady) onReview(firstReady);
     } catch (err) {
       setError(errorMessage(err));
+      onChanged();
     } finally {
       setBusy(false);
+      setProgress(null);
       if (fileRef.current) fileRef.current.value = '';
     }
   };
 
   const open = (id: string, name: string) => api.openAttachment(id, name).catch((e) => setError(errorMessage(e)));
+  const inbox = detail.attachments.filter((a) => a.analysisStatus === 'done' || a.analysisStatus === 'failed');
+  const act = async (id: string, path: 'analyze' | 'dismiss') => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post(`/api/attachments/${id}/${path}`);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+      onChanged();
+    }
+  };
   const remove = async (id: string, name: string) => {
     if (!confirm(`„${name}“ löschen?`)) return;
     try {
@@ -492,8 +545,38 @@ function DocsTab({ detail, canEdit, onChanged }: { detail: TripDetail; canEdit: 
               ))}
             </select>
           </Field>
-          <input ref={fileRef} type="file" multiple hidden onChange={(e) => upload(e.target.files)} accept="application/pdf,image/*,.pkpass,.eml,.txt,.doc,.docx" />
-          <button className="btn btn-primary" onClick={() => fileRef.current?.click()} disabled={busy}>{busy ? 'Lädt hoch…' : '📎 Dateien hochladen'}</button>
+          <input ref={fileRef} type="file" multiple hidden onChange={(e) => upload(e.target.files)} accept="application/pdf,image/*,.pkpass,.eml,.txt,.html" />
+          <button className="btn btn-primary" onClick={() => fileRef.current?.click()} disabled={busy}>
+            {busy ? (ai?.enabled ? 'Analysiert…' : 'Lädt hoch…') : ai?.enabled ? '📎 Hochladen – KI ordnet zu' : '📎 Dateien hochladen'}
+          </button>
+          {progress && <p className="muted wide-line">Datei {progress}. Das kann pro Dokument bis zu einer Minute dauern.</p>}
+          {ai?.enabled && !progress && (
+            <p className="privacy-note wide-line">
+              Bordkarten, Buchungsbestätigungen und Tickets (PDF, Foto, E-Mail) werden zur Analyse an die Claude-API von Anthropic gesendet. Es wird nichts gespeichert, bevor du die Vorschläge bestätigst.
+            </p>
+          )}
+          {ai && !ai.enabled && <p className="privacy-note wide-line">Die automatische Zuordnung ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt auf dem Server).</p>}
+        </section>
+      )}
+      {canEdit && inbox.length > 0 && (
+        <section className="card inbox">
+          <h3>📥 Zu prüfen</h3>
+          <ul>
+            {inbox.map((a) => (
+              <li key={a.id}>
+                <span className="file-name">{a.filename}</span>
+                {a.analysisStatus === 'done' ? (
+                  <button className="btn btn-primary small" onClick={() => onReview(a.id)}>Prüfen</button>
+                ) : (
+                  <>
+                    <small className="error-text">{a.analysisError ?? 'Analyse fehlgeschlagen'}</small>
+                    {ai?.enabled && <button className="btn small" disabled={busy} onClick={() => act(a.id, 'analyze')}>Erneut versuchen</button>}
+                    <button className="btn btn-ghost small" disabled={busy} onClick={() => act(a.id, 'dismiss')}>Nur behalten</button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
       <ErrorBox error={error} />
