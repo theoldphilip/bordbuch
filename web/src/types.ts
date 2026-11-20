@@ -146,6 +146,7 @@ export interface TimelineWarning {
   itemId?: string;
   cruiseId?: string;
   cruiseDayId?: string;
+  role?: 'start' | 'end';
 }
 
 export interface Timeline {

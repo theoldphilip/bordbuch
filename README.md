@@ -16,6 +16,7 @@ Self-hosted als ein Docker-Container (z. B. auf einer Synology), erreichbar per 
 - **Puffer-Check** (auf dem Server berechnet, also für Web und iOS identisch):
   - Anreise: Landet der Flug rechtzeitig vor *Alle an Bord*? Hinweis bei Anreise am Einschiffungstag.
   - Abreise: Reicht die Zeit zwischen Ausschiffung und Rückflug?
+  - Hotel: Check-out gegenüber *Alle an Bord*, Wartezeit bis Check-in, doppelt bezahlte Nächte während der Kreuzfahrt, späte Ankunft.
   - Parkplatz: Ist er bis zur Rückkehr gebucht?
   - Landausflüge: Rückkehr vor *Alle an Bord*, mit größerem Puffer bei privaten Ausflügen und Tenderhäfen.
 - **Dokumente** (Bordkarten, Tickets, Vouchers) pro Reise oder pro Eintrag.

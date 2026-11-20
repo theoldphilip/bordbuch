@@ -115,7 +115,7 @@ Transfer `mode, from, to, phone` · Hotel `room, phone, breakfast` · Parkplatz 
     { "kind": "post", "title": "Abreise", … }
   ],
   "warnings": [
-    { "level": "warning", "code": "excursion_tight", "message": "Nur 15 min …", "itemId": "…", "cruiseDayId": "…" }
+    { "level": "warning", "code": "excursion_tight", "message": "Nur 15 min …", "itemId": "…", "cruiseDayId": "…", "role": "start" }
   ]
 }
 ```
@@ -133,6 +133,13 @@ Warnungscodes:
 | `embark_same_day` | info | Anreise per Flug am Einschiffungstag |
 | `disembark_conflict` | error | Abreise startet vor Ankunft des Schiffs |
 | `disembark_tight` | warning | < 3 h (Flug) bzw. < 1 h nach Ausschiffung |
+| `hotel_checkout_late` | error | Hotel-Check-out am Einschiffungstag liegt nach *Alle an Bord* (Warnung gehört zum Check-out, `role: "end"`) |
+| `hotel_embark_tight` | warning | < 2 h zwischen Check-out und *Alle an Bord* (`role: "end"`) |
+| `hotel_wait_boarding` | info | > 3 h zwischen Check-out und Öffnung des Check-ins am Schiff (`role: "end"`) |
+| `hotel_checkin_wait` | info | > 3 h zwischen Ausschiffung und Hotel-Check-in |
+| `hotel_overlaps_cruise` | warning | Hotelbuchung überschneidet sich mit der Kreuzfahrt um mehr als 12 h (also mindestens eine Nacht) |
+| `hotel_late_arrival` | info | Ankunft am Hotel nach 22:00 |
+| `hotel_early_arrival` | info | Ankunft > 4 h vor dem Check-in |
 | `parking_short` | warning | Parkplatz endet vor dem Ende der Rückreise |
 | `excursion_late` | error | Ausflug endet nach *Alle an Bord* |
 | `excursion_tight` | warning | Puffer < 30 min (privat: 60, Tender: +30) |

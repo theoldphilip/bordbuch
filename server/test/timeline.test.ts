@@ -114,4 +114,49 @@ describe('buildTimeline', () => {
     const ok = buildTimeline([cruise([embark, port, dis])], [{ ...base[0]!, endLocal: '2027-05-18' }, base[1]!, base[2]!], 'Europe/Zurich');
     assert.ok(!ok.warnings.some((w) => w.code === 'parking_short'), 'date-only end counts until end of day');
   });
+
+  describe('hotel buffers', () => {
+    // embarkation: check-in opens 12:00, all aboard 16:30; disembarkation 07:00 (off ship ~08:00)
+    const run = (items: Item[]) => buildTimeline([cruise([embark, port, dis])], items, 'Europe/Zurich').warnings;
+    const preHotel = (checkout: string) =>
+      item({ id: 'h', type: 'hotel', startLocal: '2027-05-08T15:00', startTz: 'Europe/Rome', endLocal: `2027-05-10T${checkout}`, endTz: 'Europe/Rome' });
+
+    test('check-out after all aboard is an error on the check-out entry', () => {
+      const w = run([preHotel('17:30')]);
+      const late = w.find((x) => x.code === 'hotel_checkout_late')!;
+      assert.equal(late.level, 'error');
+      assert.equal(late.role, 'end');
+    });
+
+    test('a late check-out alone is not a double booking', () => {
+      assert.ok(!run([preHotel('16:00')]).some((x) => x.code === 'hotel_overlaps_cruise'));
+    });
+
+    test('tight check-out is a warning, comfortable check-out is silent', () => {
+      assert.deepEqual(run([preHotel('15:00')]).map((x) => x.code), ['hotel_embark_tight']);
+      assert.deepEqual(run([preHotel('10:00')]).map((x) => x.code), []);
+    });
+
+    test('very early check-out hints at the wait before boarding opens', () => {
+      assert.deepEqual(run([preHotel('07:00')]).map((x) => x.code), ['hotel_wait_boarding']);
+    });
+
+    test('long wait between leaving the ship and hotel check-in', () => {
+      const h = item({ id: 'h2', type: 'hotel', startLocal: '2027-05-12T15:00', startTz: 'Europe/Rome', endLocal: '2027-05-14T11:00', endTz: 'Europe/Rome' });
+      assert.deepEqual(run([h]).map((x) => x.code), ['hotel_checkin_wait']);
+    });
+
+    test('a hotel night during the cruise is flagged as double booking', () => {
+      const h = item({ id: 'h3', type: 'hotel', startLocal: '2027-05-09T15:00', startTz: 'Europe/Rome', endLocal: '2027-05-11T10:00', endTz: 'Europe/Rome' });
+      assert.ok(run([h]).some((x) => x.code === 'hotel_overlaps_cruise'));
+    });
+
+    test('late and early arrivals at the hotel', () => {
+      const hotel = item({ id: 'h4', type: 'hotel', startLocal: '2027-05-08T15:00', startTz: 'Europe/Rome', endLocal: '2027-05-10T10:00', endTz: 'Europe/Rome' });
+      const late = item({ id: 'f1', type: 'flight', startLocal: '2027-05-08T20:00', startTz: 'Europe/Zurich', endLocal: '2027-05-08T23:10', endTz: 'Europe/Rome' });
+      const early = item({ id: 'f2', type: 'flight', startLocal: '2027-05-08T06:00', startTz: 'Europe/Zurich', endLocal: '2027-05-08T08:00', endTz: 'Europe/Rome' });
+      assert.deepEqual(run([hotel, late]).map((x) => x.code), ['hotel_late_arrival']);
+      assert.deepEqual(run([hotel, early]).map((x) => x.code), ['hotel_early_arrival']);
+    });
+  });
 });

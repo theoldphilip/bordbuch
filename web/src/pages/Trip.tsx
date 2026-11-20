@@ -160,7 +160,8 @@ function TimelineView({
   onOpenDay: (day: CruiseDay) => void;
 }) {
   const attachmentCount = (itemId: string) => detail.attachments.filter((a) => a.itemId === itemId).length;
-  const warningsFor = (itemId: string) => timeline.warnings.filter((w) => w.itemId === itemId);
+  const warningsFor = (itemId: string, role: 'start' | 'end') =>
+    timeline.warnings.filter((w) => w.itemId === itemId && (w.role ?? 'start') === role);
   const dayWarnings = (dayId: string) => timeline.warnings.filter((w) => w.cruiseDayId === dayId && !w.itemId);
   const cruisePhases = timeline.phases.filter((p) => p.kind === 'cruise');
   const suggestDate = (phase: TimelinePhase): string | undefined =>
@@ -260,7 +261,7 @@ function PhaseSection({
   timeline: Timeline;
   canEdit: boolean;
   attachmentCount: (id: string) => number;
-  warningsFor: (id: string) => Timeline['warnings'];
+  warningsFor: (id: string, role: 'start' | 'end') => Timeline['warnings'];
   dayWarnings: (id: string) => Timeline['warnings'];
   onOpenItem: (item: Item) => void;
   onAdd: (date?: string, cruiseDayId?: string, type?: ItemType) => void;
@@ -303,7 +304,7 @@ function PhaseSection({
             </div>
             {cd && <PortCard day={cd} defaultTz={timeline.defaultTimezone} warnings={dayWarnings(cd.id)} onClick={() => onOpenDay(cd)} />}
             {day.entries.map((e) => (
-              <EntryRow key={`${e.itemId}-${e.role}`} entry={e} defaultTz={timeline.defaultTimezone} attachments={attachmentCount(e.itemId)} warnings={e.role === 'start' ? warningsFor(e.itemId) : []} onClick={() => onOpenItem(e.item)} />
+              <EntryRow key={`${e.itemId}-${e.role}`} entry={e} defaultTz={timeline.defaultTimezone} attachments={attachmentCount(e.itemId)} warnings={warningsFor(e.itemId, e.role)} onClick={() => onOpenItem(e.item)} />
             ))}
           </div>
         );
@@ -370,7 +371,7 @@ function EntryRow({ entry, defaultTz, attachments, warnings, onClick }: { entry:
         <strong>{isEnd ? `${endLabel[item.type] ?? 'Ende'}: ${item.title}` : item.title}</strong>
         {!isEnd && <small>{itemSubtitle(item)}</small>}
         {arrivesOtherDay && <small>Ankunft {fmtDate(item.endLocal, { weekday: 'short', day: 'numeric', month: 'short' })} {item.endLocal!.slice(11, 16)}</small>}
-        {!isEnd && warnings.filter((w) => w.level !== 'info').map((w, i) => <small key={i} className={`inline-warn ${w.level}`}>{w.message}</small>)}
+        {warnings.filter((w) => w.level !== 'info').map((w, i) => <small key={i} className={`inline-warn ${w.level}`}>{w.message}</small>)}
       </span>
       <span className="entry-meta">
         {item.confirmation && !isEnd && <small className="code">{item.confirmation}</small>}

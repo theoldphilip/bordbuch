@@ -40,6 +40,8 @@ export interface TimelineWarning {
   itemId?: string;
   cruiseId?: string;
   cruiseDayId?: string;
+  /** Which appearance of a multi-day item the warning belongs to (default 'start'). */
+  role?: 'start' | 'end';
 }
 
 export interface Timeline {
@@ -377,7 +379,109 @@ function computeWarnings(
         }
       }
     }
+
+    // --- Hotel vor der Einschiffung: Check-out gegenüber „Alle an Bord“ ---
+    const preHotel = items
+      .filter((i) => i.type === 'hotel' && hasTime(i.endLocal) && i.endLocal.slice(0, 10) === embark.date)
+      .sort((a, b) => b.endLocal!.localeCompare(a.endLocal!))[0];
+    if (preHotel && boardTime) {
+      const checkout = toInstant(preHotel.endLocal!, itemTz(preHotel, 'end'));
+      const boardBy = toInstant(`${embark.date}T${boardTime}`, dayTz(embark));
+      const gap = boardBy - checkout;
+      const outTime = preHotel.endLocal!.slice(11, 16);
+      const base = { itemId: preHotel.id, role: 'end' as const, cruiseId: w.cruise.id, cruiseDayId: embark.id };
+      if (gap < 0) {
+        warnings.push({
+          ...base,
+          level: 'error',
+          code: 'hotel_checkout_late',
+          message: `Check-out im „${preHotel.title}“ (${outTime}) liegt nach „Alle an Bord“ (${boardTime}). Der Check-out-Zeitpunkt passt nicht zur Einschiffung.`,
+        });
+      } else if (gap < 2 * HOUR) {
+        warnings.push({
+          ...base,
+          level: 'warning',
+          code: 'hotel_embark_tight',
+          message: `Nur ${formatDuration(gap)} zwischen Check-out (${outTime}) und „Alle an Bord“ (${boardTime}). Mit Transfer zum Hafen und Check-in am Terminal wird das knapp; besser sind mindestens 2 h.`,
+        });
+      } else if (embark.arrival) {
+        const opens = toInstant(`${embark.date}T${embark.arrival}`, dayTz(embark));
+        if (opens - checkout > 3 * HOUR) {
+          warnings.push({
+            ...base,
+            level: 'info',
+            code: 'hotel_wait_boarding',
+            message: `Check-out um ${outTime}, aber der Check-in am Schiff öffnet erst um ${embark.arrival} (ca. ${formatDuration(opens - checkout)} Wartezeit). Gepäck im Hotel lassen oder den Transfer später legen.`,
+          });
+        }
+      }
+    }
+
+    // --- Hotel nach der Ausschiffung: Check-in gegenüber Ankunft an Land ---
+    const postHotel = items
+      .filter((i) => i.type === 'hotel' && hasTime(i.startLocal) && i.startLocal.slice(0, 10) === dis.date)
+      .sort((a, b) => a.startLocal.localeCompare(b.startLocal))[0];
+    if (postHotel && offShip !== null) {
+      const checkin = toInstant(postHotel.startLocal, itemTz(postHotel, 'start'));
+      const gap = checkin - offShip;
+      if (gap > 3 * HOUR) {
+        warnings.push({
+          level: 'info',
+          code: 'hotel_checkin_wait',
+          message: `Von Bord ca. ${dis.departure ?? addMinutes(dis.arrival ?? '09:00', 60)}, Check-in im „${postHotel.title}“ aber erst ab ${postHotel.startLocal.slice(11, 16)} (ca. ${formatDuration(gap)} Wartezeit). Früheren Check-in oder Gepäckaufbewahrung anfragen.`,
+          itemId: postHotel.id,
+          cruiseId: w.cruise.id,
+          cruiseDayId: dis.id,
+        });
+      }
+    }
   });
+
+  // --- Hotel: doppelt bezahlte Nächte, späte und frühe Ankunft ---
+  for (const h of items.filter((i) => i.type === 'hotel')) {
+    const hStart = toInstant(h.startLocal, itemTz(h, 'start'));
+    const hEnd = h.endLocal ? toInstant(h.endLocal, itemTz(h, 'end')) : null;
+
+    if (hEnd !== null) {
+      for (const w of windows) {
+        const overlap = Math.min(hEnd, w.end) - Math.max(hStart, w.start);
+        if (overlap > 12 * HOUR) {
+          warnings.push({
+            level: 'warning',
+            code: 'hotel_overlaps_cruise',
+            message: `„${h.title}“ überschneidet sich mit der Kreuzfahrt auf der ${w.cruise.shipName} um ${formatDuration(overlap)}, du bezahlst also mindestens eine Nacht, die du auf dem Schiff verbringst.`,
+            itemId: h.id,
+            cruiseId: w.cruise.id,
+          });
+        }
+      }
+    }
+
+    if (!hasTime(h.startLocal)) continue;
+    const hDate = h.startLocal.slice(0, 10);
+    const arrival = transports
+      .filter((t) => (t.endLocal ?? t.startLocal).slice(0, 10) === hDate && hasTime(t.endLocal ?? t.startLocal))
+      .map((t) => ({ t, at: toInstant(t.endLocal ?? t.startLocal, itemTz(t, t.endLocal ? 'end' : 'start')) }))
+      .filter(({ t, at }) => toInstant(t.startLocal, itemTz(t, 'start')) >= hStart - 24 * HOUR && (hEnd === null || at <= hEnd))
+      .sort((a, b) => b.at - a.at)[0];
+    if (!arrival) continue;
+    const hhmm = (arrival.t.endLocal ?? arrival.t.startLocal).slice(11, 16);
+    if (hhmm >= '22:00') {
+      warnings.push({
+        level: 'info',
+        code: 'hotel_late_arrival',
+        message: `Ankunft („${arrival.t.title}“) erst um ${hhmm}. Späte Anreise dem „${h.title}“ vorab melden, damit die Rezeption besetzt ist.`,
+        itemId: h.id,
+      });
+    } else if (arrival.at < hStart && hStart - arrival.at > 4 * HOUR) {
+      warnings.push({
+        level: 'info',
+        code: 'hotel_early_arrival',
+        message: `Ankunft um ${hhmm}, Check-in im „${h.title}“ aber erst ab ${h.startLocal.slice(11, 16)} (ca. ${formatDuration(hStart - arrival.at)} Wartezeit). Gepäck deponieren oder früheren Check-in anfragen.`,
+        itemId: h.id,
+      });
+    }
+  }
 
   // --- Parkplatz: reicht die Buchung bis zur Rückkehr? ---
   for (const p of items.filter((i) => i.type === 'parking' && i.endLocal)) {
