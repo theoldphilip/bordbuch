@@ -148,20 +148,31 @@ muss nichts aus dem Internet auf die Syno zugreifen können. Die App bleibt nur 
 
 *Variante A: Du erreichst die Syno schon über einen Namen mit gültigem Zertifikat* (z. B. `meinesyno.synology.me` mit Let's Encrypt):
 
-1. DSM → *Systemsteuerung → Anmeldeportal → Erweitert → Reverse-Proxy → Erstellen*.
-   Quelle: Protokoll **HTTPS**, Hostname = dein Syno-Name, Port **8443**. Ziel: Protokoll **HTTP**, Hostname `localhost`, Port **8080**.
-2. *Systemsteuerung → Sicherheit → Zertifikat → Einstellungen*: dem neuen Reverse-Proxy-Eintrag das gültige Zertifikat zuweisen.
-3. **Port 8443 nicht im Router freigeben.** Damit ist Bordbuch von außen nicht erreichbar.
-4. Zusätzlich in der DSM-Firewall (*Systemsteuerung → Sicherheit → Firewall*) Port 8443 nur für dein Heimnetz und das WireGuard-Netz erlauben
-   und für alle anderen Quellen verweigern.
-5. Der Name muss **im VPN auf die interne Adresse** der Syno zeigen. Zeigt er auf die öffentliche IP, kommst du aus dem Tunnel oft nicht
-   an deine eigene Syno zurück. Dann im WireGuard-Profil einen DNS-Server eintragen, der den Namen auf `172.16.10.1` auflöst
-   (Router mit lokalem DNS-Eintrag, Pi-hole oder das DNS-Server-Paket der Syno).
-6. Bordbuch auf dem iPhone über `https://<dein-name>:8443` öffnen und neu auf den Home-Bildschirm legen.
+1. **Freien Port wählen.** Hier wird `8444` verwendet. Belegte Ports zeigt `sudo docker ps --format 'table {{.Names}}\t{{.Ports}}'`;
+   `8443` ist oft schon vergeben (z. B. von Vaultwarden).
+2. DSM → *Systemsteuerung → Anmeldeportal → Erweitert → Reverse-Proxy → Erstellen*.
+   Quelle: Protokoll **HTTPS**, Hostname = dein Syno-Name, Port **8444**. Ziel: Protokoll **HTTP**, Hostname `localhost`, Port **8080**.
+3. *Systemsteuerung → Sicherheit → Zertifikat → Einstellungen*: dem neuen Reverse-Proxy-Eintrag das gültige Zertifikat des Namens zuweisen.
+4. **Port 8444 nicht im Router freigeben** und prüfen, dass keine Weiterleitung auf die Syno alles durchlässt. Damit ist Bordbuch von außen nicht erreichbar.
+5. In der DSM-Firewall (*Systemsteuerung → Sicherheit → Firewall*) Port 8444 nur für dein Heimnetz und das WireGuard-Netz erlauben und für alle
+   anderen Quellen verweigern. Wer will, schützt Port 8080 genauso.
+6. **Test ohne iPhone** (am Computer im Heimnetz). Der Befehl erzwingt die interne Adresse und prüft dabei das Zertifikat des Namens:
+
+```bash
+curl -s --resolve meinesyno.synology.me:8444:172.16.10.1 https://meinesyno.synology.me:8444/api/health
+```
+
+   Erwartet wird `{"ok":true,…}`. Eine Zertifikatsmeldung heißt, dass in Schritt 3 das falsche Zertifikat zugewiesen ist.
+7. **Der Name muss im VPN auf die interne Adresse zeigen.** Ein Synology-Name zeigt öffentlich auf deinen Anschluss, und aus dem Tunnel kommst
+   du darüber oft nicht an deine eigene Syno zurück. Am einfachsten über das Paket **DNS Server** der Syno: *DNS Server → Zonen → Erstellen →
+   Hauptzone*, Zonentyp „Vorwärtszone“, Domänenname = dein kompletter Syno-Name, dann einen Eintrag **A** (Name leer) auf `172.16.10.1`
+   anlegen und bei den Weiterleitungen den Router oder einen öffentlichen DNS eintragen. Im WireGuard-Profil auf dem iPhone setzt du dann
+   `DNS = 172.16.10.1`. Test im Tunnel: `nslookup meinesyno.synology.me 172.16.10.1`.
+8. Bordbuch auf dem iPhone (mit aktivem WireGuard) über `https://meinesyno.synology.me:8444` öffnen und neu auf den Home-Bildschirm legen.
 
 *Variante B: kein passender Name mit Zertifikat.* Eigenes Zertifikat über eine eigene Zertifizierungsstelle (z. B. mit `mkcert`) für
 `172.16.10.1`, in DSM importieren (*Sicherheit → Zertifikat → Hinzufügen → Importieren*) und die Stelle auf dem iPhone installieren und unter
-*Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen* vollständig vertrauen. Reverse-Proxy und Firewall wie in A.
+*Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen* vollständig vertrauen. Reverse-Proxy (Port 8444) und Firewall wie in A.
 
 **Einschalten:** In Bordbuch (vom Home-Bildschirm geöffnet) unter *Einstellungen → Erinnerungen aufs iPhone* **Auf diesem Gerät aktivieren**,
 Mitteilungen erlauben, dann **Testnachricht senden**. Danach stellst du ein, wofür und wie früh erinnert wird.
