@@ -10,7 +10,8 @@ import {
   verifyPassword,
 } from '../auth.ts';
 import { tx } from '../db.ts';
-import { createUserInput, loginInput, resetPasswordInput, setupInput, updateMeInput } from '../schemas.ts';
+import { createUserInput, loginInput, resetPasswordInput, setupInput, updateMeInput, userSettingsInput } from '../schemas.ts';
+import { readSettings, writeSettings } from '../settings.ts';
 import { HttpError } from '../util.ts';
 
 export function registerAuthRoutes(app: FastifyInstance, { db }: Ctx) {
@@ -65,6 +66,18 @@ export function registerAuthRoutes(app: FastifyInstance, { db }: Ctx) {
       db.prepare('DELETE FROM tokens WHERE user_id = ? AND token_hash <> ?').run(user.id, req.tokenHash);
     }
     return userFromRow(db.prepare('SELECT * FROM users WHERE id = ?').get(user.id) as never);
+  });
+
+  // ----- personal settings -----
+  app.get('/api/me/settings', async (req) => readSettings(db, requireUser(req).id));
+
+  app.patch('/api/me/settings', async (req) => {
+    const user = requireUser(req);
+    const current = readSettings(db, user.id);
+    const body = (req.body ?? {}) as { pace?: object };
+    const next = userSettingsInput.parse({ ...current, pace: { ...current.pace, ...(body.pace ?? {}) } });
+    writeSettings(db, user.id, next);
+    return next;
   });
 
   // ----- family members (users) -----

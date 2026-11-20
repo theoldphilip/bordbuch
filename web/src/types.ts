@@ -162,6 +162,8 @@ export interface TimelineWarning {
   itemId?: string;
   cruiseId?: string;
   cruiseDayId?: string;
+  /** Fine with the normal time, too tight with the user's personal time need. */
+  personal?: boolean;
   role?: 'start' | 'end';
 }
 
@@ -169,6 +171,8 @@ export interface Timeline {
   tripId: string;
   updatedAt: string;
   defaultTimezone: string;
+  /** The caller's personal time need when enabled; recommended times in the warnings already include it. */
+  pace: Pace | null;
   phases: TimelinePhase[];
   warnings: TimelineWarning[];
 }
@@ -245,4 +249,14 @@ export interface AnalysisView {
   analyzedAt: string;
   items: ItemProposal[];
   cruise: CruiseProposal | null;
+}
+
+export interface Pace {
+  enabled: boolean;
+  factor: number;
+  extraMinutes: number;
+}
+
+export interface UserSettings {
+  pace: Pace;
 }

@@ -74,6 +74,12 @@ Notrufnummern, E-Mail, Links und Hinweise. Nummern lassen sich direkt antippen (
 verlässt. Sobald du eine solche Info bearbeitest, gilt sie als deine eigene. Im Ablauf zeigt ein Symbol (☎️ oder 🆘) am Eintrag, dass
 Zusatzinfos vorhanden sind.
 
+**Persönlicher Zeitbedarf:** Unter *Einstellungen* stellst du ein, ob und wie stark dein eigenes Tempo berücksichtigt wird (Faktor
+und pauschale Zusatzzeit, nur für dein Konto). Alle empfohlenen Mindestzeiten des Puffer-Checks (Anreise zum Schiff, Ausschiffung,
+Rückkehr von Ausflügen, Hotel-Check-out) zeigen dann **beide Zeiten**, z. B. „30 min normal, 45 min persönlich“. Eine Lage, die normal
+reicht, aber mit deinem Zeitbedarf zu knapp ist, wird als „nur persönlich“ gekennzeichnet. In der Datenbank steht nur der Faktor, kein
+Grund dafür, und es geht nichts davon an die KI.
+
 **Jederzeit selbst ändern:** Einträge, Kreuzfahrt und einzelne Reisetage lassen sich wie bisher von Hand anlegen, ändern und löschen.
 *Leeren* im Kopf von Anreise, Abreise oder Zwischenprogramm löscht alle Einträge dieses Abschnitts auf einmal (mit Rückfrage).
 

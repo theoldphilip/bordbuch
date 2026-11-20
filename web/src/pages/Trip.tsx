@@ -298,6 +298,7 @@ function TimelineView({
 }
 
 function WarningList({ timeline, detail, onOpenItem }: { timeline: Timeline; detail: TripDetail; onOpenItem: (i: Item) => void }) {
+  const pace = timeline.pace;
   const [open, setOpen] = useState(true);
   const errors = timeline.warnings.filter((w) => w.level === 'error').length;
   const warns = timeline.warnings.filter((w) => w.level === 'warning').length;
@@ -309,13 +310,16 @@ function WarningList({ timeline, detail, onOpenItem }: { timeline: Timeline; det
         <span>{errors ? '⛔' : warns ? '⚠️' : 'ℹ️'} Puffer-Check: {summary}</span>
         <span aria-hidden>{open ? '▾' : '▸'}</span>
       </button>
+      {open && pace && (
+        <p className="muted small-print checks-note">Mit deinem persönlichen Zeitbedarf (× {String(pace.factor).replace('.', ',')}{pace.extraMinutes ? ` + ${pace.extraMinutes} min` : ''}). Die Einstellung findest du unter Einstellungen.</p>
+      )}
       {open && (
         <ul>
           {timeline.warnings.map((w, i) => {
             const item = w.itemId ? detail.items.find((x) => x.id === w.itemId) : undefined;
             return (
-              <li key={i} className={`check check-${w.level}`}>
-                <span>{w.message}</span>
+              <li key={i} className={`check-item check-${w.level}`}>
+                <span>{w.personal && <b className="chip-personal">nur persönlich</b>}{w.message}</span>
                 {item && <button className="link" onClick={() => onOpenItem(item)}>öffnen</button>}
               </li>
             );
@@ -428,7 +432,7 @@ function PortCard({ day, defaultTz, warnings, onClick }: { day: CruiseDay; defau
         )}
         {day.notes && <small className="muted">{day.notes}</small>}
         {(day.infos?.length ?? 0) > 0 && <small className="muted">{day.infos.some((i) => i.kind === 'emergency') ? '🆘' : '☎️'} {day.infos.length} Zusatzinfo{day.infos.length > 1 ? 's' : ''}</small>}
-        {warnings.map((w, i) => <small key={i} className={`inline-warn ${w.level}`}>{w.message}</small>)}
+        {warnings.map((w, i) => <small key={i} className={`inline-warn ${w.level}`}>{w.personal ? 'Für dich knapp: ' : ''}{w.message}</small>)}
       </span>
       {day.kind !== 'sea' && (
         <span className="port-times">
@@ -463,7 +467,7 @@ function EntryRow({ entry, defaultTz, attachments, warnings, onClick }: { entry:
         <strong>{isEnd ? `${endLabel[item.type] ?? 'Ende'}: ${item.title}` : item.title}</strong>
         {!isEnd && <small>{itemSubtitle(item)}</small>}
         {arrivesOtherDay && <small>Ankunft {fmtDate(item.endLocal, { weekday: 'short', day: 'numeric', month: 'short' })} {item.endLocal!.slice(11, 16)}</small>}
-        {warnings.filter((w) => w.level !== 'info').map((w, i) => <small key={i} className={`inline-warn ${w.level}`}>{w.message}</small>)}
+        {warnings.filter((w) => w.level !== 'info').map((w, i) => <small key={i} className={`inline-warn ${w.level}`}>{w.personal ? 'Für dich knapp: ' : ''}{w.message}</small>)}
       </span>
       <span className="entry-meta">
         {item.confirmation && !isEnd && <small className="code">{item.confirmation}</small>}

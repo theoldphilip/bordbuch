@@ -26,6 +26,15 @@ HTTP-Status (400 Validierung, 401 nicht angemeldet, 403 keine Berechtigung, 404,
 
 ## Endpunkte
 
+### Persönliche Einstellungen
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| GET | `/me/settings` | `{pace: {enabled, factor, extraMinutes}}` des angemeldeten Benutzers |
+| PATCH | `/me/settings` | Teil-Update, z. B. `{pace: {enabled: true, factor: 1.5}}`. `factor` 1 bis 4, `extraMinutes` 0 bis 120 |
+
+`pace` (persönlicher Zeitbedarf): Jede empfohlene Mindestzeit des Puffer-Checks wird mit `factor` multipliziert, um `extraMinutes` verlängert und auf 5 Minuten aufgerundet. Die Einstellung gilt pro Benutzer; die Timeline des jeweiligen Aufrufers enthält `pace` (oder `null`).
+
 ### System & Konto
 | Methode | Pfad | Beschreibung |
 |---|---|---|
@@ -164,6 +173,7 @@ Reihenfolge der Dokumente keine Rolle spielt.
 }
 ```
 
+- `pace`: persönlicher Zeitbedarf des Aufrufers oder `null`. Die Texte in `warnings` nennen dann beide Zeiten („30 min normal, 45 min persönlich“); `personal: true` heißt, dass es normal reicht und nur mit dem persönlichen Zeitbedarf zu knapp ist.
 - `kind`: `trip` (keine Kreuzfahrt), `pre` (Anreise), `cruise`, `between`, `post` (Abreise). Bei vorhandener Kreuzfahrt sind `pre` und `post` immer enthalten, auch ohne Einträge.
 - `role: "end"` = zweiter Auftritt eines mehrtägigen Eintrags (Hotel-Check-out, Mietwagen-Rückgabe, Parkplatz-Ausfahrt)
 - Kreuzfahrt-Phasen enthalten jeden Tag der Route, auch Seetage ohne Einträge.

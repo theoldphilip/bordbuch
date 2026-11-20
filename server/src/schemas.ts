@@ -63,6 +63,21 @@ export function mergeInfos(existing: Info[], added: Info[]): Info[] {
   return result.slice(0, 30);
 }
 
+// ---------- personal settings ----------
+/**
+ * Personal time need: every recommended minimum time (arrival buffer, excursion return, hotel check-out)
+ * is multiplied by factor and extended by extraMinutes. Stored as plain numbers, nothing about why.
+ */
+export const paceInput = z.object({
+  enabled: z.boolean().default(false),
+  factor: z.number().min(1).max(4).default(1.5),
+  extraMinutes: z.number().int().min(0).max(120).default(0),
+});
+export const userSettingsInput = z.object({
+  pace: paceInput.default({ enabled: false, factor: 1.5, extraMinutes: 0 }),
+});
+export type UserSettings = z.infer<typeof userSettingsInput>;
+
 // ---------- auth / users ----------
 export const username = z
   .string()

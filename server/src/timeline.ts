@@ -40,6 +40,8 @@ export interface TimelineWarning {
   itemId?: string;
   cruiseId?: string;
   cruiseDayId?: string;
+  /** True when the situation is fine with the normal time and only too tight with the user's personal time need. */
+  personal?: boolean;
   /** Which appearance of a multi-day item the warning belongs to (default 'start'). */
   role?: 'start' | 'end';
 }
@@ -108,6 +110,33 @@ function formatDuration(ms: number): string {
 const HOUR = 3_600_000;
 const MIN = 60_000;
 
+/** The user's personal time need (see paceInput). */
+export interface Pace {
+  enabled: boolean;
+  factor: number;
+  extraMinutes: number;
+}
+
+interface Need {
+  normal: number;
+  personal: number;
+  /** What the checks compare against: the personal time when the pace is enabled, else the normal time. */
+  used: number;
+}
+
+/** Recommended time without and with the personal pace (rounded up to 5 minutes). */
+export function needOf(normal: number, pace?: Pace): Need {
+  if (!pace?.enabled) return { normal, personal: normal, used: normal };
+  const step = 5 * MIN;
+  const personal = Math.max(normal, Math.ceil((normal * pace.factor + pace.extraMinutes * MIN) / step) * step);
+  return { normal, personal, used: personal };
+}
+
+const needText = (n: Need): string =>
+  n.personal === n.normal ? formatDuration(n.normal) : `${formatDuration(n.normal)} normal, ${formatDuration(n.personal)} persönlich`;
+const personalOnly = (gap: number, n: Need): boolean => n.personal !== n.normal && gap >= n.normal;
+const personalNote = (gap: number, n: Need): string => (personalOnly(gap, n) ? ' Normal reicht das, mit deinem persönlichen Zeitbedarf nicht.' : '');
+
 // ---------------------------------------------------------------------------
 // Timeline
 // ---------------------------------------------------------------------------
@@ -126,7 +155,7 @@ interface PlacedEntry {
   cruiseDay: CruiseDay | null;
 }
 
-export function buildTimeline(cruises: Cruise[], items: Item[], defaultTz: string): Timeline {
+export function buildTimeline(cruises: Cruise[], items: Item[], defaultTz: string, pace?: Pace): Timeline {
   const dayById = new Map<string, CruiseDay>();
   for (const c of cruises) for (const d of c.days) dayById.set(d.id, d);
 
@@ -262,7 +291,7 @@ export function buildTimeline(cruises: Cruise[], items: Item[], defaultTz: strin
     }
   }
 
-  return { phases, warnings: computeWarnings(windows, items, dayById, itemTz, dayTz) };
+  return { phases, warnings: computeWarnings(windows, items, dayById, itemTz, dayTz, pace) };
 }
 
 // ---------------------------------------------------------------------------
@@ -274,6 +303,7 @@ function computeWarnings(
   dayById: Map<string, CruiseDay>,
   itemTz: (item: Item, which: 'start' | 'end') => string,
   dayTz: (d: CruiseDay) => string,
+  pace?: Pace,
 ): TimelineWarning[] {
   const warnings: TimelineWarning[] = [];
   const transports = items.filter((i) => TRANSPORT_TYPES.includes(i.type) && !i.cruiseDayId);
@@ -312,12 +342,13 @@ function computeWarnings(
           });
         } else {
           const gap = boardBy - at;
-          const min = t.type === 'flight' ? 4 * HOUR : 2 * HOUR;
-          if (gap < min) {
+          const need = needOf(t.type === 'flight' ? 4 * HOUR : 2 * HOUR, pace);
+          if (gap < need.used) {
             warnings.push({
               level: 'warning',
               code: 'embark_tight',
-              message: `Nur ${formatDuration(gap)} zwischen Ankunft von „${t.title}“ und „Alle an Bord“ (${boardTime}). Empfohlen sind mindestens ${formatDuration(min)}.`,
+              personal: personalOnly(gap, need),
+              message: `Nur ${formatDuration(gap)} zwischen Ankunft von „${t.title}“ und „Alle an Bord“ (${boardTime}). Empfohlen sind mindestens ${needText(need)}.${personalNote(gap, need)}`,
               itemId: t.id,
               cruiseId: w.cruise.id,
               cruiseDayId: embark.id,
@@ -365,12 +396,13 @@ function computeWarnings(
           });
         } else {
           const gap = at - offShip;
-          const min = t.type === 'flight' ? 3 * HOUR : 1 * HOUR;
-          if (gap < min) {
+          const need = needOf(t.type === 'flight' ? 3 * HOUR : 1 * HOUR, pace);
+          if (gap < need.used) {
             warnings.push({
               level: 'warning',
               code: 'disembark_tight',
-              message: `${gap < 0 ? 'Kein' : `Nur ${formatDuration(gap)}`} Puffer zwischen Ausschiffung (ca. ${dis.departure ?? addMinutes(dis.arrival!, 60)}) und „${t.title}“. Empfohlen sind mindestens ${formatDuration(min)}.`,
+              personal: personalOnly(gap, need),
+              message: `${gap < 0 ? 'Kein' : `Nur ${formatDuration(gap)}`} Puffer zwischen Ausschiffung (ca. ${dis.departure ?? addMinutes(dis.arrival!, 60)}) und „${t.title}“. Empfohlen sind mindestens ${needText(need)}.${personalNote(gap, need)}`,
               itemId: t.id,
               cruiseId: w.cruise.id,
               cruiseDayId: dis.id,
@@ -397,12 +429,14 @@ function computeWarnings(
           code: 'hotel_checkout_late',
           message: `Check-out im „${preHotel.title}“ (${outTime}) liegt nach „Alle an Bord“ (${boardTime}). Der Check-out-Zeitpunkt passt nicht zur Einschiffung.`,
         });
-      } else if (gap < 2 * HOUR) {
+      } else if (gap < needOf(2 * HOUR, pace).used) {
+        const need = needOf(2 * HOUR, pace);
         warnings.push({
           ...base,
           level: 'warning',
           code: 'hotel_embark_tight',
-          message: `Nur ${formatDuration(gap)} zwischen Check-out (${outTime}) und „Alle an Bord“ (${boardTime}). Mit Transfer zum Hafen und Check-in am Terminal wird das knapp; besser sind mindestens 2 h.`,
+          personal: personalOnly(gap, need),
+          message: `Nur ${formatDuration(gap)} zwischen Check-out (${outTime}) und „Alle an Bord“ (${boardTime}). Mit Transfer zum Hafen und Check-in am Terminal wird das knapp; besser sind mindestens ${needText(need)}.${personalNote(gap, need)}`,
         });
       } else if (embark.arrival) {
         const opens = toInstant(`${embark.date}T${embark.arrival}`, dayTz(embark));
@@ -571,7 +605,7 @@ function computeWarnings(
 
     const end = toInstant(item.endLocal, itemTz(item, 'end'));
     const privateTour = item.details?.bookedVia === 'private';
-    const needed = ((privateTour ? 60 : 30) + (day.tender ? 30 : 0)) * MIN;
+    const need = needOf(((privateTour ? 60 : 30) + (day.tender ? 30 : 0)) * MIN, pace);
     if (end > boardBy) {
       warnings.push({
         level: 'error',
@@ -580,12 +614,13 @@ function computeWarnings(
         itemId: item.id,
         cruiseDayId: day.id,
       });
-    } else if (boardBy - end < needed) {
+    } else if (boardBy - end < need.used) {
       const reasons = [privateTour ? 'privat gebucht' : null, day.tender ? 'Tenderhafen' : null].filter(Boolean);
       warnings.push({
         level: 'warning',
         code: 'excursion_tight',
-        message: `Nur ${formatDuration(boardBy - end)} zwischen Ende von „${item.title}“ und „Alle an Bord“ (${boardTime}). Empfohlen: ${formatDuration(needed)}${reasons.length ? ` (${reasons.join(', ')})` : ''}.`,
+        personal: personalOnly(boardBy - end, need),
+        message: `Nur ${formatDuration(boardBy - end)} zwischen Ende von „${item.title}“ und „Alle an Bord“ (${boardTime}). Empfohlen: ${needText(need)}${reasons.length ? ` (${reasons.join(', ')})` : ''}.${personalNote(boardBy - end, need)}`,
         itemId: item.id,
         cruiseDayId: day.id,
       });

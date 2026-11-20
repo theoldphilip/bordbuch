@@ -173,6 +173,28 @@ describe('API', () => {
     assert.equal((await ctx.call('GET', `/api/trips/${tripId}`, admin)).body.cruises[0].days[1].infos.length, 1);
   });
 
+  test('personal time need is a per-user setting and shapes that user\'s timeline', async () => {
+    assert.deepEqual((await ctx.call('GET', '/api/me/settings', admin)).body, { pace: { enabled: false, factor: 1.5, extraMinutes: 0 } });
+    assert.equal((await ctx.call('GET', `/api/trips/${tripId}/timeline`, admin)).body.pace, null);
+
+    const on = await ctx.call('PATCH', '/api/me/settings', admin, { pace: { enabled: true, factor: 2, extraMinutes: 10 } });
+    assert.equal(on.status, 200);
+    assert.deepEqual(on.body.pace, { enabled: true, factor: 2, extraMinutes: 10 });
+    assert.deepEqual((await ctx.call('GET', `/api/trips/${tripId}/timeline`, admin)).body.pace, { enabled: true, factor: 2, extraMinutes: 10 });
+
+    // validation
+    assert.equal((await ctx.call('PATCH', '/api/me/settings', admin, { pace: { factor: 0.5 } })).status, 400, 'faster than normal makes no sense');
+    assert.equal((await ctx.call('PATCH', '/api/me/settings', admin, { pace: { factor: 9 } })).status, 400);
+    assert.equal((await ctx.call('PATCH', '/api/me/settings', admin, { pace: { extraMinutes: -5 } })).status, 400);
+
+    // other users are not affected, and a partial update keeps the other values
+    assert.equal((await ctx.call('GET', '/api/me/settings', anna)).body.pace.enabled, false);
+    const off = await ctx.call('PATCH', '/api/me/settings', admin, { pace: { enabled: false } });
+    assert.deepEqual(off.body.pace, { enabled: false, factor: 2, extraMinutes: 10 });
+    assert.equal((await ctx.call('GET', `/api/trips/${tripId}/timeline`, admin)).body.pace, null);
+    assert.equal((await ctx.call('GET', '/api/me/settings')).status, 401);
+  });
+
   test('deleting a trip removes it', async () => {
     assert.equal((await ctx.call('DELETE', `/api/trips/${tripId}`, admin)).status, 204);
     assert.equal((await ctx.call('GET', `/api/trips/${tripId}`, admin)).status, 404);

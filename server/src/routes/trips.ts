@@ -7,6 +7,7 @@ import { loadCruises, loadItems, loadMembers, loadTrip, loadTripDetail, touchTri
 import { memberInput, tripInput } from '../schemas.ts';
 import { buildTimeline } from '../timeline.ts';
 import { HttpError, newId, nowIso } from '../util.ts';
+import { readSettings } from '../settings.ts';
 
 type P = { Params: { tripId: string } };
 type PM = { Params: { tripId: string; userId: string } };
@@ -87,11 +88,14 @@ export function registerTripRoutes(app: FastifyInstance, { db, config, uploadDir
     const user = requireUser(req);
     requireTripRole(db, req.params.tripId, user.id, 'viewer');
     const trip = loadTrip(db, req.params.tripId);
+    const { pace } = readSettings(db, user.id);
     return {
       tripId: trip.id,
       updatedAt: trip.updatedAt,
       defaultTimezone: config.defaultTz,
-      ...buildTimeline(loadCruises(db, trip.id), loadItems(db, trip.id), config.defaultTz),
+      /** The caller's personal time need, when enabled. All recommended times in the warnings already include it. */
+      pace: pace.enabled ? pace : null,
+      ...buildTimeline(loadCruises(db, trip.id), loadItems(db, trip.id), config.defaultTz, pace),
     };
   });
 

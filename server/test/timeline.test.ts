@@ -159,4 +159,41 @@ describe('buildTimeline', () => {
       assert.deepEqual(run([hotel, early]).map((x) => x.code), ['hotel_early_arrival']);
     });
   });
+
+  describe('personal time need', () => {
+    // port day without tender: a ship excursion needs 30 minutes before "all aboard" (17:30)
+    const d1 = day({ id: 'e', date: '2027-05-10', kind: 'embarkation', arrival: '12:00', allAboard: '16:30', departure: '17:00' });
+    const d2 = day({ id: 'p', date: '2027-05-11', kind: 'port', arrival: '08:00', allAboard: '17:30', departure: '18:00' });
+    const d3 = day({ id: 'd', date: '2027-05-12', kind: 'disembarkation', arrival: '07:00' });
+    const run = (endsAt: string, pace?: { enabled: boolean; factor: number; extraMinutes: number }) =>
+      buildTimeline([cruise([d1, d2, d3])], [item({ id: 'x', type: 'excursion', title: 'Altstadt', startLocal: '2027-05-11T09:00', endLocal: endsAt, cruiseDayId: 'p' })], 'Europe/Zurich', pace).warnings;
+
+    test('without a pace nothing changes', () => {
+      assert.deepEqual(run('2027-05-11T16:50').map((w) => w.code), []); // 40 min is enough for 30
+      assert.deepEqual(run('2027-05-11T16:50', { enabled: false, factor: 3, extraMinutes: 60 }).map((w) => w.code), [], 'disabled pace is ignored');
+    });
+
+    test('with a pace the same gap is flagged and both times are shown', () => {
+      const w = run('2027-05-11T16:50', { enabled: true, factor: 1.5, extraMinutes: 0 });
+      assert.deepEqual(w.map((x) => x.code), ['excursion_tight']);
+      assert.equal(w[0]!.personal, true, 'fine normally, too tight personally');
+      assert.match(w[0]!.message, /30 min normal, 45 min persönlich/);
+      assert.match(w[0]!.message, /Normal reicht das, mit deinem persönlichen Zeitbedarf nicht/);
+    });
+
+    test('a gap that is too short for everyone is not marked as personal-only', () => {
+      const w = run('2027-05-11T17:15', { enabled: true, factor: 1.5, extraMinutes: 0 });
+      assert.equal(w[0]!.personal, false);
+      assert.doesNotMatch(w[0]!.message, /Normal reicht das/);
+    });
+
+    test('extra minutes are added and the result is rounded up to 5 minutes', () => {
+      const w = run('2027-05-11T17:05', { enabled: true, factor: 1, extraMinutes: 12 });
+      assert.match(w[0]!.message, /30 min normal, 45 min persönlich/, '30 + 12 = 42 → 45');
+    });
+
+    test('a large gap stays silent even with a pace', () => {
+      assert.deepEqual(run('2027-05-11T16:00', { enabled: true, factor: 2, extraMinutes: 10 }).map((w) => w.code), []);
+    });
+  });
 });
