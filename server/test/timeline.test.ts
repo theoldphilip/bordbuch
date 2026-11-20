@@ -5,14 +5,14 @@ import type { Cruise, CruiseDay, Item } from '../src/model.ts';
 
 const day = (p: Partial<CruiseDay> & Pick<CruiseDay, 'id' | 'date' | 'kind'>): CruiseDay => ({
   cruiseId: 'c1', portName: null, country: null, timezone: 'Europe/Rome', arrival: null, departure: null,
-  allAboard: null, tender: false, notes: null, ...p,
+  allAboard: null, tender: false, notes: null, infos: [], ...p,
 });
 const item = (p: Partial<Item> & Pick<Item, 'id' | 'type' | 'startLocal'>): Item => ({
   tripId: 't', title: p.id, startTz: null, endLocal: null, endTz: null, location: null, confirmation: null,
-  provider: null, cost: null, currency: null, notes: null, cruiseDayId: null, details: {}, createdAt: '', updatedAt: '', ...p,
+  provider: null, cost: null, currency: null, notes: null, cruiseDayId: null, details: {}, infos: [], createdAt: '', updatedAt: '', ...p,
 });
 const cruise = (days: CruiseDay[], id = 'c1', shipName = 'MS Test'): Cruise => ({
-  id, tripId: 't', shipName, cruiseLine: null, cabin: null, bookingRef: null, notes: null,
+  id, tripId: 't', shipName, cruiseLine: null, cabin: null, bookingRef: null, notes: null, infos: [],
   days: days.map((d) => ({ ...d, cruiseId: id })),
 });
 

@@ -5,6 +5,7 @@ import type { AnalysisView, Cruise, CruiseData, CruiseDay, Item, ItemData, ItemP
 import { CruiseDayForm } from './CruiseForms.tsx';
 import { ItemForm } from './ItemForm.tsx';
 import { ErrorBox, Modal, Spinner } from './ui.tsx';
+import { InfoSummary } from './InfoEditor.tsx';
 
 type Action = 'create' | 'update' | 'skip';
 interface Row {
@@ -106,7 +107,7 @@ export function DocReview({ attachmentId, tripId, cruises, position, onClose, on
   };
 
   if (editingDay !== null && cruiseData?.days[editingDay]) {
-    const draftCruise: Cruise = { id: '', tripId, shipName: cruiseData.shipName, cruiseLine: null, cabin: null, bookingRef: null, notes: null, days: cruiseData.days.map((d) => ({ ...d, id: '', cruiseId: '' }) as CruiseDay) };
+    const draftCruise: Cruise = { id: '', tripId, shipName: cruiseData.shipName, cruiseLine: null, cabin: null, bookingRef: null, notes: null, infos: [], days: cruiseData.days.map((d) => ({ ...d, id: '', cruiseId: '' }) as CruiseDay) };
     return (
       <CruiseDayForm
         cruise={draftCruise}
@@ -162,7 +163,7 @@ export function DocReview({ attachmentId, tripId, cruises, position, onClose, on
       {view && (
         <div className="stack">
           <div className="review-summary">
-            <p className="muted">📎 {view.attachment.filename}</p>
+            <p className="muted">📎 {view.files.length > 1 ? `${view.files.length} Dateien zusammen: ${view.files.map((f) => f.filename).join(', ')}` : view.attachment.filename}</p>
             <p>
               <strong>{view.documentKind}</strong>
               {view.summary && <> – {view.summary}</>}
@@ -185,7 +186,8 @@ export function DocReview({ attachmentId, tripId, cruises, position, onClose, on
                 <label className="field"><span className="field-label">Kabine</span><input value={cruiseData.cabin ?? ''} onChange={(e) => setCruiseData({ ...cruiseData, cabin: e.target.value || null })} /></label>
                 <label className="field"><span className="field-label">Buchungsnummer</span><input value={cruiseData.bookingRef ?? ''} onChange={(e) => setCruiseData({ ...cruiseData, bookingRef: e.target.value || null })} /></label>
               </div>
-              <p className="muted small-print">Tippe auf einen Tag, um ihn zu korrigieren, oder entferne ihn mit ✕.</p>
+              <InfoSummary infos={cruiseData.infos ?? []} />
+              <p className="muted small-print">Tippe auf einen Tag, um ihn zu korrigieren, oder entferne ihn mit ✕.{cruiseData.days.some((d) => d.infos?.length) ? ' Zusatzinfos zu den Tagen siehst du im Tag.' : ''}</p>
               <ul className="route-preview">
                 {cruiseData.days.map((d, i) => (
                   <li key={i}>
@@ -228,6 +230,7 @@ export function DocReview({ attachmentId, tripId, cruises, position, onClose, on
                   {[r.data.confirmation && `Buchung ${r.data.confirmation}`, r.data.cost != null && fmtMoney(r.data.cost, r.data.currency)].filter(Boolean).join(' · ')}
                 </p>
                 {r.data.cruiseDayId && <p className="muted">⚓ Einem Hafentag zugeordnet</p>}
+                <InfoSummary infos={r.data.infos ?? []} />
                 {r.proposal.match ? (
                   <div className="match-note">
                     Gehört zu „{r.proposal.match.title}“ ({r.proposal.match.reason}).

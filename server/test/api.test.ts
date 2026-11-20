@@ -152,6 +152,27 @@ describe('API', () => {
     assert.equal(del.status, 204);
   });
 
+  test('additional infos on items, cruise days and cruises', async () => {
+    const infos = [
+      { label: 'Rezeption', value: '+39 06 1234', kind: 'phone' },
+      { label: 'Notruf Italien', value: '112', kind: 'emergency', source: 'ai' },
+    ];
+    const created = await ctx.call('POST', `/api/trips/${tripId}/items`, admin, { type: 'hotel', title: 'Info-Hotel', startLocal: '2027-06-01T14:00', infos });
+    assert.equal(created.status, 201);
+    assert.deepEqual(created.body.infos.map((i: any) => i.source), ['user', 'ai'], 'source defaults to user');
+    const patched = await ctx.call('PATCH', `/api/items/${created.body.id}`, admin, { notes: 'x' });
+    assert.equal(patched.body.infos.length, 2, 'infos survive unrelated edits');
+    assert.equal((await ctx.call('PATCH', `/api/items/${created.body.id}`, admin, { infos: [{ label: 'x', value: 'y', kind: 'kaputt' }] })).status, 400);
+    assert.equal((await ctx.call('PATCH', `/api/items/${created.body.id}`, admin, { infos: [] })).body.infos.length, 0, 'can be cleared');
+
+    const detail = (await ctx.call('GET', `/api/trips/${tripId}`, admin)).body;
+    const day = await ctx.call('PATCH', `/api/cruise-days/${detail.cruises[0].days[1].id}`, admin, { infos: [{ label: 'Agentur', value: '+39 081 555', kind: 'phone' }] });
+    assert.equal(day.body.infos[0].label, 'Agentur');
+    const cruise = await ctx.call('PATCH', `/api/cruises/${detail.cruises[0].id}`, admin, { infos: [{ label: 'Hotline', value: '+49 40 1', kind: 'emergency' }] });
+    assert.equal(cruise.body.infos[0].kind, 'emergency');
+    assert.equal((await ctx.call('GET', `/api/trips/${tripId}`, admin)).body.cruises[0].days[1].infos.length, 1);
+  });
+
   test('deleting a trip removes it', async () => {
     assert.equal((await ctx.call('DELETE', `/api/trips/${tripId}`, admin)).status, 204);
     assert.equal((await ctx.call('GET', `/api/trips/${tripId}`, admin)).status, 404);

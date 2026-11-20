@@ -1,4 +1,4 @@
-import type { CruiseDayKind, ItemType } from '../schemas.ts';
+import type { CruiseDayKind, Info, ItemType } from '../schemas.ts';
 import type { AiResult } from './schema.ts';
 
 export class ExtractionError extends Error {}
@@ -11,10 +11,15 @@ export interface ExtractionContext {
   cruiseDays: { id: string; date: string; kind: CruiseDayKind; portName: string | null; country: string | null; shipName: string }[];
 }
 
-export interface ExtractInput {
+export interface InputFile {
   data: Buffer;
   mime: string;
   filename: string;
+}
+
+export interface ExtractInput {
+  /** One file, or several that belong to the same booking (e.g. screenshots of one page). */
+  files: InputFile[];
   context: ExtractionContext;
 }
 
@@ -41,6 +46,7 @@ export interface ItemData {
   notes: string | null;
   cruiseDayId: string | null;
   details: Record<string, string>;
+  infos: Info[];
 }
 
 export interface CruiseDayData {
@@ -54,6 +60,7 @@ export interface CruiseDayData {
   allAboard: string | null;
   tender: boolean;
   notes: string | null;
+  infos: Info[];
 }
 
 export interface CruiseData {
@@ -62,6 +69,7 @@ export interface CruiseData {
   cabin: string | null;
   bookingRef: string | null;
   notes: string | null;
+  infos: Info[];
   days: CruiseDayData[];
 }
 

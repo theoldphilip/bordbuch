@@ -1,5 +1,5 @@
 import type { DB } from './db.ts';
-import type { CruiseDayKind, ItemType } from './schemas.ts';
+import type { CruiseDayKind, Info, ItemType } from './schemas.ts';
 import type { Role } from './auth.ts';
 import { HttpError, nowIso } from './util.ts';
 
@@ -35,6 +35,7 @@ export interface CruiseDay {
   allAboard: string | null;
   tender: boolean;
   notes: string | null;
+  infos: Info[];
 }
 
 export interface Cruise {
@@ -45,6 +46,7 @@ export interface Cruise {
   cabin: string | null;
   bookingRef: string | null;
   notes: string | null;
+  infos: Info[];
   days: CruiseDay[];
 }
 
@@ -65,6 +67,7 @@ export interface Item {
   notes: string | null;
   cruiseDayId: string | null;
   details: Record<string, unknown>;
+  infos: Info[];
   createdAt: string;
   updatedAt: string;
 }
@@ -94,6 +97,15 @@ export interface TripDetail {
 // ---------- row mappers ----------
 type Row = Record<string, any>;
 
+export function parseInfos(raw: unknown): Info[] {
+  try {
+    const v = JSON.parse(String(raw ?? '[]'));
+    return Array.isArray(v) ? (v as Info[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export const tripFromRow = (r: Row): Trip => ({
   id: r.id,
   title: r.title,
@@ -118,6 +130,7 @@ export const cruiseDayFromRow = (r: Row): CruiseDay => ({
   allAboard: r.all_aboard,
   tender: r.tender === 1,
   notes: r.notes,
+  infos: parseInfos(r.infos),
 });
 
 export const itemFromRow = (r: Row): Item => ({
@@ -137,6 +150,7 @@ export const itemFromRow = (r: Row): Item => ({
   notes: r.notes,
   cruiseDayId: r.cruise_day_id,
   details: JSON.parse(r.details || '{}'),
+  infos: parseInfos(r.infos),
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -169,6 +183,7 @@ export function loadCruises(db: DB, tripId: string): Cruise[] {
     cabin: c.cabin,
     bookingRef: c.booking_ref,
     notes: c.notes,
+    infos: parseInfos(c.infos),
     days: (dayStmt.all(c.id) as Row[]).map(cruiseDayFromRow),
   }));
   // Chronological order of cruises (back-to-back cruises on one trip).

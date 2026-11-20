@@ -60,6 +60,20 @@ baut die Reise auf. Du prüfst die Dokumente nacheinander, die Kreuzfahrt zuerst
 Tage ändern oder entfernen. Landausflüge werden automatisch dem passenden Hafentag zugeordnet, egal in welcher Reihenfolge die
 Dokumente ankommen. Auch in einer bestehenden, leeren Reise gibt es dafür den Knopf *Mit KI aus Dokumenten aufbauen*.
 
+**Mehrere Dokumente, Screenshots und Text:** Im Dialog *Mit KI zuordnen* (und beim Start einer Reise) kannst du beliebig viele Dateien
+auswählen oder hineinziehen, Screenshots mit **Strg+V** einfügen und Text einfügen oder eintippen. Standardmäßig wird jede Datei einzeln
+gelesen, nacheinander geprüft und ihr Dokument am passenden Eintrag abgelegt. Mit *Alle zusammen als eine Unterlage auswerten* werden
+mehrere Dateien gemeinsam gelesen, z. B. drei Screenshots derselben Buchungsseite. Eingefügter Text wird als `.txt`-Datei abgelegt.
+Auf dem iPhone wählst du Screenshots über die Fotomediathek; das Einfügen über die Zwischenablage hängt vom Browser ab und ist dort nicht
+immer verfügbar.
+
+**Zusatzinfos an jedem Reisepunkt:** Einträge, Hafentage und die Kreuzfahrt selbst haben eine Liste mit Zusatzinfos: Telefonnummern,
+Notrufnummern, E-Mail, Links und Hinweise. Nummern lassen sich direkt antippen (Anrufen). Die KI übernimmt Nummern aus deinen Dokumenten
+(Hotelrezeption, Hotline der Reederei, Treffpunkt-Handy) und ergänzt bei Orten die Notrufnummer des Landes aus ihrem allgemeinen Wissen.
+**Diese Nummern sind als „KI-Wissen, bitte prüfen“ gekennzeichnet** und gehören nicht zu deinen Unterlagen; prüfe sie, bevor du dich darauf
+verlässt. Sobald du eine solche Info bearbeitest, gilt sie als deine eigene. Im Ablauf zeigt ein Symbol (☎️ oder 🆘) am Eintrag, dass
+Zusatzinfos vorhanden sind.
+
 **Jederzeit selbst ändern:** Einträge, Kreuzfahrt und einzelne Reisetage lassen sich wie bisher von Hand anlegen, ändern und löschen.
 *Leeren* im Kopf von Anreise, Abreise oder Zwischenprogramm löscht alle Einträge dieses Abschnitts auf einmal (mit Rückfrage).
 

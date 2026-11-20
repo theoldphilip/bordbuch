@@ -12,11 +12,11 @@ import { describeAiError } from '../ai/anthropic.ts';
 import { classifyFile } from '../ai/files.ts';
 import { normalizeExtraction } from '../ai/normalize.ts';
 import { buildProposals, findDay, mergeItem } from '../ai/proposals.ts';
-import type { ExtractionContext, ItemData, NormalizedExtraction } from '../ai/types.ts';
+import { ExtractionError, type ExtractionContext, type ItemData, type NormalizedExtraction } from '../ai/types.ts';
 import { requireAdmin, requireTripRole, requireUser } from '../auth.ts';
 import { tx } from '../db.ts';
 import { attachmentFromRow, itemFromRow, loadCruises, loadItems, loadTrip, touchTrip } from '../model.ts';
-import { cruiseCreateInput, cruiseDayInput, cruiseInput, itemInput } from '../schemas.ts';
+import { cruiseCreateInput, cruiseDayInput, cruiseInput, infoList, itemInput, mergeInfos } from '../schemas.ts';
 import { HttpError, newId, nowIso } from '../util.ts';
 import { receiveUpload } from './attachments.ts';
 import { insertDay } from './cruises.ts';
@@ -73,6 +73,12 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
     };
   }
 
+  /** Files that were analysed together with this one (see POST .../documents/group). */
+  const groupMembers = (leadId: string, tripId: string): Row[] =>
+    db
+      .prepare("SELECT * FROM attachments WHERE trip_id = ? AND analysis_status = 'grouped' AND analysis LIKE ? ORDER BY created_at, id")
+      .all(tripId, `%"groupLead":"${leadId}"%`) as Row[];
+
   /** Runs the analysis and stores the result. Never throws: failures are stored on the attachment. */
   async function analyze(id: string): Promise<void> {
     const row = attachmentRow(id);
@@ -80,9 +86,10 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
     if (!classifyFile(row.mime, row.filename)) return;
     setStatus(id, 'pending');
     try {
-      const data = fs.readFileSync(path.join(uploadDir, row.stored_name));
+      const rows = [row, ...groupMembers(id, row.trip_id)];
+      const files = rows.map((r) => ({ data: fs.readFileSync(path.join(uploadDir, r.stored_name)), mime: r.mime as string, filename: r.filename as string }));
       const context = contextFor(row.trip_id);
-      const ai = await extractor.extract({ data, mime: row.mime, filename: row.filename, context });
+      const ai = await extractor.extract({ files, context });
       const normalized = normalizeExtraction(ai, context, extractor.model);
       db.prepare("UPDATE attachments SET analysis = ?, analysis_status = 'done', analysis_error = NULL WHERE id = ?").run(
         JSON.stringify(normalized),
@@ -142,6 +149,36 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
     return reply.status(201).send({ attachment: view(id), aiEnabled: !!extractor, analyzable });
   });
 
+  /**
+   * Analyses several already uploaded files together, as one document (e.g. three screenshots of one
+   * booking page). The first id leads: it carries the proposals, the others are hidden from the inbox
+   * and follow the lead when it is applied or dismissed.
+   */
+  app.post<{ Params: { tripId: string } }>('/api/trips/:tripId/documents/group', async (req) => {
+    const user = requireUser(req);
+    const { tripId } = req.params;
+    requireTripRole(db, tripId, user.id, 'editor');
+    if (!extractor) throw new HttpError(409, 'Die Dokument-Analyse ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
+    const { attachmentIds } = z.object({ attachmentIds: z.array(z.string()).min(2).max(10) }).parse(req.body);
+    const ids = [...new Set(attachmentIds)];
+    const rows = ids.map((id) => {
+      const r = db.prepare('SELECT * FROM attachments WHERE id = ? AND trip_id = ?').get(id, tripId) as Row | undefined;
+      if (!r) throw new HttpError(400, 'Ein Dokument gehört nicht zu dieser Reise');
+      if (!classifyFile(r.mime, r.filename)) throw new HttpError(400, `„${r.filename}“ kann nicht automatisch gelesen werden (unterstützt: PDF, Bilder, E-Mail/Text).`);
+      if (r.analysis_status === 'pending') throw new HttpError(409, 'Eines der Dokumente wird gerade analysiert.');
+      return r;
+    });
+    const lead = rows[0]!.id as string;
+    tx(db, () => {
+      for (const m of rows.slice(1)) {
+        db.prepare("UPDATE attachments SET analysis_status = 'grouped', analysis = ?, analysis_error = NULL WHERE id = ?").run(JSON.stringify({ groupLead: lead }), m.id);
+      }
+      db.prepare('UPDATE attachments SET analysis = NULL WHERE id = ?').run(lead);
+    });
+    await analyze(lead);
+    return { attachment: view(lead), memberIds: rows.slice(1).map((r) => r.id as string) };
+  });
+
   app.post<{ Params: { id: string } }>('/api/attachments/:id/analyze', async (req) => {
     const user = requireUser(req);
     const row = attachmentRow(req.params.id);
@@ -163,6 +200,7 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
     return {
       status: row.analysis_status,
       attachment: view(req.params.id),
+      files: [row, ...groupMembers(req.params.id, row.trip_id)].map((r) => ({ id: r.id as string, filename: r.filename as string })),
       ...buildProposals(normalized, { items: loadItems(db, row.trip_id), cruises: loadCruises(db, row.trip_id) }),
     };
   });
@@ -172,6 +210,7 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
     const row = attachmentRow(req.params.id);
     requireTripRole(db, row.trip_id, user.id, 'editor');
     setStatus(req.params.id, 'dismissed');
+    for (const m of groupMembers(req.params.id, row.trip_id)) db.prepare("UPDATE attachments SET analysis_status = 'dismissed', analysis = NULL WHERE id = ?").run(m.id);
     return view(req.params.id);
   });
 
@@ -195,9 +234,9 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
         cruiseId = newId();
         const now = nowIso();
         db.prepare(
-          `INSERT INTO cruises (id, trip_id, ship_name, cruise_line, cabin, booking_ref, notes, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ).run(cruiseId, tripId, data.shipName, data.cruiseLine, data.cabin, data.bookingRef, data.notes, now, now);
+          `INSERT INTO cruises (id, trip_id, ship_name, cruise_line, cabin, booking_ref, notes, infos, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ).run(cruiseId, tripId, data.shipName, data.cruiseLine, data.cabin, data.bookingRef, data.notes, JSON.stringify(data.infos), now, now);
         for (const d of data.days) insertDay(db, cruiseId, d);
       } else if (c && c.action === 'update') {
         const existing = loadCruises(db, tripId).find((x) => x.id === c.cruiseId);
@@ -209,9 +248,10 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
           cabin: (c.data.cabin as string | null) ?? existing.cabin,
           bookingRef: (c.data.bookingRef as string | null) ?? existing.bookingRef,
           notes: existing.notes ?? (c.data.notes as string | null) ?? null,
+          infos: mergeInfos(existing.infos, infoList.parse(c.data.infos ?? [])),
         });
-        db.prepare('UPDATE cruises SET cruise_line = ?, cabin = ?, booking_ref = ?, notes = ?, updated_at = ? WHERE id = ?').run(
-          patch.cruiseLine, patch.cabin, patch.bookingRef, patch.notes, nowIso(), existing.id,
+        db.prepare('UPDATE cruises SET cruise_line = ?, cabin = ?, booking_ref = ?, notes = ?, infos = ?, updated_at = ? WHERE id = ?').run(
+          patch.cruiseLine, patch.cabin, patch.bookingRef, patch.notes, JSON.stringify(patch.infos), nowIso(), existing.id,
         );
         const days = z.array(cruiseDayInput).max(200).parse(c.data.days ?? []);
         for (const d of days) {
@@ -224,12 +264,12 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
             date: d.date, kind: d.kind,
             portName: d.portName ?? same.portName, country: d.country ?? same.country, timezone: d.timezone ?? same.timezone,
             arrival: d.arrival ?? same.arrival, departure: d.departure ?? same.departure, allAboard: d.allAboard ?? same.allAboard,
-            tender: d.tender || same.tender, notes: same.notes ?? d.notes,
+            tender: d.tender || same.tender, notes: same.notes ?? d.notes, infos: mergeInfos(same.infos, d.infos),
           };
           db.prepare(
             `UPDATE cruise_days SET date = ?, kind = ?, port_name = ?, country = ?, timezone = ?, arrival = ?, departure = ?,
-                    all_aboard = ?, tender = ?, notes = ? WHERE id = ?`,
-          ).run(m.date, m.kind, m.portName, m.country, m.timezone, m.arrival, m.departure, m.allAboard, m.tender ? 1 : 0, m.notes, same.id);
+                    all_aboard = ?, tender = ?, notes = ?, infos = ? WHERE id = ?`,
+          ).run(m.date, m.kind, m.portName, m.country, m.timezone, m.arrival, m.departure, m.allAboard, m.tender ? 1 : 0, m.notes, JSON.stringify(m.infos), same.id);
         }
       }
 
@@ -243,11 +283,11 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
           const now = nowIso();
           db.prepare(
             `INSERT INTO items (id, trip_id, type, title, start_local, start_tz, end_local, end_tz, location, confirmation, provider,
-                                cost, currency, notes, details, cruise_day_id, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                cost, currency, notes, details, cruise_day_id, infos, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           ).run(
             id, tripId, data.type, data.title, data.startLocal, data.startTz, data.endLocal, data.endTz, data.location,
-            data.confirmation, data.provider, data.cost, data.currency, data.notes, JSON.stringify(data.details), data.cruiseDayId, now, now,
+            data.confirmation, data.provider, data.cost, data.currency, data.notes, JSON.stringify(data.details), data.cruiseDayId, JSON.stringify(data.infos), now, now,
           );
           created.push(id);
         } else {
@@ -256,16 +296,16 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
           const existing = itemFromRow(existingRow);
           const base: ItemData = {
             type: existing.type, title: existing.title, startLocal: '', startTz: null, endLocal: null, endTz: null, location: null,
-            confirmation: null, provider: null, cost: null, currency: null, notes: null, cruiseDayId: null, details: {},
+            confirmation: null, provider: null, cost: null, currency: null, notes: null, cruiseDayId: null, details: {}, infos: [],
           };
           const merged = itemInput.parse(mergeItem(existing, { ...base, ...(entry.data as Partial<ItemData>) }));
           checkCruiseDay(db, tripId, merged.cruiseDayId);
           db.prepare(
             `UPDATE items SET title = ?, start_local = ?, start_tz = ?, end_local = ?, end_tz = ?, location = ?, confirmation = ?,
-                    provider = ?, cost = ?, currency = ?, notes = ?, details = ?, cruise_day_id = ?, updated_at = ? WHERE id = ?`,
+                    provider = ?, cost = ?, currency = ?, notes = ?, details = ?, cruise_day_id = ?, infos = ?, updated_at = ? WHERE id = ?`,
           ).run(
             merged.title, merged.startLocal, merged.startTz, merged.endLocal, merged.endTz, merged.location, merged.confirmation,
-            merged.provider, merged.cost, merged.currency, merged.notes, JSON.stringify(merged.details), merged.cruiseDayId, nowIso(), existing.id,
+            merged.provider, merged.cost, merged.currency, merged.notes, JSON.stringify(merged.details), merged.cruiseDayId, JSON.stringify(merged.infos), nowIso(), existing.id,
           );
           updated.push(existing.id);
         }
@@ -277,6 +317,9 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
 
       // 3) File the document under the first item it produced or updated.
       const primary = created[0] ?? updated[0] ?? null;
+      for (const m of groupMembers(req.params.id, tripId)) {
+        db.prepare("UPDATE attachments SET item_id = ?, analysis_status = 'applied', analysis = NULL WHERE id = ?").run(primary ?? m.item_id, m.id);
+      }
       db.prepare("UPDATE attachments SET item_id = ?, analysis_status = 'applied', analysis_error = NULL WHERE id = ?").run(
         primary ?? row.item_id, req.params.id,
       );

@@ -9,9 +9,9 @@ import { HttpError, newId, nowIso } from '../util.ts';
 export function insertDay(db: DB, cruiseId: string, d: CruiseDayInput): string {
   const id = newId();
   db.prepare(
-    `INSERT INTO cruise_days (id, cruise_id, date, kind, port_name, country, timezone, arrival, departure, all_aboard, tender, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(id, cruiseId, d.date, d.kind, d.portName, d.country, d.timezone, d.arrival, d.departure, d.allAboard, d.tender ? 1 : 0, d.notes);
+    `INSERT INTO cruise_days (id, cruise_id, date, kind, port_name, country, timezone, arrival, departure, all_aboard, tender, notes, infos)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, cruiseId, d.date, d.kind, d.portName, d.country, d.timezone, d.arrival, d.departure, d.allAboard, d.tender ? 1 : 0, d.notes, JSON.stringify(d.infos));
   return id;
 }
 
@@ -41,9 +41,9 @@ export function registerCruiseRoutes(app: FastifyInstance, { db }: Ctx) {
     const now = nowIso();
     tx(db, () => {
       db.prepare(
-        `INSERT INTO cruises (id, trip_id, ship_name, cruise_line, cabin, booking_ref, notes, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(id, tripId, input.shipName, input.cruiseLine, input.cabin, input.bookingRef, input.notes, now, now);
+        `INSERT INTO cruises (id, trip_id, ship_name, cruise_line, cabin, booking_ref, notes, infos, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(id, tripId, input.shipName, input.cruiseLine, input.cabin, input.bookingRef, input.notes, JSON.stringify(input.infos), now, now);
       for (const d of input.days) insertDay(db, id, d);
       touchTrip(db, tripId);
     });
@@ -58,8 +58,8 @@ export function registerCruiseRoutes(app: FastifyInstance, { db }: Ctx) {
     const input = cruiseInput.parse({ ...current, ...(req.body as object) });
     tx(db, () => {
       db.prepare(
-        'UPDATE cruises SET ship_name = ?, cruise_line = ?, cabin = ?, booking_ref = ?, notes = ?, updated_at = ? WHERE id = ?',
-      ).run(input.shipName, input.cruiseLine, input.cabin, input.bookingRef, input.notes, nowIso(), req.params.cruiseId);
+        'UPDATE cruises SET ship_name = ?, cruise_line = ?, cabin = ?, booking_ref = ?, notes = ?, infos = ?, updated_at = ? WHERE id = ?',
+      ).run(input.shipName, input.cruiseLine, input.cabin, input.bookingRef, input.notes, JSON.stringify(input.infos), nowIso(), req.params.cruiseId);
       touchTrip(db, tripId);
     });
     return findCruise(db, tripId, req.params.cruiseId);
@@ -97,8 +97,8 @@ export function registerCruiseRoutes(app: FastifyInstance, { db }: Ctx) {
     tx(db, () => {
       db.prepare(
         `UPDATE cruise_days SET date = ?, kind = ?, port_name = ?, country = ?, timezone = ?, arrival = ?, departure = ?,
-                all_aboard = ?, tender = ?, notes = ? WHERE id = ?`,
-      ).run(d.date, d.kind, d.portName, d.country, d.timezone, d.arrival, d.departure, d.allAboard, d.tender ? 1 : 0, d.notes, req.params.dayId);
+                all_aboard = ?, tender = ?, notes = ?, infos = ? WHERE id = ?`,
+      ).run(d.date, d.kind, d.portName, d.country, d.timezone, d.arrival, d.departure, d.allAboard, d.tender ? 1 : 0, d.notes, JSON.stringify(d.infos), req.params.dayId);
       touchTrip(db, row.trip_id);
     });
     return cruiseDayFromRow(dayRow(db, req.params.dayId));

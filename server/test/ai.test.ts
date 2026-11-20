@@ -18,17 +18,17 @@ const ctx: ExtractionContext = {
 const aiItem = (p: Partial<AiResult['items'][number]> = {}): AiResult['items'][number] => ({
   type: 'hotel', title: 'Hotel Artemide', startLocal: '2027-05-08T14:00', startTz: 'Europe/Rome', endLocal: '2027-05-10T10:00', endTz: null,
   location: null, confirmation: 'AB12345', provider: null, cost: null, currency: null, notes: null, cruiseDayId: null,
-  details: [], confidence: 'high', ...p,
+  details: [], infos: [], confidence: 'high', ...p,
 });
 const aiResult = (p: Partial<AiResult> = {}): AiResult => ({ suggestedTripTitle: null, documentKind: 'Hotelbuchung', summary: 'ok', items: [aiItem()], cruise: null, warnings: [], ...p });
 
 const item = (p: Partial<Item> & Pick<Item, 'id' | 'type' | 'startLocal'>): Item => ({
   tripId: 't', title: p.id, startTz: null, endLocal: null, endTz: null, location: null, confirmation: null, provider: null,
-  cost: null, currency: null, notes: null, cruiseDayId: null, details: {}, createdAt: '', updatedAt: '', ...p,
+  cost: null, currency: null, notes: null, cruiseDayId: null, details: {}, infos: [], createdAt: '', updatedAt: '', ...p,
 });
 const data = (p: Partial<ItemData> & Pick<ItemData, 'type' | 'startLocal'>): ItemData => ({
   title: 'x', startTz: null, endLocal: null, endTz: null, location: null, confirmation: null, provider: null, cost: null,
-  currency: null, notes: null, cruiseDayId: null, details: {}, ...p,
+  currency: null, notes: null, cruiseDayId: null, details: {}, infos: [], ...p,
 });
 
 describe('normalize', () => {
@@ -90,8 +90,8 @@ describe('matching', () => {
   });
 
   test('cruise: booking reference or ship name', () => {
-    const cruises: Cruise[] = [{ id: 'c', tripId: 't', shipName: 'MS Aurora', cruiseLine: null, cabin: null, bookingRef: 'AUR-4711', notes: null, days: [] }];
-    const p = { shipName: 'Andere', cruiseLine: null, cabin: null, bookingRef: 'aur4711', notes: null, days: [] };
+    const cruises: Cruise[] = [{ id: 'c', tripId: 't', shipName: 'MS Aurora', cruiseLine: null, cabin: null, bookingRef: 'AUR-4711', notes: null, infos: [], days: [] }];
+    const p = { shipName: 'Andere', cruiseLine: null, cabin: null, bookingRef: 'aur4711', notes: null, infos: [], days: [] };
     assert.equal(matchCruise(cruises, p)?.cruise.id, 'c');
     assert.equal(matchCruise(cruises, { ...p, bookingRef: null, shipName: 'ms aurora' })?.cruise.id, 'c');
     assert.equal(matchCruise(cruises, { ...p, bookingRef: null }), null);
@@ -134,7 +134,7 @@ describe('Anthropic extractor (fake client, no network)', () => {
 
   test('sends the PDF as a document block with context and structured output', async () => {
     const { calls, extractor } = make('claude-opus-5-5', ok);
-    const out = await extractor.extract({ data: Buffer.from('%PDF-1.4 x'), mime: 'application/pdf', filename: 'Buchung.pdf', context: ctx });
+    const out = await extractor.extract({ files: [{ data: Buffer.from('%PDF-1.4 x'), mime: 'application/pdf', filename: 'Buchung.pdf' }], context: ctx });
     assert.equal(out.items[0]!.title, 'Hotel Artemide');
     const req = calls[0];
     assert.equal(req.model, 'claude-opus-5-5');
@@ -152,22 +152,38 @@ describe('Anthropic extractor (fake client, no network)', () => {
 
   test('text files and images', async () => {
     const { calls, extractor } = make('claude-sonnet-5-5', ok);
-    await extractor.extract({ data: Buffer.from('Betreff: Buchung'), mime: 'message/rfc822', filename: 'm.eml', context: ctx });
+    await extractor.extract({ files: [{ data: Buffer.from('Betreff: Buchung'), mime: 'message/rfc822', filename: 'm.eml' }], context: ctx });
     assert.equal(calls[0].messages[0].content[0].type, 'text');
     assert.match(calls[0].messages[0].content[0].text, /Betreff: Buchung/);
-    await extractor.extract({ data: Buffer.from('jpg'), mime: 'application/octet-stream', filename: 'foto.png', context: ctx });
+    await extractor.extract({ files: [{ data: Buffer.from('jpg'), mime: 'application/octet-stream', filename: 'foto.png' }], context: ctx });
     assert.equal(calls[1].messages[0].content[0].source.media_type, 'image/png');
+  });
+
+  test('several files go into one request with labels and a hint that they belong together', async () => {
+    const { calls, extractor } = make('claude-opus-5-5', ok);
+    await extractor.extract({
+      files: [
+        { data: Buffer.from('a'), mime: 'image/png', filename: 'Screenshot 1.png' },
+        { data: Buffer.from('b'), mime: 'image/png', filename: 'Screenshot 2.png' },
+        { data: Buffer.from('Eingefügter Text'), mime: 'text/plain', filename: 'Text.txt' },
+      ],
+      context: ctx,
+    });
+    const content = calls[0].messages[0].content;
+    assert.deepEqual(content.map((b: any) => b.type), ['text', 'image', 'text', 'image', 'text', 'text', 'text']);
+    assert.equal(content[0].text, 'Datei 1 von 3: Screenshot 1.png');
+    assert.match(content.at(-1).text, /3 Dateien gehören zu EINER Unterlage/);
   });
 
   test('haiku gets no fallback parameters', async () => {
     const { calls, extractor } = make('claude-haiku-5-5', ok);
-    await extractor.extract({ data: Buffer.from('x'), mime: 'text/plain', filename: 'a.txt', context: ctx });
+    await extractor.extract({ files: [{ data: Buffer.from('x'), mime: 'text/plain', filename: 'a.txt' }], context: ctx });
     assert.equal(calls[0].fallbacks, undefined);
     assert.equal(calls[0].betas, undefined);
   });
 
   test('refusal, truncated and unreadable answers become readable errors', async () => {
-    const input = { data: Buffer.from('x'), mime: 'text/plain', filename: 'a.txt', context: ctx };
+    const input = { files: [{ data: Buffer.from('x'), mime: 'text/plain', filename: 'a.txt' }], context: ctx };
     await assert.rejects(make('m', { stop_reason: 'refusal', parsed_output: null }).extractor.extract(input), /abgelehnt/);
     await assert.rejects(make('m', { stop_reason: 'max_tokens', parsed_output: null }).extractor.extract(input), /zu viele Daten/);
     await assert.rejects(make('m', { stop_reason: 'end_turn', parsed_output: null }).extractor.extract(input), /nicht gelesen/);
@@ -175,8 +191,8 @@ describe('Anthropic extractor (fake client, no network)', () => {
 
   test('unsupported or oversized files are rejected before any request', async () => {
     const { calls, extractor } = make('m', ok);
-    await assert.rejects(extractor.extract({ data: Buffer.from('x'), mime: 'application/zip', filename: 'a.pkpass', context: ctx }), ExtractionError);
-    await assert.rejects(extractor.extract({ data: Buffer.alloc(6 * 1024 * 1024), mime: 'image/jpeg', filename: 'a.jpg', context: ctx }), /zu groß/);
+    await assert.rejects(extractor.extract({ files: [{ data: Buffer.from('x'), mime: 'application/zip', filename: 'a.pkpass' }], context: ctx }), ExtractionError);
+    await assert.rejects(extractor.extract({ files: [{ data: Buffer.alloc(6 * 1024 * 1024), mime: 'image/jpeg', filename: 'a.jpg' }], context: ctx }), /zu groß/);
     assert.equal(calls.length, 0);
   });
 });

@@ -91,6 +91,8 @@ Bei `disembarkation` bedeutet `departure` „von Bord bis“.
   "details": { "flightNumber": "LX 1726", "from": "ZRH", "to": "FCO", "seat": "12A" }
 }
 ```
+`infos` (Eintrag, Kreuzfahrt-Tag und Kreuzfahrt): Liste `{label, value, kind: phone|emergency|email|link|text, source: user|document|ai}`, höchstens 30. `source: "ai"` markiert Angaben aus dem allgemeinen Wissen der KI (z. B. Notrufnummer eines Landes), die der Nutzer prüfen soll. Beim Aktualisieren aus einem Dokument werden Infos zusammengeführt, gleiche Bezeichnung mit gleicher Nummer wird nicht doppelt angelegt.
+
 Übliche `details`: Flug `airline, flightNumber, from, to, terminal, seat` · Zug `trainNumber, from, to, seat` ·
 Transfer `mode, from, to, phone` · Hotel `room, phone, breakfast` · Parkplatz `lot, plate, shuttle` (Beginn = Einfahrt, Ende = Ausfahrt) · Ausflug `bookedVia: "ship"|"private", meetingPoint`.
 
@@ -111,14 +113,17 @@ Setzt `ANTHROPIC_API_KEY` auf dem Server voraus. `GET /ai/status` zeigt, ob sie 
 | GET | `/ai/status` | – | `{enabled, model}` |
 | POST | `/ai/check` | Admin | Testanfrage an die Claude-API; 502 mit Klartext bei Schlüssel-/Netzwerkproblem |
 | POST | `/trips/:id/documents?itemId=` | editor | `multipart/form-data` (Feld `file`), speichert und analysiert. Antwort: `{attachment, aiEnabled, analyzable}`; die Anfrage dauert bis zum Ende der Analyse (bis ca. 1 Minute) |
-| POST | `/attachments/:id/analyze` | editor | Analyse erneut starten |
+| POST | `/trips/:id/documents/group` | editor | `{attachmentIds: [2..10]}` bereits hochgeladener Dateien (über `POST /trips/:id/attachments`) als **eine** Unterlage auswerten. Die erste ID führt: sie trägt die Vorschläge, die übrigen haben `analysisStatus: "grouped"`, folgen beim Übernehmen oder Verwerfen und erscheinen nicht im Posteingang. Antwort `{attachment, memberIds}` |
+| POST | `/attachments/:id/analyze` | editor | Analyse erneut starten (bei einer Gruppe weiterhin mit allen Dateien) |
 | GET | `/attachments/:id/analysis` | viewer | Vorschläge: `{status, attachment, documentKind, summary, warnings, items[], cruise}` |
 | POST | `/attachments/:id/apply` | editor | Vorschläge übernehmen (siehe unten), alles in einer Transaktion |
 | POST | `/attachments/:id/dismiss` | editor | Dokument ohne Übernahme behalten |
 
-`Attachment.analysisStatus`: `null` (nie analysiert) · `pending` · `done` (Vorschläge warten) · `failed` (`analysisError` nennt den Grund) · `applied` · `dismissed`.
+`Attachment.analysisStatus`: `null` (nie analysiert) · `pending` · `grouped` (Teil einer gemeinsamen Auswertung) · `done` (Vorschläge warten) · `failed` (`analysisError` nennt den Grund) · `applied` · `dismissed`.
 
 `suggestedTripTitle` (oder `null`) ist ein Vorschlag für den Reisenamen, den die Web-App beim Start einer Reise aus Dokumenten übernimmt.
+
+`files[]` nennt die gelesenen Dateien `{id, filename}`; mehr als eine, wenn sie zusammen ausgewertet wurden.
 
 `items[]` der Analyse: `{index, data, confidence: high|medium|low, match: {itemId, title, reason, changes[]} | null, problems[]}`.
 `match` verweist auf einen vorhandenen Eintrag derselben Buchung. `cruise`: `{data, match, newDays, updatedDays, problems[]}`.

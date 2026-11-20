@@ -7,16 +7,19 @@ import type { AiResult } from '../src/ai/schema.ts';
 const item = (p: Partial<AiResult['items'][number]> = {}): AiResult['items'][number] => ({
   type: 'hotel', title: 'Hotel Artemide', startLocal: '2027-05-08T14:00', startTz: 'Europe/Rome', endLocal: '2027-05-10T10:00', endTz: null,
   location: 'Via Nazionale 22, Rom', confirmation: 'AB12345', provider: 'Artemide', cost: 410, currency: 'EUR', notes: null, cruiseDayId: null,
-  details: [{ key: 'room', value: '12' }], confidence: 'high', ...p,
+  details: [{ key: 'room', value: '12' }], infos: [], confidence: 'high', ...p,
 });
 const result = (p: Partial<AiResult> = {}): AiResult => ({ suggestedTripTitle: 'Mittelmeer mit MS Aurora', documentKind: 'Hotelbuchung', summary: 'Hotel in Rom', items: [item()], cruise: null, warnings: [], ...p });
 
 describe('document inbox', () => {
   // What the fake "AI" returns is chosen per file name, so every test controls its own document.
   const replies = new Map<string, (ctx: Parameters<Extractor['extract']>[0]['context']) => AiResult>();
+  let lastFileCount = 0;
   const extractor: Extractor = {
     model: 'fake-model',
-    async extract({ filename, context }) {
+    async extract({ files, context }) {
+      lastFileCount = files.length;
+      const filename = files[0]!.filename;
       const reply = replies.get(filename);
       if (!reply) throw new ExtractionError('Test: keine Antwort vorbereitet');
       return reply(context);
@@ -104,10 +107,10 @@ describe('document inbox', () => {
         documentKind: 'Kreuzfahrt',
         items: [],
         cruise: {
-          shipName: 'MS Aurora', cruiseLine: 'Beispiel', cabin: '8142', bookingRef: 'AUR-4711', notes: null,
+          shipName: 'MS Aurora', cruiseLine: 'Beispiel', cabin: '8142', bookingRef: 'AUR-4711', notes: null, infos: [],
           days: [
-            { date: '2027-05-10', kind: 'embarkation', portName: 'Civitavecchia', country: 'Italien', timezone: 'Europe/Rome', arrival: '12:00', departure: '18:00', allAboard: '17:30', tender: false, notes: null },
-            { date: '2027-05-11', kind: 'port', portName: 'Neapel', country: 'Italien', timezone: 'Europe/Rome', arrival: '07:00', departure: '17:00', allAboard: '16:30', tender: false, notes: null },
+            { date: '2027-05-10', kind: 'embarkation', portName: 'Civitavecchia', country: 'Italien', timezone: 'Europe/Rome', arrival: '12:00', departure: '18:00', allAboard: '17:30', tender: false, notes: null, infos: [] },
+            { date: '2027-05-11', kind: 'port', portName: 'Neapel', country: 'Italien', timezone: 'Europe/Rome', arrival: '07:00', departure: '17:00', allAboard: '16:30', tender: false, notes: null, infos: [] },
           ],
         },
       }),
@@ -157,9 +160,9 @@ describe('document inbox', () => {
     assert.equal((await ctx.call('GET', `/api/trips/${t2}`, admin)).body.items[0].cruiseDayId, null);
 
     replies.set('dann-schiff.pdf', () =>
-      result({ items: [], cruise: { shipName: 'MS Nordlicht', cruiseLine: null, cabin: null, bookingRef: null, notes: null, days: [
-        { date: '2027-06-01', kind: 'embarkation', portName: 'Kiel', country: null, timezone: 'Europe/Berlin', arrival: null, departure: '17:00', allAboard: '16:30', tender: false, notes: null },
-        { date: '2027-06-02', kind: 'port', portName: 'Oslo', country: 'Norwegen', timezone: 'Europe/Oslo', arrival: '08:00', departure: '18:00', allAboard: '17:30', tender: false, notes: null },
+      result({ items: [], cruise: { shipName: 'MS Nordlicht', cruiseLine: null, cabin: null, bookingRef: null, notes: null, infos: [], days: [
+        { date: '2027-06-01', kind: 'embarkation', portName: 'Kiel', country: null, timezone: 'Europe/Berlin', arrival: null, departure: '17:00', allAboard: '16:30', tender: false, notes: null, infos: [] },
+        { date: '2027-06-02', kind: 'port', portName: 'Oslo', country: 'Norwegen', timezone: 'Europe/Oslo', arrival: '08:00', departure: '18:00', allAboard: '17:30', tender: false, notes: null, infos: [] },
       ] } }),
     );
     const ship = await sendTo('dann-schiff.pdf');
@@ -181,6 +184,79 @@ describe('document inbox', () => {
     assert.equal((await ctx.call('GET', `/api/trips/${t3}`, admin)).body.items.length, 3, 'nothing deleted by the failed call');
     assert.equal((await ctx.call('POST', `/api/trips/${t3}/items/delete`, admin, { ids: [a, b] })).status, 204);
     assert.deepEqual((await ctx.call('GET', `/api/trips/${t3}`, admin)).body.items.map((i: any) => i.id), [c]);
+  });
+
+  test('additional infos from a document land on the matching entry and merge without duplicates', async () => {
+    const t4 = (await ctx.call('POST', '/api/trips', admin, { title: 'Infos' })).body.trip.id;
+    const sendTo = (name: string) => upload(ctx.app, admin, `/api/trips/${t4}/documents`, name, 'application/pdf', '%PDF-1.4 x');
+    replies.set('infos1.pdf', () =>
+      result({ items: [item({ confirmation: 'ZZ99001', infos: [
+        { label: 'Rezeption', value: '+39 06 1234', kind: 'phone', source: 'document' },
+        { label: 'Notruf Italien', value: '112 (Polizei, Rettung, Feuerwehr)', kind: 'emergency', source: 'ai' },
+      ] })] }),
+    );
+    const first = await sendTo('infos1.pdf');
+    const a1 = (await ctx.call('GET', `/api/attachments/${first.body.attachment.id}/analysis`, admin)).body;
+    assert.equal(a1.items[0].data.infos.length, 2);
+    await ctx.call('POST', `/api/attachments/${first.body.attachment.id}/apply`, admin, { items: [{ action: 'create', data: a1.items[0].data }] });
+    const stored = (await ctx.call('GET', `/api/trips/${t4}`, admin)).body.items[0];
+    assert.deepEqual(stored.infos.map((i: any) => [i.label, i.kind, i.source]), [['Rezeption', 'phone', 'document'], ['Notruf Italien', 'emergency', 'ai']]);
+
+    replies.set('infos2.pdf', () =>
+      result({ items: [item({ confirmation: 'ZZ99001', infos: [
+        { label: 'Rezeption', value: '+39 06 12 34', kind: 'phone', source: 'document' },
+        { label: 'Frühstück', value: 'ab 7:00 im Erdgeschoss', kind: 'text', source: 'document' },
+      ] })] }),
+    );
+    const second = await sendTo('infos2.pdf');
+    const a2 = (await ctx.call('GET', `/api/attachments/${second.body.attachment.id}/analysis`, admin)).body;
+    assert.ok(a2.items[0].match.changes.includes('1 Zusatzinfo ergänzt'), 'same number with other spacing is not new');
+    await ctx.call('POST', `/api/attachments/${second.body.attachment.id}/apply`, admin, { items: [{ action: 'update', itemId: a2.items[0].match.itemId, data: a2.items[0].data }] });
+    const merged = (await ctx.call('GET', `/api/trips/${t4}`, admin)).body.items[0];
+    assert.deepEqual(merged.infos.map((i: any) => i.label), ['Rezeption', 'Notruf Italien', 'Frühstück']);
+  });
+
+  test('several files analysed together act as one document and follow the lead', async () => {
+    const t5 = (await ctx.call('POST', '/api/trips', admin, { title: 'Screenshots' })).body.trip.id;
+    const plain = async (name: string, mime = 'image/png') => (await upload(ctx.app, admin, `/api/trips/${t5}/attachments`, name, mime, 'bild')).body.id as string;
+    const [a, b, c] = [await plain('s1.png'), await plain('s2.png'), await plain('s3.png')];
+    replies.set('s1.png', () => result({ items: [item({ confirmation: 'SC12345' })] }));
+
+    const grouped = await ctx.call('POST', `/api/trips/${t5}/documents/group`, admin, { attachmentIds: [a, b, c] });
+    assert.equal(grouped.status, 200);
+    assert.equal(lastFileCount, 3, 'one extraction request with all files');
+    assert.equal(grouped.body.attachment.id, a);
+    const state = (await ctx.call('GET', `/api/trips/${t5}`, admin)).body.attachments;
+    assert.deepEqual(state.map((x: any) => [x.id === a ? 'lead' : 'member', x.analysisStatus]), [['lead', 'done'], ['member', 'grouped'], ['member', 'grouped']]);
+
+    const view = (await ctx.call('GET', `/api/attachments/${a}/analysis`, admin)).body;
+    assert.deepEqual(view.files.map((f: any) => f.filename), ['s1.png', 's2.png', 's3.png']);
+    await ctx.call('POST', `/api/attachments/${a}/apply`, admin, { items: [{ action: 'create', data: view.items[0].data }] });
+    const after = (await ctx.call('GET', `/api/trips/${t5}`, admin)).body;
+    const itemId = after.items[0].id;
+    assert.deepEqual(after.attachments.map((x: any) => [x.itemId, x.analysisStatus]), [[itemId, 'applied'], [itemId, 'applied'], [itemId, 'applied']]);
+  });
+
+  test('group analysis: dismiss takes members along, unreadable files and foreign ids are rejected, a failure can be retried', async () => {
+    const t6 = (await ctx.call('POST', '/api/trips', admin, { title: 'Gruppe 2' })).body.trip.id;
+    const plain = async (name: string, mime: string) => (await upload(ctx.app, admin, `/api/trips/${t6}/attachments`, name, mime, 'x')).body.id as string;
+    const [a, b] = [await plain('g1.pdf', 'application/pdf'), await plain('g2.pdf', 'application/pdf')];
+    const zip = await plain('wallet.pkpass', 'application/vnd.apple.pkpass');
+
+    assert.equal((await ctx.call('POST', `/api/trips/${t6}/documents/group`, admin, { attachmentIds: [a, zip] })).status, 400, 'unreadable type');
+    assert.equal((await ctx.call('POST', `/api/trips/${t6}/documents/group`, admin, { attachmentIds: [a, 'fremd'] })).status, 400, 'foreign id');
+    assert.equal((await ctx.call('POST', `/api/trips/${t6}/documents/group`, admin, { attachmentIds: [a] })).status, 400, 'needs two');
+    assert.equal((await ctx.call('POST', `/api/trips/${t6}/documents/group`, viewer, { attachmentIds: [a, b] })).status, 404, 'not a member of this trip');
+
+    const failed = await ctx.call('POST', `/api/trips/${t6}/documents/group`, admin, { attachmentIds: [a, b] }); // no reply prepared → error
+    assert.equal(failed.body.attachment.analysisStatus, 'failed');
+    replies.set('g1.pdf', () => result());
+    const retry = await ctx.call('POST', `/api/attachments/${a}/analyze`, admin);
+    assert.equal(retry.body.analysisStatus, 'done');
+    assert.equal(lastFileCount, 2, 'the retry still analyses both files');
+    await ctx.call('POST', `/api/attachments/${a}/dismiss`, admin);
+    const states = (await ctx.call('GET', `/api/trips/${t6}`, admin)).body.attachments.filter((x: any) => x.id !== zip).map((x: any) => x.analysisStatus);
+    assert.deepEqual(states, ['dismissed', 'dismissed']);
   });
 
   test('apply validates again; one bad entry rolls everything back', async () => {

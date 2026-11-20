@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { classifyFile, imageMediaType, MAX_IMAGE_BYTES, MAX_PDF_BYTES, MAX_TEXT_CHARS } from './files.ts';
 import { aiResultSchema, type AiResult } from './schema.ts';
-import { ExtractionError, type ExtractInput, type Extractor } from './types.ts';
+import { ExtractionError, type ExtractInput, type Extractor, type InputFile } from './types.ts';
 
 export const SYSTEM_PROMPT = `Du liest Reiseunterlagen (Buchungsbestätigungen, E-Tickets, Bordkarten, Hotel- und Parkplatzbuchungen, Transfer-Vouchers, Kreuzfahrt-Reisepläne, Rechnungen, E-Mails) für einen Reiseplaner und gibst die Daten strukturiert zurück.
 
@@ -31,6 +31,13 @@ Einträge (items), ein Eintrag pro Leistung:
 - excursion: Landausflug während einer Kreuzfahrt. details: bookedVia ("ship" wenn über die Reederei, "private" wenn privat gebucht), meetingPoint. Gehört er zu einem der unten angegebenen Kreuzfahrt-Tage (gleiches Datum und Hafen), setze cruiseDayId auf dessen id, sonst null.
 - activity: Eintrittskarten, Führungen, Veranstaltungen. restaurant: Reservierungen. note: wichtige Information ohne Termin-Charakter, nur wenn nichts anderes passt.
 
+Zusatzinfos (infos) gehören an den Reisepunkt, zu dem sie passen (Eintrag, Hafentag oder die Kreuzfahrt selbst). Jede Info hat label (z. B. "Rezeption", "Notruf Italien"), value und kind:
+- phone: Telefonnummer, emergency: Notrufnummer, email: E-Mail-Adresse, link: Internetadresse, text: sonstiger Hinweis (z. B. "Check-in nur bis 22 Uhr", "Gepäckabgabe Terminal 2").
+- source "document": steht so im Dokument (Hotelrezeption, Reederei-Hotline, Treffpunkt-Handy des Reiseleiters, Notfallnummer der Reederei, Ansprechpartner vor Ort). Nummern exakt abschreiben, mit Ländervorwahl wenn angegeben.
+- source "ai": nur für die Notrufnummern des Landes, aus deinem allgemeinen Wissen. Das Land muss sich eindeutig aus dem Ort ergeben. Bei hotel, parking, car_rental, excursion, activity, restaurant und bei Hafentagen (embarkation, port, disembarkation) ergänze genau eine Info kind=emergency, source=ai mit label "Notruf <Land>" und value wie "112 (Polizei, Rettung, Feuerwehr)". Gib so eine Nummer nur an, wenn du sie sicher kennst, sonst lass sie weg. Erfinde nie eine Nummer.
+- Keine Infos für flight, train, bus, ferry, transfer und note, außer sie stehen im Dokument.
+- Wiederhole dieselbe Info nicht an mehreren Punkten, wenn sie nur an einen gehört.
+
 Kreuzfahrt (cruise): Nur wenn das Dokument die Kreuzfahrt selbst beschreibt (Buchungsbestätigung, Routenplan, Reiseplan). Dann shipName, cruiseLine, cabin, bookingRef und alle Tage der Route in days:
 - kind: embarkation (Einschiffungstag), port (Hafentag), sea (Seetag), disembarkation (Ausschiffungstag).
 - arrival/departure als HH:MM in Hafenzeit, allAboard ("Alle an Bord") nur wenn angegeben, tender true nur wenn das Dokument Tenderhafen/Ausbooten nennt. timezone des Hafens als IANA-Name oder null.
@@ -51,7 +58,9 @@ function contextText(input: ExtractInput): string {
     `Standard-Zeitzone des Nutzers: ${c.defaultTz}`,
     `Reise: ${c.tripTitle}`,
     `Bereits angelegte Kreuzfahrt-Tage dieser Reise (für cruiseDayId bei Landausflügen):\n${days}`,
-    `Dateiname: ${input.filename}`,
+    input.files.length > 1
+      ? `Die ${input.files.length} Dateien gehören zu EINER Unterlage (${input.files.map((f) => f.filename).join(', ')}). Lies sie zusammen, fasse sie zu einer Auswertung zusammen und lege nichts doppelt an.`
+      : `Dateiname: ${input.files[0]?.filename ?? ''}`,
     'Lies das Dokument und gib die Daten zurück.',
   ].join('\n\n');
 }
@@ -75,7 +84,7 @@ export function createAnthropicExtractor(opts: { apiKey: string; model: string; 
   // Haiku has no server-side refusal fallback; for every other model we opt in.
   const useFallback = !/haiku/i.test(model);
 
-  const documentBlock = (input: ExtractInput): Anthropic.Beta.BetaContentBlockParam => {
+  const documentBlock = (input: InputFile): Anthropic.Beta.BetaContentBlockParam => {
     const kind = classifyFile(input.mime, input.filename);
     if (kind === 'pdf') {
       if (input.data.length > MAX_PDF_BYTES) throw new ExtractionError('Das PDF ist zu groß für die Analyse (max. 20 MB).');
@@ -100,7 +109,15 @@ export function createAnthropicExtractor(opts: { apiKey: string; model: string; 
     model,
 
     async extract(input) {
-      const content: Anthropic.Beta.BetaContentBlockParam[] = [documentBlock(input), { type: 'text', text: contextText(input) }];
+      if (input.files.length === 0) throw new ExtractionError('Keine Datei zum Lesen übergeben.');
+      const many = input.files.length > 1;
+      const content: Anthropic.Beta.BetaContentBlockParam[] = [
+        ...input.files.flatMap((f, n): Anthropic.Beta.BetaContentBlockParam[] => [
+          ...(many ? [{ type: 'text' as const, text: `Datei ${n + 1} von ${input.files.length}: ${f.filename}` }] : []),
+          documentBlock(f),
+        ]),
+        { type: 'text', text: contextText(input) },
+      ];
       const response = await client.beta.messages.parse({
         model,
         max_tokens: 16000,

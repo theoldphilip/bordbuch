@@ -36,6 +36,33 @@ export const SPAN_TYPES: readonly ItemType[] = ['hotel', 'car_rental', 'parking'
 export const CRUISE_DAY_KINDS = ['embarkation', 'port', 'sea', 'disembarkation'] as const;
 export type CruiseDayKind = (typeof CRUISE_DAY_KINDS)[number];
 
+// ---------- additional information (phone numbers, emergency numbers, hints) ----------
+export const INFO_KINDS = ['phone', 'emergency', 'email', 'link', 'text'] as const;
+export const INFO_SOURCES = ['user', 'document', 'ai'] as const;
+
+export const infoInput = z.object({
+  label: text(80).min(1),
+  value: text(500).min(1),
+  kind: z.enum(INFO_KINDS).default('text'),
+  /** user = typed in, document = read from a document, ai = general knowledge of the model (must be verified). */
+  source: z.enum(INFO_SOURCES).default('user'),
+});
+export const infoList = z.array(infoInput).max(30).default([]);
+export type Info = z.infer<typeof infoInput>;
+
+const infoKey = (i: Info) => `${i.label.toLowerCase()}|${i.value.toLowerCase().replace(/[^a-z0-9+]/g, '')}`;
+/** Existing infos first, new ones appended unless the same label and value are already there. */
+export function mergeInfos(existing: Info[], added: Info[]): Info[] {
+  const seen = new Set(existing.map(infoKey));
+  const result = [...existing];
+  for (const i of added) {
+    if (seen.has(infoKey(i))) continue;
+    seen.add(infoKey(i));
+    result.push(i);
+  }
+  return result.slice(0, 30);
+}
+
 // ---------- auth / users ----------
 export const username = z
   .string()
@@ -99,6 +126,7 @@ export const cruiseDayInput = z.object({
   allAboard: optTime,
   tender: z.boolean().default(false),
   notes: optText(5000),
+  infos: infoList,
 });
 export type CruiseDayInput = z.infer<typeof cruiseDayInput>;
 
@@ -108,6 +136,7 @@ export const cruiseInput = z.object({
   cabin: optText(60),
   bookingRef: optText(80),
   notes: optText(10000),
+  infos: infoList,
 });
 export type CruiseInput = z.infer<typeof cruiseInput>;
 
@@ -143,6 +172,8 @@ export const itemInput = z
      *  hotel:     { room, address, phone }
      */
     details: z.record(z.string(), z.unknown()).default({}),
+    /** Phone numbers, emergency numbers, hints for this place. */
+    infos: infoList,
   })
   .superRefine((v, ctx) => {
     if (v.endLocal && /^\d{4}-\d{2}-\d{2}/.test(v.startLocal) && v.endLocal < v.startLocal && (v.endTz ?? v.startTz) === v.startTz) {

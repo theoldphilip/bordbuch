@@ -3,6 +3,7 @@ import { api, errorMessage } from '../api.ts';
 import { DAY_KINDS, addDays } from '../format.ts';
 import type { Cruise, CruiseDay, CruiseDayKind } from '../types.ts';
 import { ErrorBox, Field, Modal, TimezoneInput } from './ui.tsx';
+import { InfoEditor } from './InfoEditor.tsx';
 
 export function CruiseForm({ tripId, cruise, onClose, onSaved }: { tripId: string; cruise?: Cruise; onClose: () => void; onSaved: () => void }) {
   const [shipName, setShipName] = useState(cruise?.shipName ?? '');
@@ -10,6 +11,7 @@ export function CruiseForm({ tripId, cruise, onClose, onSaved }: { tripId: strin
   const [cabin, setCabin] = useState(cruise?.cabin ?? '');
   const [bookingRef, setBookingRef] = useState(cruise?.bookingRef ?? '');
   const [notes, setNotes] = useState(cruise?.notes ?? '');
+  const [infos, setInfos] = useState(cruise?.infos ?? []);
   // Route generator (new cruises only)
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -25,7 +27,7 @@ export function CruiseForm({ tripId, cruise, onClose, onSaved }: { tripId: strin
   const save = async () => {
     setError(null);
     if (!shipName.trim()) return setError('Bitte den Schiffsnamen angeben.');
-    const base = { shipName, cruiseLine: cruiseLine || null, cabin: cabin || null, bookingRef: bookingRef || null, notes: notes || null };
+    const base = { shipName, cruiseLine: cruiseLine || null, cabin: cabin || null, bookingRef: bookingRef || null, notes: notes || null, infos: infos.filter((i) => i.label.trim() && i.value.trim()) };
     setBusy(true);
     try {
       if (cruise) {
@@ -90,6 +92,10 @@ export function CruiseForm({ tripId, cruise, onClose, onSaved }: { tripId: strin
             {nights > 0 && <p className="muted wide">{nights} Nächte · es werden {nights + 1} Tage angelegt (Zwischentage zunächst als Seetage).</p>}
           </>
         )}
+        <div className="wide">
+          <h3 className="form-section">Zusatzinfos <small>z. B. Notfallnummer der Reederei, Hotline</small></h3>
+          <InfoEditor infos={infos} onChange={setInfos} />
+        </div>
         <Field label="Notizen" wide><textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
       </div>
       <ErrorBox error={error} />
@@ -109,6 +115,7 @@ export function CruiseDayForm({ cruise, day, onSubmit, onClose, onSaved }: { cru
   const [allAboard, setAllAboard] = useState(day?.allAboard ?? '');
   const [tender, setTender] = useState(day?.tender ?? false);
   const [notes, setNotes] = useState(day?.notes ?? '');
+  const [infos, setInfos] = useState(day?.infos ?? []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -141,6 +148,7 @@ export function CruiseDayForm({ cruise, day, onSubmit, onClose, onSaved }: { cru
       allAboard: isSea || kind === 'disembarkation' ? null : allAboard || null,
       tender: !isSea && tender,
       notes: notes || null,
+      infos: infos.filter((i) => i.label.trim() && i.value.trim()),
     };
     setBusy(true);
     try {
@@ -208,6 +216,10 @@ export function CruiseDayForm({ cruise, day, onSubmit, onClose, onSaved }: { cru
             )}
           </>
         )}
+        <div className="wide">
+          <h3 className="form-section">Zusatzinfos <small>z. B. Notrufnummer, Agentur vor Ort</small></h3>
+          <InfoEditor infos={infos} onChange={setInfos} />
+        </div>
         <Field label="Notizen" wide><textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={isSea ? 'z. B. Kapitänsdinner' : ''} /></Field>
       </div>
       <ErrorBox error={error} />

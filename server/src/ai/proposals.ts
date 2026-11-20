@@ -4,7 +4,7 @@
  * and for a cruise it looks for an existing cruise to merge into. Pure functions, no DB access.
  */
 import type { Cruise, Item } from '../model.ts';
-import { cruiseDayInput, itemInput } from '../schemas.ts';
+import { cruiseDayInput, itemInput, mergeInfos } from '../schemas.ts';
 import type { CruiseData, ItemData, NormalizedExtraction } from './types.ts';
 
 const normId = (s: string | null | undefined): string => (s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -103,6 +103,8 @@ export function diffItem(existing: Item, p: ItemData): string[] {
     if (prev !== v) changes.push(`${k}: ${show(prev)} → ${show(v)}`);
   }
   if (p.notes && !existing.notes) changes.push('Notizen ergänzt');
+  const newInfos = mergeInfos(existing.infos, p.infos).length - existing.infos.length;
+  if (newInfos > 0) changes.push(`${newInfos} Zusatzinfo${newInfos > 1 ? 's' : ''} ergänzt`);
   return changes;
 }
 
@@ -123,6 +125,7 @@ export function mergeItem(existing: Item, p: ItemData) {
     notes: existing.notes ?? p.notes,
     cruiseDayId: p.cruiseDayId ?? existing.cruiseDayId,
     details: { ...existing.details, ...p.details },
+    infos: mergeInfos(existing.infos, p.infos),
   };
 }
 

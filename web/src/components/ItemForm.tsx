@@ -3,6 +3,7 @@ import { api, errorMessage } from '../api.ts';
 import { DAY_KINDS, ITEM_TYPES, endLabel, fmtDayHeader, startLabel } from '../format.ts';
 import type { Cruise, Item, ItemType } from '../types.ts';
 import { ErrorBox, Field, Modal, TimezoneInput } from './ui.tsx';
+import { InfoEditor } from './InfoEditor.tsx';
 
 type DetailField = { key: string; label: string; placeholder?: string };
 const DETAIL_FIELDS: Partial<Record<ItemType, DetailField[]>> = {
@@ -68,6 +69,9 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
   const [currency, setCurrency] = useState(item?.currency ?? 'CHF');
   const [notes, setNotes] = useState(item?.notes ?? '');
   const [cruiseDayId, setCruiseDayId] = useState(item?.cruiseDayId ?? initialCruiseDayId ?? '');
+  const [infos, setInfos] = useState(item?.infos ?? []);
+  // Where the infos sit is decided once, so the editor does not jump while the first one is added.
+  const [infosOnTop] = useState((item?.infos?.length ?? 0) > 0);
   const [details, setDetails] = useState<Record<string, string | undefined>>(item?.details ?? (type === 'excursion' ? { bookedVia: 'ship' } : {}));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -106,6 +110,7 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
       notes: notes || null,
       cruiseDayId: canLink && cruiseDayId ? cruiseDayId : null,
       details: Object.fromEntries(Object.entries(details).filter(([, v]) => v)),
+      infos: infos.filter((i) => i.label.trim() && i.value.trim()),
     };
     setBusy(true);
     try {
@@ -136,6 +141,12 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
   };
 
   const tzPlaceholder = linkedDay?.timezone ?? 'Standard';
+  const infoSection = (
+    <div className="wide">
+      <h3 className="form-section">Zusatzinfos <small>Notrufnummern, Telefon, Hinweise zu diesem Punkt</small></h3>
+      <InfoEditor infos={infos} onChange={setInfos} />
+    </div>
+  );
 
   return (
     <Modal
@@ -167,6 +178,7 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
         <Field label="Titel" wide>
           <input value={title} onChange={(ev) => setTitle(ev.target.value)} placeholder={type === 'flight' ? 'Zürich → Rom' : type === 'hotel' ? 'Hotel Artemide' : type === 'parking' ? 'Parkhaus Flughafen' : type === 'transfer' ? 'Taxi zum Hafen' : ''} autoFocus={!item} />
         </Field>
+        {infosOnTop && infoSection}
 
         {canLink && (
           <Field label="Kreuzfahrt-Tag" wide hint={type === 'excursion' ? 'Damit wird die „Alle an Bord“-Zeit geprüft.' : undefined}>
@@ -247,6 +259,7 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
             </Field>
           </>
         )}
+        {!infosOnTop && infoSection}
         <Field label="Notizen" wide>
           <textarea rows={3} value={notes} onChange={(ev) => setNotes(ev.target.value)} />
         </Field>

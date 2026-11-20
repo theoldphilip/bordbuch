@@ -108,6 +108,11 @@ const migrations: string[] = [
   ALTER TABLE attachments ADD COLUMN analysis_status TEXT;
   ALTER TABLE attachments ADD COLUMN analysis_error TEXT;
   `,
+  `
+  ALTER TABLE items ADD COLUMN infos TEXT NOT NULL DEFAULT '[]';
+  ALTER TABLE cruise_days ADD COLUMN infos TEXT NOT NULL DEFAULT '[]';
+  ALTER TABLE cruises ADD COLUMN infos TEXT NOT NULL DEFAULT '[]';
+  `,
 ];
 
 export function openDb(file: string): DB {

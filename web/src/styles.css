@@ -336,3 +336,28 @@ small.inline-warn.info { background: var(--info-bg); color: var(--info); }
 .error-text { color: var(--error); flex: 1 1 100%; }
 .wide-line { flex: 1 1 100%; }
 .privacy-note { font-size: 0.8rem; color: var(--muted); }
+
+/* ---------- additional infos ---------- */
+.info-editor { display: grid; gap: 8px; }
+.info-row {
+  display: grid; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2);
+  grid-template-columns: 124px 1fr auto;
+  grid-template-areas: "kind label remove" "value value value" "call . .";
+}
+.info-row.emergency { border-color: var(--error); background: var(--error-bg); }
+.info-row select, .info-row input { background: var(--surface); min-height: 40px; }
+.info-row select { grid-area: kind; padding-left: 6px; padding-right: 2px; }
+.info-row > input[aria-label="Bezeichnung"] { grid-area: label; }
+.info-row > input[aria-label="Wert"] { grid-area: value; }
+.info-row .info-call { grid-area: call; justify-self: start; }
+.info-row .icon-btn { grid-area: remove; align-self: center; }
+.info-row .wide-row { grid-column: 1 / -1; }
+.info-ai { color: var(--warning); font-weight: 600; }
+.info-add { display: flex; flex-wrap: wrap; gap: 6px; }
+.info-summary { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 0.88rem; }
+.info-summary .emergency { color: var(--error); }
+
+/* ---------- input collector ---------- */
+.collector { display: grid; gap: 10px; }
+.collector-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.collector-list li { display: flex; align-items: center; gap: 8px; background: var(--surface-2); border-radius: 10px; padding: 4px 8px; }

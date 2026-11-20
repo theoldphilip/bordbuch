@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { failedText, importDocuments } from '../aiImport.ts';
+import { AiImportDialog } from '../components/AiImportDialog.tsx';
 import { api, errorMessage } from '../api.ts';
 import { useAuth } from '../App.tsx';
 import {
@@ -171,7 +171,7 @@ export function TripPage() {
       {tab === 'cruise' && (
         <CruiseTab detail={detail} canEdit={canEdit} aiImport={aiImport} onEditCruise={(cruise) => setDialog({ kind: 'cruise', cruise })} onEditDay={(cruise, day) => setDialog({ kind: 'day', cruise, day })} />
       )}
-      {tab === 'docs' && <DocsTab detail={detail} canEdit={canEdit} onChanged={load} onReview={(id) => openReview([id])} />}
+      {tab === 'docs' && <DocsTab detail={detail} canEdit={canEdit} onChanged={load} onReview={(id) => openReview([id])} onReviewMany={openReview} />}
       {tab === 'share' && <ShareTab detail={detail} onChanged={load} />}
 
       {canEdit && tab === 'timeline' && (
@@ -427,6 +427,7 @@ function PortCard({ day, defaultTz, warnings, onClick }: { day: CruiseDay; defau
           </small>
         )}
         {day.notes && <small className="muted">{day.notes}</small>}
+        {(day.infos?.length ?? 0) > 0 && <small className="muted">{day.infos.some((i) => i.kind === 'emergency') ? '🆘' : '☎️'} {day.infos.length} Zusatzinfo{day.infos.length > 1 ? 's' : ''}</small>}
         {warnings.map((w, i) => <small key={i} className={`inline-warn ${w.level}`}>{w.message}</small>)}
       </span>
       {day.kind !== 'sea' && (
@@ -466,6 +467,7 @@ function EntryRow({ entry, defaultTz, attachments, warnings, onClick }: { entry:
       </span>
       <span className="entry-meta">
         {item.confirmation && !isEnd && <small className="code">{item.confirmation}</small>}
+        {!isEnd && (item.infos?.length ?? 0) > 0 && <small title="Zusatzinfos">{item.infos.some((i) => i.kind === 'emergency') ? '🆘' : '☎️'} {item.infos.length}</small>}
         {attachments > 0 && <small>📎 {attachments}</small>}
       </span>
     </button>
@@ -533,7 +535,7 @@ function CruiseTab({ detail, canEdit, aiImport, onEditCruise, onEditDay }: { det
 // ---------------------------------------------------------------------------
 // Documents tab
 // ---------------------------------------------------------------------------
-function DocsTab({ detail, canEdit, onChanged, onReview }: { detail: TripDetail; canEdit: boolean; onChanged: () => void; onReview: (attachmentId: string) => void }) {
+function DocsTab({ detail, canEdit, onChanged, onReview, onReviewMany }: { detail: TripDetail; canEdit: boolean; onChanged: () => void; onReview: (attachmentId: string) => void; onReviewMany: (ids: string[]) => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [itemId, setItemId] = useState('');
   const [busy, setBusy] = useState(false);
@@ -548,29 +550,19 @@ function DocsTab({ detail, canEdit, onChanged, onReview }: { detail: TripDetail;
     if (!files?.length) return;
     setBusy(true);
     setError(null);
-    let firstReady: string | null = null;
-    const list = Array.from(files);
     try {
-      for (const [n, file] of list.entries()) {
-        setProgress(`${n + 1} von ${list.length}: ${file.name}`);
+      for (const [n, file] of Array.from(files).entries()) {
+        setProgress(`${n + 1} von ${files.length}: ${file.name}`);
         const fd = new FormData();
         fd.append('file', file);
-        const query = itemId ? `?itemId=${itemId}` : '';
-        if (ai?.enabled) {
-          const res = await api.post<{ attachment: Attachment }>(`/api/trips/${detail.trip.id}/documents${query}`, fd);
-          if (!firstReady && res.attachment.analysisStatus === 'done') firstReady = res.attachment.id;
-        } else {
-          await api.post(`/api/trips/${detail.trip.id}/attachments${query}`, fd);
-        }
+        await api.post(`/api/trips/${detail.trip.id}/attachments${itemId ? `?itemId=${itemId}` : ''}`, fd);
       }
-      onChanged();
-      if (firstReady) onReview(firstReady);
     } catch (err) {
       setError(errorMessage(err));
-      onChanged();
     } finally {
       setBusy(false);
       setProgress(null);
+      onChanged();
       if (fileRef.current) fileRef.current.value = '';
     }
   };
@@ -619,13 +611,14 @@ function DocsTab({ detail, canEdit, onChanged, onReview }: { detail: TripDetail;
             </select>
           </Field>
           <input ref={fileRef} type="file" multiple hidden onChange={(e) => upload(e.target.files)} accept="application/pdf,image/*,.pkpass,.eml,.txt,.html" />
-          <button className="btn btn-primary" onClick={() => fileRef.current?.click()} disabled={busy}>
-            {busy ? (ai?.enabled ? 'Analysiert…' : 'Lädt hoch…') : ai?.enabled ? '📎 Hochladen – KI ordnet zu' : '📎 Dateien hochladen'}
+          {ai?.enabled && <AiImportButton tripId={detail.trip.id} label="✨ Mit KI zuordnen" onReady={onReviewMany} onError={setError} />}
+          <button className={`btn${ai?.enabled ? '' : ' btn-primary'}`} onClick={() => fileRef.current?.click()} disabled={busy}>
+            {busy ? 'Lädt hoch…' : ai?.enabled ? '📎 Nur ablegen (ohne KI)' : '📎 Dateien hochladen'}
           </button>
-          {progress && <p className="muted wide-line">Datei {progress}. Das kann pro Dokument bis zu einer Minute dauern.</p>}
+          {progress && <p className="muted wide-line">Datei {progress}.</p>}
           {ai?.enabled && !progress && (
             <p className="privacy-note wide-line">
-              Bordkarten, Buchungsbestätigungen und Tickets (PDF, Foto, E-Mail) werden zur Analyse an die Claude-API von Anthropic gesendet. Es wird nichts gespeichert, bevor du die Vorschläge bestätigst.
+              <strong>Mit KI zuordnen</strong> liest Bestätigungen, Tickets, Screenshots und Text und legt die Einträge nach deiner Bestätigung an. Der Inhalt geht dabei an die Claude-API von Anthropic. <strong>Nur ablegen</strong> speichert die Dateien, ohne sie zu lesen.
             </p>
           )}
           {ai && !ai.enabled && <p className="privacy-note wide-line">Die automatische Zuordnung ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt auf dem Server).</p>}
@@ -807,31 +800,13 @@ function TripSettings({ detail, onClose, onSaved }: { detail: TripDetail; onClos
   );
 }
 
-/** Picks documents, uploads and analyses them, then hands the ids with proposals to the review queue. */
+/** Opens the dialog for documents, screenshots and text, then hands the ids with proposals to the review queue. */
 function AiImportButton({ tripId, label, onReady, onError }: { tripId: string; label: string; onReady: (ids: string[]) => void; onError: (message: string | null) => void }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [progress, setProgress] = useState<string | null>(null);
-
-  const run = async (files: FileList | null) => {
-    if (!files?.length) return;
-    onError(null);
-    try {
-      const res = await importDocuments(tripId, Array.from(files), setProgress);
-      if (res.failed.length) onError(`Nicht gelesen:\n${failedText(res.failed)}`);
-      onReady(res.ready);
-    } finally {
-      setProgress(null);
-      if (fileRef.current) fileRef.current.value = '';
-    }
-  };
-
+  const [open, setOpen] = useState(false);
   return (
     <>
-      <input ref={fileRef} type="file" multiple hidden accept="application/pdf,image/*,.eml,.txt,.html" onChange={(e) => run(e.target.files)} />
-      <button className="btn btn-primary" onClick={() => fileRef.current?.click()} disabled={progress !== null}>
-        {progress ? 'Analysiert…' : label}
-      </button>
-      {progress && <p className="muted wide-line center">{progress}. Das kann pro Dokument bis zu einer Minute dauern.</p>}
+      <button className="btn btn-primary" onClick={() => setOpen(true)}>{label}</button>
+      {open && <AiImportDialog tripId={tripId} onClose={() => setOpen(false)} onReady={onReady} onNotice={onError} />}
     </>
   );
 }

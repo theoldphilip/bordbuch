@@ -1,3 +1,4 @@
+import type { Info } from '../schemas.ts';
 import { isValidTimeZone } from '../util.ts';
 import type { AiResult } from './schema.ts';
 import type { CruiseDayData, ExtractionContext, ItemData, NormalizedExtraction } from './types.ts';
@@ -23,6 +24,12 @@ function normalizeTime(v: string | null): string | null {
   return m ? `${m[1]!.padStart(2, '0')}:${m[2]}` : t;
 }
 
+const infos = (list: AiResult['items'][number]['infos']): Info[] =>
+  list
+    .map((i) => ({ label: i.label.trim().slice(0, 80), value: i.value.trim().slice(0, 500), kind: i.kind, source: i.source }) satisfies Info)
+    .filter((i) => i.label && i.value)
+    .slice(0, 30);
+
 const tz = (v: string | null): string | null => {
   const t = clean(v);
   return t && isValidTimeZone(t) ? t : null;
@@ -45,6 +52,7 @@ export function normalizeExtraction(ai: AiResult, ctx: ExtractionContext, model:
     currency: clean(i.currency)?.toUpperCase().slice(0, 3) ?? null,
     notes: clean(i.notes),
     cruiseDayId: i.cruiseDayId && dayIds.has(i.cruiseDayId) ? i.cruiseDayId : null,
+    infos: infos(i.infos),
     details: Object.fromEntries(i.details.map((d) => [d.key.trim(), d.value.trim()] as const).filter(([k, v]) => k && v)),
     confidence: i.confidence,
   }));
@@ -56,6 +64,7 @@ export function normalizeExtraction(ai: AiResult, ctx: ExtractionContext, model:
         cabin: clean(ai.cruise.cabin),
         bookingRef: clean(ai.cruise.bookingRef),
         notes: clean(ai.cruise.notes),
+        infos: infos(ai.cruise.infos),
         days: ai.cruise.days.map(
           (d): CruiseDayData => ({
             date: normalizeLocal(d.date)?.slice(0, 10) ?? d.date,
@@ -68,6 +77,7 @@ export function normalizeExtraction(ai: AiResult, ctx: ExtractionContext, model:
             allAboard: normalizeTime(d.allAboard),
             tender: d.tender,
             notes: clean(d.notes),
+            infos: infos(d.infos),
           }),
         ),
       }

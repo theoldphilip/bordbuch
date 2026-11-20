@@ -36,6 +36,17 @@ export interface Member {
 
 export type CruiseDayKind = 'embarkation' | 'port' | 'sea' | 'disembarkation';
 
+export type InfoKind = 'phone' | 'emergency' | 'email' | 'link' | 'text';
+
+/** Additional information at a travel point: phone and emergency numbers, hints. */
+export interface Info {
+  label: string;
+  value: string;
+  kind: InfoKind;
+  /** user = typed in, document = read from a document, ai = general knowledge of the model, to be verified */
+  source: 'user' | 'document' | 'ai';
+}
+
 export interface CruiseDay {
   id: string;
   cruiseId: string;
@@ -49,6 +60,7 @@ export interface CruiseDay {
   allAboard: string | null;
   tender: boolean;
   notes: string | null;
+  infos: Info[];
 }
 
 export interface Cruise {
@@ -59,6 +71,7 @@ export interface Cruise {
   cabin: string | null;
   bookingRef: string | null;
   notes: string | null;
+  infos: Info[];
   days: CruiseDay[];
 }
 
@@ -93,6 +106,7 @@ export interface Item {
   notes: string | null;
   cruiseDayId: string | null;
   details: Record<string, string | undefined>;
+  infos: Info[];
   createdAt: string;
   updatedAt: string;
 }
@@ -105,7 +119,7 @@ export interface Attachment {
   mime: string;
   size: number;
   createdAt: string;
-  analysisStatus: 'pending' | 'done' | 'failed' | 'applied' | 'dismissed' | null;
+  analysisStatus: 'pending' | 'done' | 'failed' | 'applied' | 'dismissed' | 'grouped' | null;
   analysisError: string | null;
 }
 
@@ -175,6 +189,7 @@ export interface ItemData {
   notes: string | null;
   cruiseDayId: string | null;
   details: Record<string, string>;
+  infos: Info[];
 }
 
 export interface ItemProposal {
@@ -196,6 +211,7 @@ export interface CruiseDayData {
   allAboard: string | null;
   tender: boolean;
   notes: string | null;
+  infos: Info[];
 }
 
 export interface CruiseData {
@@ -204,6 +220,7 @@ export interface CruiseData {
   cabin: string | null;
   bookingRef: string | null;
   notes: string | null;
+  infos: Info[];
   days: CruiseDayData[];
 }
 
@@ -219,6 +236,8 @@ export interface AnalysisView {
   suggestedTripTitle: string | null;
   status: Attachment['analysisStatus'];
   attachment: Attachment;
+  /** All files analysed together; more than one when they were grouped. */
+  files: { id: string; filename: string }[];
   documentKind: string;
   summary: string;
   warnings: string[];
