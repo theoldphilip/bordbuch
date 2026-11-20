@@ -189,6 +189,17 @@ describe('Anthropic extractor (fake client, no network)', () => {
     await assert.rejects(make('m', { stop_reason: 'end_turn', parsed_output: null }).extractor.extract(input), /nicht gelesen/);
   });
 
+  test('long pasted documents: up to 500 000 characters are sent, more is refused with a clear message', async () => {
+    const { calls, extractor } = make('m', ok);
+    const lines = 'Buchungsbestätigung '.repeat(1);
+    await extractor.extract({ files: [{ data: Buffer.from(lines.repeat(20000)), mime: 'text/plain', filename: 'Eingefügter Text 1.txt' }], context: ctx });
+    assert.equal(calls.length, 1);
+    await assert.rejects(
+      extractor.extract({ files: [{ data: Buffer.from('x'.repeat(500_001)), mime: 'text/plain', filename: 'zu lang.txt' }], context: ctx }),
+      /zu lang/,
+    );
+  });
+
   test('unsupported or oversized files are rejected before any request', async () => {
     const { calls, extractor } = make('m', ok);
     await assert.rejects(extractor.extract({ files: [{ data: Buffer.from('x'), mime: 'application/zip', filename: 'a.pkpass' }], context: ctx }), ExtractionError);

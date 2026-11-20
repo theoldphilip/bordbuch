@@ -64,8 +64,12 @@ Dokumente ankommen. Auch in einer bestehenden, leeren Reise gibt es dafür den K
 auswählen oder hineinziehen, Screenshots mit **Strg+V** einfügen und Text einfügen oder eintippen. Standardmäßig wird jede Datei einzeln
 gelesen, nacheinander geprüft und ihr Dokument am passenden Eintrag abgelegt. Mit *Alle zusammen als eine Unterlage auswerten* werden
 mehrere Dateien gemeinsam gelesen, z. B. drei Screenshots derselben Buchungsseite. Eingefügter Text wird als `.txt`-Datei abgelegt.
-Auf dem iPhone wählst du Screenshots über die Fotomediathek; das Einfügen über die Zwischenablage hängt vom Browser ab und ist dort nicht
-immer verfügbar.
+**Ganze Dokumente einfügen:** Text darfst du in beliebiger Länge einfügen (bis etwa 500 000 Zeichen, das sind mehrere hundert Seiten), zum Beispiel
+eine komplette E-Mail oder den Text einer Buchungsseite. Mit Strg+V nimmt der Dialog auch kopierte **Dateien** an (z. B. ein PDF aus dem
+Dateimanager), solange der Browser sie in der Zwischenablage bereitstellt. Auf dem iPhone gibt es über HTTPS den Knopf **Aus Zwischenablage
+einfügen**: Er liest Bilder, PDF und Text direkt aus der Zwischenablage, iOS fragt dabei einmal nach („Einfügen“). Fotos wählst du alternativ
+über die Fotomediathek. Dateien, die Bordbuch nicht lesen kann (z. B. Word oder Pages, HEIC-Fotos), warnt der Dialog schon in der Liste. Sie werden
+nur abgelegt. Speichere sie als PDF oder kopiere den Text.
 
 **Zusatzinfos an jedem Reisepunkt:** Einträge, Hafentage und die Kreuzfahrt selbst haben eine Liste mit Zusatzinfos: Telefonnummern,
 Notrufnummern, E-Mail, Links und Hinweise. Nummern lassen sich direkt antippen (Anrufen). Die KI übernimmt Nummern aus deinen Dokumenten
