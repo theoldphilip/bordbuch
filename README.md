@@ -170,9 +170,24 @@ curl -s --resolve meinesyno.synology.me:8444:172.16.10.1 https://meinesyno.synol
    `DNS = 172.16.10.1`. Test im Tunnel: `nslookup meinesyno.synology.me 172.16.10.1`.
 8. Bordbuch auf dem iPhone (mit aktivem WireGuard) über `https://meinesyno.synology.me:8444` öffnen und neu auf den Home-Bildschirm legen.
 
-*Variante B: kein passender Name mit Zertifikat.* Eigenes Zertifikat über eine eigene Zertifizierungsstelle (z. B. mit `mkcert`) für
-`172.16.10.1`, in DSM importieren (*Sicherheit → Zertifikat → Hinzufügen → Importieren*) und die Stelle auf dem iPhone installieren und unter
-*Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen* vollständig vertrauen. Reverse-Proxy (Port 8444) und Firewall wie in A.
+*Variante B: ohne DNS und ohne Namen* (wenn du am VPN nichts einstellen kannst). Bordbuch wird über die IP `https://172.16.10.1:8444` aufgerufen.
+Dafür erzeugst du ein **eigenes Zertifikat nur für diese IP**, das du einmal auf dem iPhone als vertrauenswürdig einträgst. Es gibt keine
+Zertifizierungsstelle, der Schlüssel liegt nur auf der Syno, und das iPhone vertraut genau diesem einen Zertifikat.
+
+1. Zertifikat erzeugen (auf der Syno per SSH oder am Computer). Es ist 825 Tage gültig, länger akzeptiert iOS nicht:
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes -days 825 -keyout bordbuch-key.pem -out bordbuch.pem -subj "/CN=Bordbuch" -addext "subjectAltName=IP:172.16.10.1" -addext "extendedKeyUsage=serverAuth"
+```
+
+2. DSM → *Systemsteuerung → Sicherheit → Zertifikat → Hinzufügen → Neues Zertifikat hinzufügen → Zertifikat importieren*: `bordbuch-key.pem` als privaten
+   Schlüssel und `bordbuch.pem` als Zertifikat wählen. Danach `bordbuch-key.pem` überall löschen, wo er nicht gebraucht wird.
+3. Reverse-Proxy wie in Variante A anlegen (Port 8444, Ziel `localhost:8080`), als Hostname `172.16.10.1` (lehnt DSM die IP ab, `*`), und unter
+   *Zertifikat → Einstellungen* das importierte Zertifikat zuweisen. Router und Firewall wie in A.
+4. Test am Computer: `curl --cacert bordbuch.pem https://172.16.10.1:8444/api/health` muss `{"ok":true,…}` liefern.
+5. `bordbuch.pem` als `bordbuch.crt` auf das iPhone bringen (z. B. per E-Mail an dich selbst) und öffnen. *Einstellungen → Profil geladen →
+   Installieren*, dann *Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen* und dem Zertifikat **vollständig vertrauen**.
+6. Mit aktivem WireGuard `https://172.16.10.1:8444` in Safari öffnen, auf den Home-Bildschirm legen. Nach 825 Tagen Schritt 1 bis 5 wiederholen.
 
 **Einschalten:** In Bordbuch (vom Home-Bildschirm geöffnet) unter *Einstellungen → Erinnerungen aufs iPhone* **Auf diesem Gerät aktivieren**,
 Mitteilungen erlauben, dann **Testnachricht senden**. Danach stellst du ein, wofür und wie früh erinnert wird.
