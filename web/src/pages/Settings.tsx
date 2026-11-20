@@ -46,6 +46,7 @@ export function SettingsPage() {
       </section>
       <PaceSettings />
       <NotificationSettings />
+      <CertificateSettings />
       {user.isAdmin && <AiAdmin />}
       {user.isAdmin && <FamilyAdmin />}
       <p className="muted center">Bordbuch · angemeldet als {user.username}</p>
@@ -391,6 +392,91 @@ function NotificationSettings() {
         </div>
       )}
       {msg && <div className="alert alert-ok">{msg}</div>}
+      <ErrorBox error={error} />
+    </section>
+  );
+}
+
+interface CertInfo {
+  present: boolean;
+  subject?: string;
+  validTo?: string;
+  daysLeft?: number;
+  altNames?: string[];
+}
+
+/** The public HTTPS certificate: the admin uploads it once, everyone can download it for the iPhone. */
+function CertificateSettings() {
+  const { user } = useAuth();
+  const [info, setInfo] = useState<CertInfo | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    api.get<CertInfo>('/api/certificate/info').then(setInfo).catch((e) => setError(errorMessage(e)));
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setInfo(await api.put<CertInfo>('/api/certificate', { pem: await file.text() }));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!confirm('Das Zertifikat aus Bordbuch entfernen? Auf der Syno und auf den Geräten bleibt es unberührt.')) return;
+    try {
+      await api.del('/api/certificate');
+      load();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  if (!info) return error ? <ErrorBox error={error} /> : null;
+  if (!info.present && !user.isAdmin) return null;
+  const addresses = (info.altNames ?? []).map((n) => n.replace(/^IP Address:|^DNS:/, ''));
+  const expiring = info.daysLeft !== undefined && info.daysLeft < 60;
+
+  return (
+    <section className="card">
+      <h3>HTTPS-Zertifikat für das iPhone</h3>
+      {info.present ? (
+        <>
+          <p className="muted">
+            Gilt für <strong>{addresses.join(', ') || info.subject}</strong>, gültig bis {info.validTo ? new Date(info.validTo).toLocaleDateString('de-CH') : '?'}.
+            Mit diesem Zertifikat vertraut das iPhone der HTTPS-Adresse der Syno. Das ist die Voraussetzung für Erinnerungen.
+          </p>
+          {expiring && <div className="alert alert-error">{info.daysLeft! < 0 ? 'Das Zertifikat ist abgelaufen.' : `Das Zertifikat läuft in ${info.daysLeft} Tagen ab.`} Erzeuge ein neues und lade es hier hoch.</div>}
+          <div><a className="btn btn-primary" href="/api/certificate">Zertifikat herunterladen</a></div>
+          <ol className="steps">
+            <li>Öffne diese Seite auf dem iPhone in <strong>Safari</strong> (nicht in der Home-Bildschirm-App), zum Beispiel über die normale http-Adresse im VPN, und tippe auf <em>Zertifikat herunterladen</em>. Erlaube den Download.</li>
+            <li><em>Einstellungen → Profil geladen → Installieren</em>.</li>
+            <li><em>Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen</em>: dem Zertifikat <strong>vollständig vertrauen</strong>.</li>
+            <li>Bordbuch danach über die HTTPS-Adresse öffnen und neu auf den Home-Bildschirm legen.</li>
+          </ol>
+        </>
+      ) : (
+        <p className="muted">Noch kein Zertifikat hinterlegt. Lade hier die Datei <code>bordbuch.pem</code> hoch (nur das Zertifikat, nie den privaten Schlüssel). Danach können alle in der Familie es für das iPhone herunterladen.</p>
+      )}
+      {user.isAdmin && (
+        <div className="btn-row" style={{ justifyContent: 'flex-start' }}>
+          <label className="btn">
+            {busy ? 'Prüft…' : info.present ? 'Anderes Zertifikat hochladen' : 'Zertifikat hochladen'}
+            <input type="file" accept=".pem,.crt,.cer" hidden onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />
+          </label>
+          {info.present && <button className="btn btn-danger-ghost" onClick={remove}>Entfernen</button>}
+        </div>
+      )}
       <ErrorBox error={error} />
     </section>
   );

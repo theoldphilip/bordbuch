@@ -185,8 +185,11 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 825 -keyout bordbuch-key.pem -ou
 3. Reverse-Proxy wie in Variante A anlegen (Port 8444, Ziel `localhost:8080`), als Hostname `172.16.10.1` (lehnt DSM die IP ab, `*`), und unter
    *Zertifikat → Einstellungen* das importierte Zertifikat zuweisen. Router und Firewall wie in A.
 4. Test am Computer: `curl --cacert bordbuch.pem https://172.16.10.1:8444/api/health` muss `{"ok":true,…}` liefern.
-5. `bordbuch.pem` als `bordbuch.crt` auf das iPhone bringen (z. B. per E-Mail an dich selbst) und öffnen. *Einstellungen → Profil geladen →
-   Installieren*, dann *Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen* und dem Zertifikat **vollständig vertrauen**.
+5. **Zertifikat aufs iPhone bringen.** Am einfachsten über Bordbuch: Als Admin unter *Einstellungen → HTTPS-Zertifikat für das iPhone* `bordbuch.pem`
+   hochladen (nur das Zertifikat; einen privaten Schlüssel lehnt die App ab). Auf dem iPhone in **Safari** die normale http-Adresse im VPN
+   öffnen, anmelden, in den Einstellungen **Zertifikat herunterladen** antippen, dann *Einstellungen → Profil geladen → Installieren* und unter
+   *Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen* dem Zertifikat **vollständig vertrauen**. Alternativ die Datei als
+   `bordbuch.crt` per E-Mail schicken.
 6. Mit aktivem WireGuard `https://172.16.10.1:8444` in Safari öffnen, auf den Home-Bildschirm legen. Nach 825 Tagen Schritt 1 bis 5 wiederholen.
 
 **Einschalten:** In Bordbuch (vom Home-Bildschirm geöffnet) unter *Einstellungen → Erinnerungen aufs iPhone* **Auf diesem Gerät aktivieren**,

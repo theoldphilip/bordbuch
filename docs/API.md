@@ -35,6 +35,17 @@ HTTP-Status (400 Validierung, 401 nicht angemeldet, 403 keine Berechtigung, 404,
 
 `pace` (persönlicher Zeitbedarf): Jede empfohlene Mindestzeit des Puffer-Checks wird mit `factor` multipliziert, um `extraMinutes` verlängert und auf 5 Minuten aufgerundet. Die Einstellung gilt pro Benutzer; die Timeline des jeweiligen Aufrufers enthält `pace` (oder `null`).
 
+### HTTPS-Zertifikat für das iPhone
+
+| Methode | Pfad | Rolle | Beschreibung |
+|---|---|---|---|
+| GET | `/certificate/info` | angemeldet | `{present, subject, validFrom, validTo, daysLeft, altNames[], fingerprint}` |
+| GET | `/certificate` | **öffentlich** | Zertifikat als `bordbuch.crt` (DER, `application/x-x509-ca-cert`, iOS bietet die Installation an); `?format=pem` liefert PEM |
+| PUT | `/certificate` | Admin | `{pem}`. Nur ein Zertifikat; privater Schlüssel, Unlesbares und Abgelaufenes werden abgelehnt (400) |
+| DELETE | `/certificate` | Admin | entfernt das Zertifikat aus Bordbuch (Syno und Geräte bleiben unberührt) |
+
+Der Download ist öffentlich, weil Safari einen Link ohne das Token der App öffnet. Es ist ein öffentliches Zertifikat.
+
 ### Benachrichtigungen (Web Push)
 
 | Methode | Pfad | Beschreibung |

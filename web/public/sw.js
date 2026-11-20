@@ -60,7 +60,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (url.pathname.startsWith('/api/')) {
-    if (url.pathname === '/api/health' || url.pathname === '/api/setup') return;
+    if (url.pathname === '/api/health' || url.pathname === '/api/setup' || url.pathname === '/api/certificate') return;
     event.respondWith(
       fetch(req)
         .then((res) => {
