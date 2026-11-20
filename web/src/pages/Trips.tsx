@@ -67,7 +67,7 @@ export function TripsPage() {
       <ErrorBox error={error} />
       {trips.length === 0 && (
         <Empty icon="🧭" title="Noch keine Reisen">
-          <p>Lege deine erste Reise an – mit Vorprogramm, Kreuzfahrt und Nachprogramm.</p>
+          <p>Lege deine erste Reise an – mit An- und Abreise, Übernachtung, Parkplatz und Kreuzfahrt.</p>
           <button className="btn btn-primary" onClick={() => setCreating(true)}>Reise anlegen</button>
         </Empty>
       )}

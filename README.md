@@ -1,18 +1,22 @@
 # Bordbuch
 
-Reiseplaner für die Familie, gebaut für **Kreuzfahrten mit Vor- und Nachprogramm**.
+Reiseplaner für die Familie, gebaut für **Kreuzfahrten mit An- und Abreise** (Flug, Bahn, eigenes Auto, Parkplatz, Übernachtung, Transfer).
 Self-hosted als ein Docker-Container (z. B. auf einer Synology), erreichbar per VPN.
 
 ## Was Bordbuch anders macht
 
 - **Phasen statt einer flachen Liste:** Der Ablauf gliedert sich automatisch in
-  *Vorprogramm → Kreuzfahrt → (Zwischenprogramm) → Nachprogramm*. Die Zuordnung ergibt sich aus
+  *Anreise → Kreuzfahrt → (Zwischenprogramm) → Abreise*. Die Zuordnung ergibt sich aus
   den Zeiten. Back-to-Back-Kreuzfahrten werden unterstützt.
+- **An- und Abreise mit allen Bausteinen:** Flug, Zug, Transfer (Taxi, Shuttle, Bahn), Übernachtung vor/nach der Kreuzfahrt,
+  **Parkplatz** (mit Einfahrt, Ausfahrt, Kennzeichen, Shuttle) und Mietwagen. Beide Phasen sind auch leer sichtbar und
+  bieten Schnellauswahl-Buttons.
 - **Kreuzfahrt als Route:** Jeder Tag ist eine Einschiffung, ein Hafentag, ein Seetag oder eine
   Ausschiffung, jeweils mit Ankunft, Abfahrt, *Alle an Bord*, Tenderhafen und Zeitzone des Hafens.
 - **Puffer-Check** (auf dem Server berechnet, also für Web und iOS identisch):
   - Anreise: Landet der Flug rechtzeitig vor *Alle an Bord*? Hinweis bei Anreise am Einschiffungstag.
   - Abreise: Reicht die Zeit zwischen Ausschiffung und Rückflug?
+  - Parkplatz: Ist er bis zur Rückkehr gebucht?
   - Landausflüge: Rückkehr vor *Alle an Bord*, mit größerem Puffer bei privaten Ausflügen und Tenderhäfen.
 - **Dokumente** (Bordkarten, Tickets, Vouchers) pro Reise oder pro Eintrag.
 - **Teilen** mit Familienmitgliedern (Besitzer / Bearbeiten / Nur ansehen).

@@ -83,9 +83,10 @@ describe('API', () => {
     const tl = await ctx.call('GET', `/api/trips/${tripId}/timeline`, admin);
     assert.equal(tl.status, 200);
     assert.deepEqual(tl.body.phases.map((p: any) => p.kind), ['pre', 'cruise', 'post']);
+    assert.deepEqual(tl.body.phases.map((p: any) => p.title), ['Anreise', 'Kreuzfahrt · MS Beispiel', 'Abreise']);
     const pre = tl.body.phases[0];
     assert.deepEqual(pre.days.map((d: any) => d.date), ['2027-05-09', '2027-05-10']);
-    assert.equal(pre.days[1].entries[0].role, 'end', 'hotel check-out on embarkation morning is in Vorprogramm');
+    assert.equal(pre.days[1].entries[0].role, 'end', 'hotel check-out on embarkation morning is in Anreise');
     const cruisePhase = tl.body.phases[1];
     assert.equal(cruisePhase.days.length, 4, 'sea day is shown even without entries');
     assert.equal(cruisePhase.days[1].entries[0].item.title, 'Pompeji privat');

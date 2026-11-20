@@ -22,15 +22,16 @@ const DETAIL_FIELDS: Partial<Record<ItemType, DetailField[]>> = {
   ],
   bus: [{ key: 'from', label: 'Von' }, { key: 'to', label: 'Nach' }],
   ferry: [{ key: 'from', label: 'Von' }, { key: 'to', label: 'Nach' }, { key: 'cabin', label: 'Kabine/Deck' }],
-  transfer: [{ key: 'from', label: 'Von', placeholder: 'Flughafen FCO' }, { key: 'to', label: 'Nach', placeholder: 'Hafen Civitavecchia' }, { key: 'phone', label: 'Telefon Fahrer' }],
+  transfer: [{ key: 'mode', label: 'Art', placeholder: 'Taxi, Shuttle, Bahn…' }, { key: 'from', label: 'Von', placeholder: 'Flughafen FCO' }, { key: 'to', label: 'Nach', placeholder: 'Hafen Civitavecchia' }, { key: 'phone', label: 'Telefon Fahrer' }],
   car_rental: [{ key: 'carClass', label: 'Fahrzeug' }, { key: 'returnLocation', label: 'Rückgabeort' }],
-  hotel: [{ key: 'room', label: 'Zimmer' }, { key: 'phone', label: 'Telefon' }],
+  hotel: [{ key: 'room', label: 'Zimmer' }, { key: 'phone', label: 'Telefon' }, { key: 'breakfast', label: 'Verpflegung', placeholder: 'Frühstück inkl.' }],
+  parking: [{ key: 'lot', label: 'Parkplatz / Parkhaus', placeholder: 'P3' }, { key: 'plate', label: 'Kennzeichen' }, { key: 'shuttle', label: 'Shuttle zum Terminal', placeholder: 'alle 15 min' }],
   excursion: [{ key: 'meetingPoint', label: 'Treffpunkt', placeholder: 'Theater, Deck 5' }],
   restaurant: [{ key: 'guests', label: 'Personen' }],
 };
 
 const LINKABLE: ItemType[] = ['excursion', 'activity', 'restaurant', 'note', 'transfer'];
-const HAS_END: ItemType[] = ['flight', 'train', 'bus', 'ferry', 'transfer', 'car_rental', 'hotel', 'excursion', 'activity', 'restaurant'];
+const HAS_END: ItemType[] = ['flight', 'train', 'bus', 'ferry', 'transfer', 'car_rental', 'parking', 'hotel', 'excursion', 'activity', 'restaurant'];
 
 const split = (local: string | null) => ({ date: local?.slice(0, 10) ?? '', time: local && local.length > 10 ? local.slice(11, 16) : '' });
 const join = (date: string, time: string) => (date ? (time ? `${date}T${time}` : date) : null);
@@ -158,7 +159,7 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
           </div>
         )}
         <Field label="Titel" wide>
-          <input value={title} onChange={(ev) => setTitle(ev.target.value)} placeholder={type === 'flight' ? 'Zürich → Rom' : type === 'hotel' ? 'Hotel Artemide' : ''} autoFocus={!item} />
+          <input value={title} onChange={(ev) => setTitle(ev.target.value)} placeholder={type === 'flight' ? 'Zürich → Rom' : type === 'hotel' ? 'Hotel Artemide' : type === 'parking' ? 'Parkhaus Flughafen' : type === 'transfer' ? 'Taxi zum Hafen' : ''} autoFocus={!item} />
         </Field>
 
         {canLink && (

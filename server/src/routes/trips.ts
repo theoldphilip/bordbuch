@@ -82,7 +82,7 @@ export function registerTripRoutes(app: FastifyInstance, { db, config, uploadDir
     return reply.status(204).send();
   });
 
-  /** Phase-structured timeline (Vor-/Nachprogramm, Kreuzfahrt) plus buffer warnings. */
+  /** Phase-structured timeline (Anreise, Kreuzfahrt, Abreise) plus buffer warnings. */
   app.get<P>('/api/trips/:tripId/timeline', async (req) => {
     const user = requireUser(req);
     requireTripRole(db, req.params.tripId, user.id, 'viewer');

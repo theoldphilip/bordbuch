@@ -4,6 +4,7 @@ import { api, errorMessage } from '../api.ts';
 import { useAuth } from '../App.tsx';
 import {
   ROLE_LABELS,
+  addDays,
   dayKindInfo,
   endLabel,
   fmtDate,
@@ -161,6 +162,13 @@ function TimelineView({
   const attachmentCount = (itemId: string) => detail.attachments.filter((a) => a.itemId === itemId).length;
   const warningsFor = (itemId: string) => timeline.warnings.filter((w) => w.itemId === itemId);
   const dayWarnings = (dayId: string) => timeline.warnings.filter((w) => w.cruiseDayId === dayId && !w.itemId);
+  const cruisePhases = timeline.phases.filter((p) => p.kind === 'cruise');
+  const suggestDate = (phase: TimelinePhase): string | undefined =>
+    phase.kind === 'pre'
+      ? cruisePhases[0]?.startDate ? addDays(cruisePhases[0].startDate, -1) : undefined
+      : phase.kind === 'post'
+        ? (cruisePhases.at(-1)?.endDate ?? undefined)
+        : undefined;
 
   if (timeline.phases.length === 0) {
     return (
@@ -181,13 +189,14 @@ function TimelineView({
       {timeline.warnings.length > 0 && <WarningList timeline={timeline} detail={detail} onOpenItem={onOpenItem} />}
       {detail.cruises.length === 0 && canEdit && (
         <button className="hint-card" onClick={onAddCruise}>
-          🛳️ <span><strong>Kreuzfahrt hinzufügen</strong><br /><small>Dann wird dein Ablauf automatisch in Vor-, Kreuzfahrt- und Nachprogramm gegliedert.</small></span>
+          🛳️ <span><strong>Kreuzfahrt hinzufügen</strong><br /><small>Dann wird dein Ablauf automatisch in Anreise, Kreuzfahrt und Abreise gegliedert.</small></span>
         </button>
       )}
       {timeline.phases.map((phase, i) => (
         <PhaseSection
           key={`${phase.kind}-${i}`}
           phase={phase}
+          suggestDate={suggestDate(phase)}
           timeline={timeline}
           canEdit={canEdit}
           attachmentCount={attachmentCount}
@@ -231,10 +240,12 @@ function WarningList({ timeline, detail, onOpenItem }: { timeline: Timeline; det
   );
 }
 
+const QUICK_ADD: ItemType[] = ['flight', 'train', 'transfer', 'hotel', 'parking', 'car_rental'];
 const PHASE_ICONS: Record<TimelinePhase['kind'], string> = { trip: '🗺️', pre: '🛫', cruise: '🛳️', between: '🏨', post: '🛬' };
 
 function PhaseSection({
   phase,
+  suggestDate,
   timeline,
   canEdit,
   attachmentCount,
@@ -245,6 +256,7 @@ function PhaseSection({
   onOpenDay,
 }: {
   phase: TimelinePhase;
+  suggestDate?: string;
   timeline: Timeline;
   canEdit: boolean;
   attachmentCount: (id: string) => number;
@@ -263,6 +275,22 @@ function PhaseSection({
           <p>{fmtRange(phase.startDate, phase.endDate)}{phase.kind === 'cruise' ? ` · ${phase.days.length} Tage` : ''}</p>
         </div>
       </header>
+      {canEdit && (phase.kind === 'pre' || phase.kind === 'post') && (
+        <div className="quick-add" aria-label={`${phase.title} planen`}>
+          {QUICK_ADD.map((t) => (
+            <button key={t} type="button" className="type-chip" onClick={() => onAdd(suggestDate, undefined, t)}>
+              <span aria-hidden>{itemTypeInfo(t).icon}</span> {itemTypeInfo(t).label}
+            </button>
+          ))}
+        </div>
+      )}
+      {phase.days.length === 0 && (
+        <p className="muted phase-empty">
+          {phase.kind === 'pre'
+            ? 'Noch nichts geplant. Wie kommst du zum Schiff? Flug, Bahn, eigenes Auto mit Parkplatz, Übernachtung vor der Abfahrt, Transfer zum Hafen …'
+            : 'Noch nichts geplant. Wie geht es nach der Ausschiffung weiter? Transfer, Übernachtung, Rückflug, Parkplatz abholen …'}
+        </p>
+      )}
       {phase.days.map((day) => {
         const cd = day.cruiseDay;
         return (
@@ -327,7 +355,7 @@ function EntryRow({ entry, defaultTz, attachments, warnings, onClick }: { entry:
   const info = itemTypeInfo(item.type);
   const isEnd = entry.role === 'end';
   const endTime = !isEnd && item.endLocal && item.endLocal.slice(0, 10) === item.startLocal.slice(0, 10) && item.endLocal.length > 10 ? item.endLocal.slice(11, 16) : null;
-  const arrivesOtherDay = !isEnd && item.endLocal && item.endLocal.slice(0, 10) !== item.startLocal.slice(0, 10) && !['hotel', 'car_rental'].includes(item.type);
+  const arrivesOtherDay = !isEnd && item.endLocal && item.endLocal.slice(0, 10) !== item.startLocal.slice(0, 10) && !['hotel', 'car_rental', 'parking'].includes(item.type);
   const tz = tzLabel(entry.timezone, item.startLocal) !== tzLabel(defaultTz, item.startLocal) ? tzLabel(entry.timezone, item.startLocal) : null;
   const level = warnings.find((w) => w.level === 'error') ? 'error' : warnings.find((w) => w.level === 'warning') ? 'warning' : null;
   return (

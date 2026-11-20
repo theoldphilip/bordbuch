@@ -30,7 +30,8 @@ const cruise = await call('POST', `/api/trips/${t}/cruises`, {
 const day = (date) => cruise.days.find((d) => d.date === date).id;
 const items = [
   { type: 'flight', title: 'Zürich → Rom', startLocal: '2027-05-08T09:40', startTz: 'Europe/Zurich', endLocal: '2027-05-08T11:15', endTz: 'Europe/Rome', provider: 'SWISS', confirmation: 'K7XQ2P', details: { airline: 'SWISS', flightNumber: 'LX 1726', from: 'ZRH', to: 'FCO', seat: '12A' } },
-  { type: 'transfer', title: 'Taxi in die Stadt', startLocal: '2027-05-08T12:00', startTz: 'Europe/Rome', endLocal: '2027-05-08T12:45', details: { from: 'FCO', to: 'Hotel' } },
+  { type: 'parking', title: 'Parkhaus Flughafen Zürich P3', startLocal: '2027-05-08T07:30', startTz: 'Europe/Zurich', endLocal: '2027-05-17T18:00', endTz: 'Europe/Zurich', cost: 189, currency: 'CHF', confirmation: 'P3-7781', details: { lot: 'P3', plate: 'ZH 123456', shuttle: 'alle 15 min' } },
+  { type: 'transfer', title: 'Taxi in die Stadt', startLocal: '2027-05-08T12:00', startTz: 'Europe/Rome', endLocal: '2027-05-08T12:45', details: { mode: 'Taxi', from: 'FCO', to: 'Hotel' } },
   { type: 'hotel', title: 'Hotel Artemide', startLocal: '2027-05-08T14:00', startTz: 'Europe/Rome', endLocal: '2027-05-10T10:00', location: 'Via Nazionale 22, Rom', confirmation: '88213', cost: 410, currency: 'EUR' },
   { type: 'activity', title: 'Vatikanische Museen', startLocal: '2027-05-09T09:00', startTz: 'Europe/Rome', endLocal: '2027-05-09T12:30', cost: 64, currency: 'EUR' },
   { type: 'transfer', title: 'Transfer zum Hafen', startLocal: '2027-05-10T11:00', startTz: 'Europe/Rome', endLocal: '2027-05-10T12:30', details: { from: 'Hotel Artemide', to: 'Hafen Civitavecchia' } },
@@ -40,6 +41,7 @@ const items = [
   { type: 'excursion', title: 'Kathedrale & Altstadt Palma', startLocal: '2027-05-14T09:00', endLocal: '2027-05-14T15:50', cruiseDayId: day('2027-05-14'), details: { bookedVia: 'ship' } },
   { type: 'hotel', title: 'Hotel Casa Fuster', startLocal: '2027-05-15T10:00', startTz: 'Europe/Madrid', endLocal: '2027-05-17T11:00', location: 'Passeig de Gràcia 132, Barcelona' },
   { type: 'activity', title: 'Sagrada Família', startLocal: '2027-05-16T10:00', startTz: 'Europe/Madrid', endLocal: '2027-05-16T12:00' },
+  { type: 'transfer', title: 'Taxi zum Flughafen', startLocal: '2027-05-17T11:30', startTz: 'Europe/Madrid', endLocal: '2027-05-17T12:15', details: { mode: 'Taxi', from: 'Hotel Casa Fuster', to: 'Flughafen BCN' } },
   { type: 'flight', title: 'Barcelona → Zürich', startLocal: '2027-05-17T14:25', startTz: 'Europe/Madrid', endLocal: '2027-05-17T16:10', endTz: 'Europe/Zurich', confirmation: 'K7XQ2P', details: { airline: 'SWISS', flightNumber: 'LX 1953', from: 'BCN', to: 'ZRH' } },
 ];
 for (const i of items) await call('POST', `/api/trips/${t}/items`, i);

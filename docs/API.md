@@ -80,7 +80,7 @@ Bei `disembarkation` bedeutet `departure` „von Bord bis“.
 `Item`:
 ```json
 {
-  "type": "flight | train | bus | ferry | transfer | car_rental | hotel | activity | excursion | restaurant | note",
+  "type": "flight | train | bus | ferry | transfer | car_rental | parking | hotel | activity | excursion | restaurant | note",
   "title": "Zürich → Rom",
   "startLocal": "2027-05-08T09:40", "startTz": "Europe/Zurich",
   "endLocal": "2027-05-08T11:15",   "endTz": "Europe/Rome",
@@ -91,7 +91,7 @@ Bei `disembarkation` bedeutet `departure` „von Bord bis“.
 }
 ```
 Übliche `details`: Flug `airline, flightNumber, from, to, terminal, seat` · Zug `trainNumber, from, to, seat` ·
-Transfer `from, to, phone` · Hotel `room, phone` · Ausflug `bookedVia: "ship"|"private", meetingPoint`.
+Transfer `mode, from, to, phone` · Hotel `room, phone, breakfast` · Parkplatz `lot, plate, shuttle` (Beginn = Einfahrt, Ende = Ausfahrt) · Ausflug `bookedVia: "ship"|"private", meetingPoint`.
 
 ### Dokumente
 | Methode | Pfad | Beschreibung |
@@ -108,11 +108,11 @@ Transfer `from, to, phone` · Hotel `room, phone` · Ausflug `bookedVia: "ship"|
 {
   "tripId": "…", "updatedAt": "…", "defaultTimezone": "Europe/Zurich",
   "phases": [
-    { "kind": "pre", "title": "Vorprogramm", "cruiseId": null, "startDate": "2027-05-08", "endDate": "2027-05-10",
+    { "kind": "pre", "title": "Anreise", "cruiseId": null, "startDate": "2027-05-08", "endDate": "2027-05-10",
       "days": [ { "date": "2027-05-08", "cruiseDay": null,
                   "entries": [ { "itemId": "…", "role": "start", "time": "09:40", "timezone": "Europe/Zurich", "item": { … } } ] } ] },
     { "kind": "cruise", "title": "Kreuzfahrt · MS Aurora", "cruiseId": "…", "days": [ { "date": "…", "cruiseDay": { … }, "entries": [] } ] },
-    { "kind": "post", "title": "Nachprogramm", … }
+    { "kind": "post", "title": "Abreise", … }
   ],
   "warnings": [
     { "level": "warning", "code": "excursion_tight", "message": "Nur 15 min …", "itemId": "…", "cruiseDayId": "…" }
@@ -120,8 +120,8 @@ Transfer `from, to, phone` · Hotel `room, phone` · Ausflug `bookedVia: "ship"|
 }
 ```
 
-- `kind`: `trip` (keine Kreuzfahrt), `pre`, `cruise`, `between`, `post`
-- `role: "end"` = zweiter Auftritt eines mehrtägigen Eintrags (Hotel-Check-out, Mietwagen-Rückgabe)
+- `kind`: `trip` (keine Kreuzfahrt), `pre` (Anreise), `cruise`, `between`, `post` (Abreise). Bei vorhandener Kreuzfahrt sind `pre` und `post` immer enthalten, auch ohne Einträge.
+- `role: "end"` = zweiter Auftritt eines mehrtägigen Eintrags (Hotel-Check-out, Mietwagen-Rückgabe, Parkplatz-Ausfahrt)
 - Kreuzfahrt-Phasen enthalten jeden Tag der Route, auch Seetage ohne Einträge.
 
 Warnungscodes:
@@ -133,6 +133,7 @@ Warnungscodes:
 | `embark_same_day` | info | Anreise per Flug am Einschiffungstag |
 | `disembark_conflict` | error | Abreise startet vor Ankunft des Schiffs |
 | `disembark_tight` | warning | < 3 h (Flug) bzw. < 1 h nach Ausschiffung |
+| `parking_short` | warning | Parkplatz endet vor dem Ende der Rückreise |
 | `excursion_late` | error | Ausflug endet nach *Alle an Bord* |
 | `excursion_tight` | warning | Puffer < 30 min (privat: 60, Tender: +30) |
 | `excursion_before_arrival` | warning | Beginn vor Ankunft des Schiffs |

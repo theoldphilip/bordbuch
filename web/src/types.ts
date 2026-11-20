@@ -69,6 +69,7 @@ export type ItemType =
   | 'ferry'
   | 'transfer'
   | 'car_rental'
+  | 'parking'
   | 'hotel'
   | 'activity'
   | 'excursion'

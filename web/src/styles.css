@@ -229,6 +229,8 @@ textarea { resize: vertical; }
 .phase-head { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
 .phase-head p { color: var(--muted); font-size: 0.85rem; }
 .phase-icon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 1.3rem; background: color-mix(in srgb, var(--phase) 18%, var(--surface)); border: 2px solid var(--phase); flex: none; }
+.quick-add { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px 54px; }
+.phase-empty { margin: 0 0 8px 54px; font-size: 0.9rem; }
 .day { margin-left: 20px; padding: 6px 0 10px 20px; border-left: 2px solid color-mix(in srgb, var(--phase) 45%, transparent); display: grid; gap: 8px; }
 .day-head { display: flex; align-items: center; justify-content: space-between; position: relative; }
 .day-head::before { content: ''; position: absolute; left: -27px; width: 12px; height: 12px; border-radius: 50%; background: var(--phase); border: 2px solid var(--bg); }

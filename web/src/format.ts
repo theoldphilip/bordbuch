@@ -67,12 +67,13 @@ export function tzLabel(tz: string, date: string) {
 
 export const ITEM_TYPES: { type: ItemType; label: string; icon: string }[] = [
   { type: 'flight', label: 'Flug', icon: '✈️' },
-  { type: 'hotel', label: 'Hotel', icon: '🏨' },
-  { type: 'transfer', label: 'Transfer', icon: '🚐' },
   { type: 'train', label: 'Zug', icon: '🚆' },
+  { type: 'transfer', label: 'Transfer', icon: '🚐' },
+  { type: 'hotel', label: 'Übernachtung', icon: '🏨' },
+  { type: 'parking', label: 'Parkplatz', icon: '🅿️' },
+  { type: 'car_rental', label: 'Mietwagen', icon: '🚗' },
   { type: 'bus', label: 'Bus', icon: '🚌' },
   { type: 'ferry', label: 'Fähre', icon: '⛴️' },
-  { type: 'car_rental', label: 'Mietwagen', icon: '🚗' },
   { type: 'excursion', label: 'Landausflug', icon: '🧭' },
   { type: 'activity', label: 'Aktivität', icon: '🎟️' },
   { type: 'restaurant', label: 'Restaurant', icon: '🍽️' },
@@ -87,6 +88,7 @@ export const startLabel: Partial<Record<ItemType, string>> = {
   ferry: 'Abfahrt',
   transfer: 'Abholung',
   car_rental: 'Abholung',
+  parking: 'Einfahrt',
   hotel: 'Check-in',
 };
 export const endLabel: Partial<Record<ItemType, string>> = {
@@ -96,6 +98,7 @@ export const endLabel: Partial<Record<ItemType, string>> = {
   ferry: 'Ankunft',
   transfer: 'Ankunft',
   car_rental: 'Rückgabe',
+  parking: 'Ausfahrt',
   hotel: 'Check-out',
 };
 
@@ -115,6 +118,8 @@ export function itemSubtitle(item: Item): string {
   if (d.flightNumber) parts.push(d.flightNumber);
   if (d.trainNumber) parts.push(d.trainNumber);
   if (item.type === 'excursion') parts.push(d.bookedVia === 'private' ? 'privat gebucht' : 'über Reederei');
+  if (d.mode) parts.push(d.mode);
+  if (d.plate) parts.push(d.plate);
   if (d.meetingPoint) parts.push(`Treffpunkt: ${d.meetingPoint}`);
   if (item.location && !(d.from || d.to)) parts.push(item.location);
   if (item.provider) parts.push(item.provider);

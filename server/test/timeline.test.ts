@@ -98,7 +98,20 @@ describe('buildTimeline', () => {
       ],
       'Europe/Rome',
     );
-    assert.deepEqual(tl.phases.map((p) => p.kind), ['cruise', 'between', 'cruise', 'post']);
-    assert.equal(tl.phases[2]!.title, 'Kreuzfahrt · MS Zwei');
+    assert.deepEqual(tl.phases.map((p) => p.kind), ['pre', 'cruise', 'between', 'cruise', 'post']);
+    assert.equal(tl.phases[3]!.title, 'Kreuzfahrt · MS Zwei');
+    assert.equal(tl.phases[0]!.days.length, 0, 'empty Anreise is still offered');
+  });
+
+  test('parking that ends before the return trip is flagged', () => {
+    const base = [
+      item({ id: 'p', type: 'parking', startLocal: '2027-05-08T07:00', startTz: 'Europe/Zurich', endLocal: '2027-05-17', endTz: 'Europe/Zurich' }),
+      item({ id: 'out', type: 'flight', startLocal: '2027-05-08T09:40', startTz: 'Europe/Zurich', endLocal: '2027-05-08T11:15', endTz: 'Europe/Rome' }),
+      item({ id: 'back', type: 'flight', startLocal: '2027-05-18T14:00', startTz: 'Europe/Madrid', endLocal: '2027-05-18T16:00', endTz: 'Europe/Zurich' }),
+    ];
+    const short = buildTimeline([cruise([embark, port, dis])], base, 'Europe/Zurich');
+    assert.ok(short.warnings.some((w) => w.code === 'parking_short'));
+    const ok = buildTimeline([cruise([embark, port, dis])], [{ ...base[0]!, endLocal: '2027-05-18' }, base[1]!, base[2]!], 'Europe/Zurich');
+    assert.ok(!ok.warnings.some((w) => w.code === 'parking_short'), 'date-only end counts until end of day');
   });
 });

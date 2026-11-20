@@ -1,5 +1,5 @@
 /**
- * Builds the phase-structured timeline of a trip (Vorprogramm → Kreuzfahrt → Nachprogramm)
+ * Builds the phase-structured timeline of a trip (Anreise → Kreuzfahrt → Abreise)
  * and checks for tight connections. Pure functions, no DB access, so the logic is testable
  * and every client (web, iOS) gets identical results from GET /api/trips/:id/timeline.
  */
@@ -251,9 +251,10 @@ export function buildTimeline(cruises: Cruise[], items: Item[], defaultTz: strin
         }
         const merged = [...days, ...groupByDate(extra)].sort((a, b) => a.date.localeCompare(b.date));
         phases.push(phaseFromDays('cruise', `Kreuzfahrt · ${w.cruise.shipName}`, merged, w.cruise.id));
-      } else if (entries.length) {
+      } else if (entries.length || s === 0 || s === maxSlot) {
+        // Anreise and Abreise are always shown, so they can be planned from an empty state.
         const kind: PhaseKind = s === 0 ? 'pre' : s === maxSlot ? 'post' : 'between';
-        const title = kind === 'pre' ? 'Vorprogramm' : kind === 'post' ? 'Nachprogramm' : 'Zwischenprogramm';
+        const title = kind === 'pre' ? 'Anreise' : kind === 'post' ? 'Abreise' : 'Zwischenprogramm';
         phases.push(phaseFromDays(kind, title, groupByDate(entries)));
       }
     }
@@ -377,6 +378,26 @@ function computeWarnings(
       }
     }
   });
+
+  // --- Parkplatz: reicht die Buchung bis zur Rückkehr? ---
+  for (const p of items.filter((i) => i.type === 'parking' && i.endLocal)) {
+    const pStart = toInstant(p.startLocal, itemTz(p, 'start'));
+    const rawEnd = toInstant(p.endLocal!, itemTz(p, 'end'));
+    const pEnd = hasTime(p.endLocal) ? rawEnd : rawEnd + 24 * HOUR - MIN;
+    const returns = transports
+      .map((t) => ({ t, at: toInstant(t.endLocal ?? t.startLocal, itemTz(t, t.endLocal ? 'end' : 'start')) }))
+      .filter(({ t }) => toInstant(t.startLocal, itemTz(t, 'start')) > pStart)
+      .sort((a, b) => b.at - a.at);
+    const last = returns[0];
+    if (last && pEnd < last.at) {
+      warnings.push({
+        level: 'warning',
+        code: 'parking_short',
+        message: `Parkplatz „${p.title}“ ist nur bis ${p.endLocal!.replace('T', ' ')} gebucht, die Rückreise („${last.t.title}“) endet aber erst ${(last.t.endLocal ?? last.t.startLocal).replace('T', ' ')}.`,
+        itemId: p.id,
+      });
+    }
+  }
 
   // --- Landausflüge & Aktivitäten an Hafentagen ---
   for (const item of items) {

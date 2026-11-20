@@ -21,6 +21,7 @@ export const ITEM_TYPES = [
   'ferry',
   'transfer',
   'car_rental',
+  'parking',
   'hotel',
   'activity',
   'excursion',
@@ -30,7 +31,7 @@ export const ITEM_TYPES = [
 export type ItemType = (typeof ITEM_TYPES)[number];
 export const TRANSPORT_TYPES: readonly ItemType[] = ['flight', 'train', 'bus', 'ferry', 'transfer'];
 /** Types whose end is shown as its own entry on the timeline (check-out, return). */
-export const SPAN_TYPES: readonly ItemType[] = ['hotel', 'car_rental'];
+export const SPAN_TYPES: readonly ItemType[] = ['hotel', 'car_rental', 'parking'];
 
 export const CRUISE_DAY_KINDS = ['embarkation', 'port', 'sea', 'disembarkation'] as const;
 export type CruiseDayKind = (typeof CRUISE_DAY_KINDS)[number];
