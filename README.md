@@ -77,11 +77,16 @@ Zusatzinfos vorhanden sind.
 **Erinnerungen nach Uhrzeit** aufs iPhone (Alle an Bord, Ausflug, Abflug, Abfahrt), mit deinem Zeitbedarf als Vorlauf. Siehe
 [Erinnerungen aufs iPhone](#erinnerungen-aufs-iphone-benachrichtigungen-nur-per-vpn).
 
-**Persönlicher Zeitbedarf:** Unter *Einstellungen* stellst du ein, ob und wie stark dein eigenes Tempo berücksichtigt wird (Faktor
+**Persönlicher Zeitbedarf:** Unter *Einstellungen → Zeitbedarf* stellst du ein, ob und wie stark dein eigenes Tempo berücksichtigt wird (Faktor
 und pauschale Zusatzzeit, nur für dein Konto). Alle empfohlenen Mindestzeiten des Puffer-Checks (Anreise zum Schiff, Ausschiffung,
 Rückkehr von Ausflügen, Hotel-Check-out) zeigen dann **beide Zeiten**, z. B. „30 min normal, 45 min persönlich“. Eine Lage, die normal
 reicht, aber mit deinem Zeitbedarf zu knapp ist, wird als „nur persönlich“ gekennzeichnet. In der Datenbank steht nur der Faktor, kein
 Grund dafür, und es geht nichts davon an die KI.
+
+**Aufbau der App:** Unten (am Computer oben) wechselst du zwischen *Reisen* und *Einstellungen*. Die Einstellungen sind eine Liste kurzer
+Seiten: *Konto*, *Zeitbedarf*, *Erinnerungen*, *Dieses Gerät einrichten* und für Admins *Familie* sowie *KI und Dokumente*. Direkt nach der
+ersten Anmeldung auf einem Gerät erscheint einmal ein Einrichtungsdialog mit den offenen Schritten (Zertifikat installieren, Home-Bildschirm,
+Erinnerungen). Ein Abzeichen an *Dieses Gerät einrichten* zeigt, wie viele Schritte noch offen sind.
 
 **Jederzeit selbst ändern:** Einträge, Kreuzfahrt und einzelne Reisetage lassen sich wie bisher von Hand anlegen, ändern und löschen.
 *Leeren* im Kopf von Anreise, Abreise oder Zwischenprogramm löscht alle Einträge dieses Abschnitts auf einmal (mit Rückfrage).
@@ -107,7 +112,7 @@ read -rsp "API-Schlüssel: " K; echo; printf 'ANTHROPIC_API_KEY=%s\n' "$K" | sud
 cd /volume1/docker/bordbuch && sudo docker compose up -d
 ```
 
-4. In Bordbuch unter *Einstellungen → Dokumente automatisch zuordnen (KI)* auf **Verbindung testen** tippen.
+4. In Bordbuch unter *Einstellungen → KI und Dokumente* auf **Verbindung testen** tippen.
 
 Die Datei `.env` ist von Git und aus dem Docker-Image ausgeschlossen. Der Schlüssel gehört nie ins Repository.
 
@@ -129,7 +134,7 @@ jede andere Eingabe geprüft und nur mit deiner Bestätigung gespeichert.
 ### Erinnerungen aufs iPhone (Benachrichtigungen, nur per VPN)
 
 Bordbuch kann dich **nach Uhrzeit** erinnern, auch bei geschlossener App: vor „Alle an Bord“, vor dem Beginn eines Ausflugs, vor Abflug
-und vor Abfahrt von Bahn, Bus, Fähre und Transfer. Der Vorlauf ist pro Art einstellbar (*Einstellungen → Erinnerungen aufs iPhone*) und wird
+und vor Abfahrt von Bahn, Bus, Fähre und Transfer. Der Vorlauf ist pro Art einstellbar (*Einstellungen → Erinnerungen*) und wird
 durch deinen **persönlichen Zeitbedarf** verlängert. Die Nachricht sagt dann z. B. „Alle an Bord in 1 h 30 min, Vorlauf 1 h 30 min
 (normal 1 h)“. Eine Erinnerung, die der Server um mehr als 5 Minuten verpasst hat, wird nicht verspätet gesendet.
 
@@ -185,14 +190,14 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 825 -keyout bordbuch-key.pem -ou
 3. Reverse-Proxy wie in Variante A anlegen (Port 8444, Ziel `localhost:8080`), als Hostname `172.16.10.1` (lehnt DSM die IP ab, `*`), und unter
    *Zertifikat → Einstellungen* das importierte Zertifikat zuweisen. Router und Firewall wie in A.
 4. Test am Computer: `curl --cacert bordbuch.pem https://172.16.10.1:8444/api/health` muss `{"ok":true,…}` liefern.
-5. **Zertifikat aufs iPhone bringen.** Am einfachsten über Bordbuch: Als Admin unter *Einstellungen → HTTPS-Zertifikat für das iPhone* `bordbuch.pem`
+5. **Zertifikat aufs iPhone bringen.** Am einfachsten über Bordbuch: Als Admin unter *Einstellungen → Dieses Gerät einrichten → Zertifikat verwalten* `bordbuch.pem`
    hochladen (nur das Zertifikat; einen privaten Schlüssel lehnt die App ab). Auf dem iPhone in **Safari** die normale http-Adresse im VPN
-   öffnen, anmelden, in den Einstellungen **Zertifikat herunterladen** antippen, dann *Einstellungen → Profil geladen → Installieren* und unter
+   öffnen, anmelden, unter *Einstellungen → Dieses Gerät einrichten* **Zertifikat herunterladen** antippen (oder gleich im Einrichtungsdialog nach der ersten Anmeldung), dann *Einstellungen → Profil geladen → Installieren* und unter
    *Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen* dem Zertifikat **vollständig vertrauen**. Alternativ die Datei als
    `bordbuch.crt` per E-Mail schicken.
 6. Mit aktivem WireGuard `https://172.16.10.1:8444` in Safari öffnen, auf den Home-Bildschirm legen. Nach 825 Tagen Schritt 1 bis 5 wiederholen.
 
-**Einschalten:** In Bordbuch (vom Home-Bildschirm geöffnet) unter *Einstellungen → Erinnerungen aufs iPhone* **Auf diesem Gerät aktivieren**,
+**Einschalten:** In Bordbuch (vom Home-Bildschirm geöffnet) unter *Einstellungen → Erinnerungen* **Auf diesem Gerät aktivieren**,
 Mitteilungen erlauben, dann **Testnachricht senden**. Danach stellst du ein, wofür und wie früh erinnert wird.
 
 **Fehlersuche:** Kommt die Testnachricht nicht an, steht in den Einstellungen der Grund (z. B. `HTTP 403`). Meist fehlt die HTTPS-Adresse

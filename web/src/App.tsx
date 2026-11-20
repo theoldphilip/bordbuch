@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { api } from './api.ts';
 import type { User } from './types.ts';
 import { AuthPage } from './pages/Auth.tsx';
@@ -7,6 +7,7 @@ import { TripsPage } from './pages/Trips.tsx';
 import { TripPage } from './pages/Trip.tsx';
 import { SettingsPage } from './pages/Settings.tsx';
 import { Spinner } from './components/ui.tsx';
+import { SetupPrompt } from './components/SetupPrompt.tsx';
 
 interface AuthCtx {
   user: User;
@@ -15,6 +16,24 @@ interface AuthCtx {
 }
 const AuthContext = createContext<AuthCtx | null>(null);
 export const useAuth = () => useContext(AuthContext)!;
+
+/** Main navigation: at the bottom on the phone, in the top bar on wide screens. */
+function BottomNav() {
+  const { pathname } = useLocation();
+  const onTrips = pathname === '/' || pathname.startsWith('/trips');
+  return (
+    <nav className="bottom-nav" aria-label="Hauptnavigation">
+      <Link to="/" className={onTrips ? 'active' : ''} aria-current={onTrips ? 'page' : undefined}>
+        <span className="nav-icon" aria-hidden>🧭</span>
+        <span>Reisen</span>
+      </Link>
+      <NavLink to="/settings" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <span className="nav-icon" aria-hidden>⚙️</span>
+        <span>Einstellungen</span>
+      </NavLink>
+    </nav>
+  );
+}
 
 export function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -63,8 +82,12 @@ export function App() {
               <img src="/icon.svg" alt="" width={28} height={28} />
               <span>Bordbuch</span>
             </Link>
+            <nav className="top-links" aria-label="Hauptnavigation">
+              <NavLink to="/" end>Reisen</NavLink>
+              <NavLink to="/settings">Einstellungen</NavLink>
+            </nav>
             <span className="spacer" />
-            <Link to="/settings" className="avatar" title="Einstellungen" aria-label="Einstellungen">
+            <Link to="/settings/konto" className="avatar" title="Einstellungen" aria-label="Einstellungen">
               {user.displayName.slice(0, 1).toUpperCase()}
             </Link>
           </header>
@@ -73,10 +96,12 @@ export function App() {
             <Routes>
               <Route path="/" element={<TripsPage />} />
               <Route path="/trips/:tripId" element={<TripPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings/:section?" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
+          <BottomNav />
+          <SetupPrompt />
         </div>
       </BrowserRouter>
     </AuthContext.Provider>
