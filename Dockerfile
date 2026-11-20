@@ -1,6 +1,7 @@
 # ---- Web-App bauen ----
 FROM node:24-alpine AS web
 WORKDIR /app/web
+COPY VERSION /app/VERSION
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY web/ ./
@@ -25,6 +26,9 @@ COPY --from=server-deps /app/server/node_modules ./node_modules
 COPY server/package.json ./
 COPY server/src ./src
 COPY --from=web /app/web/dist /app/web
+COPY VERSION /app/VERSION
+# Runs again whenever the code above changed, so it is the time of this build.
+RUN date -u +%Y-%m-%dT%H:%M:%SZ > /app/BUILD_TIME
 RUN mkdir -p /data && chown node:node /data
 VOLUME /data
 EXPOSE 8080

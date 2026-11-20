@@ -1,6 +1,8 @@
 import { Link, NavLink, useParams } from 'react-router-dom';
 import { useAuth } from '../App.tsx';
 import { useDeviceSetup } from '../hooks/useDeviceSetup.ts';
+import { useVersion } from '../hooks/useVersion.ts';
+import { AboutSettings } from './settings/About.tsx';
 import { AiAdmin } from './settings/Ai.tsx';
 import { DeviceSettings } from './settings/Device.tsx';
 import { FamilyAdmin } from './settings/Family.tsx';
@@ -15,6 +17,7 @@ const SECTIONS = [
   { id: 'geraet', icon: '📱', title: 'Dieses Gerät einrichten', sub: 'Zertifikat, Home-Bildschirm' },
   { id: 'familie', icon: '👪', title: 'Familie', sub: 'Konten verwalten', admin: true },
   { id: 'ki', icon: '✨', title: 'KI und Dokumente', sub: 'Verbindung zur Claude-API', admin: true },
+  { id: 'ueber', icon: 'ℹ️', title: 'Über Bordbuch', sub: 'Version und Stand' },
 ] as const;
 
 type SectionId = (typeof SECTIONS)[number]['id'];
@@ -26,6 +29,7 @@ const VIEWS: Record<SectionId, () => React.ReactElement> = {
   geraet: () => <DeviceSettings />,
   familie: () => <FamilyAdmin />,
   ki: () => <AiAdmin />,
+  ueber: () => <AboutSettings />,
 };
 
 /**
@@ -36,6 +40,7 @@ export function SettingsPage() {
   const { section } = useParams<{ section?: string }>();
   const { user } = useAuth();
   const setup = useDeviceSetup();
+  const version = useVersion();
   const items = SECTIONS.filter((s) => !('admin' in s) || user.isAdmin);
   const active = items.find((s) => s.id === section) ?? items[0]!;
 
@@ -48,8 +53,9 @@ export function SettingsPage() {
             <span className="icon" aria-hidden>{s.icon}</span>
             <span className="settings-link-text">
               <strong>{s.title}</strong>
-              <small>{s.sub}</small>
+              <small>{s.id === 'ueber' ? `Version ${version.info?.version ?? __APP_VERSION__}` : s.sub}</small>
             </span>
+            {s.id === 'ueber' && version.outdated && <span className="nav-badge" title="Die App auf diesem Gerät ist veraltet">!</span>}
             {s.id === 'geraet' && setup.todo > 0 && <span className="nav-badge" title="Offene Schritte">{setup.todo}</span>}
             <span className="chev" aria-hidden>›</span>
           </NavLink>

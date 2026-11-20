@@ -422,3 +422,9 @@ a.btn { text-decoration: none; }
 .guide-step.done { opacity: 0.8; }
 .guide-icon { font-size: 1.2rem; line-height: 1.3; }
 .guide-body { display: grid; gap: 6px; min-width: 0; }
+
+/* ---------- about / version ---------- */
+.about { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.about dt { color: var(--muted); }
+.about dd { margin: 0; overflow-wrap: anywhere; }
+.auth-version { position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 10px); text-align: center; color: rgba(255, 255, 255, 0.75); font-size: 0.8rem; }

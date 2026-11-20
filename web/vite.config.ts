@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -16,7 +17,11 @@ function inlineAppleIcon(): Plugin {
   };
 }
 
+// One version for server, web app and image: the VERSION file in the repository root.
+const appVersion = fs.readFileSync(fileURLToPath(new URL('../VERSION', import.meta.url)), 'utf8').trim();
+
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(appVersion) },
   plugins: [react(), inlineAppleIcon()],
   server: {
     port: 5173,

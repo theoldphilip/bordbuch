@@ -61,6 +61,7 @@ export function AuthPage({ onLogin }: { onLogin: (token: string, user: User) => 
           {busy ? 'Moment…' : needsSetup ? 'Konto anlegen' : 'Anmelden'}
         </button>
       </form>
+      <p className="auth-version">Bordbuch {__APP_VERSION__}</p>
     </div>
   );
 }

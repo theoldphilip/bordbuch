@@ -16,13 +16,14 @@ import { registerItemRoutes } from './routes/items.ts';
 import { registerAttachmentRoutes } from './routes/attachments.ts';
 import { registerDocumentRoutes } from './routes/documents.ts';
 import { registerPushRoutes } from './routes/push.ts';
+import { BUILT_AT, VERSION } from './version.ts';
 import { registerCertificateRoutes } from './routes/certificate.ts';
 import { createWebPushSender, loadVapid, type PushSender } from './push.ts';
 import { runReminderTick } from './reminderRunner.ts';
 import { createAnthropicExtractor } from './ai/anthropic.ts';
 import type { Extractor } from './ai/types.ts';
 
-export const VERSION = '0.1.0';
+export { VERSION };
 
 export interface Ctx {
   db: DB;
@@ -78,6 +79,13 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
   });
 
   app.get('/api/health', { config: { public: true } }, async () => ({ ok: true, version: VERSION }));
+
+  /** Public: shown in the settings and on the login page, and used to notice an outdated web app. */
+  app.get('/api/version', { config: { public: true } }, async () => ({
+    version: VERSION,
+    builtAt: BUILT_AT,
+    schema: (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
+  }));
 
   registerAuthRoutes(app, ctx);
   registerTripRoutes(app, ctx);
