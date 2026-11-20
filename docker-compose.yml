@@ -1,0 +1,17 @@
+services:
+  bordbuch:
+    build: .
+    image: bordbuch:latest
+    container_name: bordbuch
+    restart: unless-stopped
+    ports:
+      - "8080:8080"          # links: Port auf der Synology, frei wählbar
+    environment:
+      DEFAULT_TZ: Europe/Zurich   # Zeitzone für Einträge ohne eigene Zeitzone
+      MAX_UPLOAD_MB: 25           # max. Größe pro Dokument
+      BACKUP_KEEP: 14             # Anzahl täglicher DB-Backups in /data/backups
+    volumes:
+      - ./data:/data              # Datenbank, Uploads, Backups
+    # Auf der Synology: UID/GID des DSM-Benutzers, dem der Ordner ./data gehört
+    # (per SSH mit `id <benutzer>` ermitteln), z. B.:
+    # user: "1026:100"
