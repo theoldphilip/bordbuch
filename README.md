@@ -88,6 +88,12 @@ Seiten: *Konto*, *Zeitbedarf*, *Erinnerungen*, *Dieses Gerät einrichten* und f�
 ersten Anmeldung auf einem Gerät erscheint einmal ein Einrichtungsdialog mit den offenen Schritten (Zertifikat installieren, Home-Bildschirm,
 Erinnerungen). Ein Abzeichen an *Dieses Gerät einrichten* zeigt, wie viele Schritte noch offen sind.
 
+**Familienmitglieder einladen:** Unter *Einstellungen → Familie* legst du ein Konto an und kannst ein leicht abzutippendes Startpasswort
+vorschlagen lassen. Danach erscheint eine fertige Einladung mit Adresse, Benutzername, Startpasswort und den ersten Schritten. Auf dem
+iPhone verschickst du sie über **Teilen …** (Nachrichten, WhatsApp, Mail …); alternativ über Nachricht, E-Mail oder Kopieren. Das Teilen-Menü
+gibt es nur über eine HTTPS-Adresse. Das Passwort kannst du auch weglassen und getrennt schicken. Die Einladung erscheint ebenso nach
+*Passwort* (zurücksetzen).
+
 **Jederzeit selbst ändern:** Einträge, Kreuzfahrt und einzelne Reisetage lassen sich wie bisher von Hand anlegen, ändern und löschen.
 *Leeren* im Kopf von Anreise, Abreise oder Zwischenprogramm löscht alle Einträge dieses Abschnitts auf einmal (mit Rückfrage).
 
