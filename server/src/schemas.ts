@@ -73,8 +73,23 @@ export const paceInput = z.object({
   factor: z.number().min(1).max(4).default(1.5),
   extraMinutes: z.number().int().min(0).max(120).default(0),
 });
+const lead = (def: number) => z.number().int().min(5).max(480).default(def);
+/** Reminders by time. Lead times are the normal ones; the personal time need (pace) is applied on top. */
+export const notificationInput = z.object({
+  enabled: z.boolean().default(false),
+  boarding: z.boolean().default(true),
+  boardingLead: lead(60),
+  excursion: z.boolean().default(true),
+  excursionLead: lead(45),
+  transport: z.boolean().default(true),
+  transportLead: lead(90),
+  flightLead: lead(180),
+});
 export const userSettingsInput = z.object({
   pace: paceInput.default({ enabled: false, factor: 1.5, extraMinutes: 0 }),
+  notifications: notificationInput.default({
+    enabled: false, boarding: true, boardingLead: 60, excursion: true, excursionLead: 45, transport: true, transportLead: 90, flightLead: 180,
+  }),
 });
 export type UserSettings = z.infer<typeof userSettingsInput>;
 

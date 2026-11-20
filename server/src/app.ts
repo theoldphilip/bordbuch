@@ -15,6 +15,9 @@ import { registerCruiseRoutes } from './routes/cruises.ts';
 import { registerItemRoutes } from './routes/items.ts';
 import { registerAttachmentRoutes } from './routes/attachments.ts';
 import { registerDocumentRoutes } from './routes/documents.ts';
+import { registerPushRoutes } from './routes/push.ts';
+import { createWebPushSender, loadVapid, type PushSender } from './push.ts';
+import { runReminderTick } from './reminderRunner.ts';
 import { createAnthropicExtractor } from './ai/anthropic.ts';
 import type { Extractor } from './ai/types.ts';
 
@@ -26,9 +29,10 @@ export interface Ctx {
   uploadDir: string;
   /** null = document analysis is not set up (no API key). */
   extractor: Extractor | null;
+  sender: PushSender;
 }
 
-export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFile?: string; backups?: number; extractor?: Extractor | null } = {}) {
+export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFile?: string; backups?: number; extractor?: Extractor | null; pushSender?: PushSender; scheduler?: boolean } = {}) {
   fs.mkdirSync(config.dataDir, { recursive: true });
   const uploadDir = path.join(config.dataDir, 'uploads');
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -39,7 +43,8 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
       : config.anthropicApiKey
         ? createAnthropicExtractor({ apiKey: config.anthropicApiKey, model: config.aiModel })
         : null;
-  const ctx: Ctx = { db, config, uploadDir, extractor };
+  const sender = opts.pushSender ?? createWebPushSender(loadVapid(db, process.env.PUSH_SUBJECT?.trim() || 'mailto:bordbuch@example.com'));
+  const ctx: Ctx = { db, config, uploadDir, extractor, sender };
 
   const app: FastifyInstance = Fastify({
     logger: opts.logger ?? false,
@@ -79,6 +84,7 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
   registerItemRoutes(app, ctx);
   registerAttachmentRoutes(app, ctx);
   registerDocumentRoutes(app, ctx);
+  registerPushRoutes(app, ctx);
 
   // Web app (PWA) with SPA fallback.
   const webDir = config.webDir;
@@ -95,7 +101,19 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
   }
 
   const stopBackup = opts.backups ? startDailyBackup(db, config.dataDir, opts.backups, (m) => app.log.info(m)) : () => {};
+  let ticking = false;
+  const reminderTimer = opts.scheduler
+    ? setInterval(() => {
+        if (ticking) return;
+        ticking = true;
+        runReminderTick({ db, config, sender })
+          .catch((err) => app.log.warn({ err }, 'Erinnerungen fehlgeschlagen'))
+          .finally(() => (ticking = false));
+      }, 30_000)
+    : null;
+  reminderTimer?.unref();
   app.addHook('onClose', async () => {
+    if (reminderTimer) clearInterval(reminderTimer);
     stopBackup();
     db.close();
   });

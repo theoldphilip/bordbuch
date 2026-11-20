@@ -99,7 +99,7 @@ function addMinutes(hhmm: string, minutes: number): string {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
-function formatDuration(ms: number): string {
+export function formatDuration(ms: number): string {
   const totalMin = Math.round(Math.abs(ms) / 60000);
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
@@ -117,7 +117,7 @@ export interface Pace {
   extraMinutes: number;
 }
 
-interface Need {
+export interface Need {
   normal: number;
   personal: number;
   /** What the checks compare against: the personal time when the pace is enabled, else the normal time. */

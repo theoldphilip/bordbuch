@@ -74,6 +74,9 @@ Notrufnummern, E-Mail, Links und Hinweise. Nummern lassen sich direkt antippen (
 verlässt. Sobald du eine solche Info bearbeitest, gilt sie als deine eigene. Im Ablauf zeigt ein Symbol (☎️ oder 🆘) am Eintrag, dass
 Zusatzinfos vorhanden sind.
 
+**Erinnerungen nach Uhrzeit** aufs iPhone (Alle an Bord, Ausflug, Abflug, Abfahrt), mit deinem Zeitbedarf als Vorlauf. Siehe
+[Erinnerungen aufs iPhone](#erinnerungen-aufs-iphone-benachrichtigungen-nur-per-vpn).
+
 **Persönlicher Zeitbedarf:** Unter *Einstellungen* stellst du ein, ob und wie stark dein eigenes Tempo berücksichtigt wird (Faktor
 und pauschale Zusatzzeit, nur für dein Konto). Alle empfohlenen Mindestzeiten des Puffer-Checks (Anreise zum Schiff, Ausschiffung,
 Rückkehr von Ausflügen, Hotel-Check-out) zeigen dann **beide Zeiten**, z. B. „30 min normal, 45 min persönlich“. Eine Lage, die normal
@@ -122,6 +125,51 @@ ohne Schlüssel), verlassen den Server nicht.
 
 **Zur Sicherheit:** Text im Dokument wird als Daten behandelt, nicht als Anweisung. Alles, was die KI liefert, wird vom Server wie
 jede andere Eingabe geprüft und nur mit deiner Bestätigung gespeichert.
+
+### Erinnerungen aufs iPhone (Benachrichtigungen, nur per VPN)
+
+Bordbuch kann dich **nach Uhrzeit** erinnern, auch bei geschlossener App: vor „Alle an Bord“, vor dem Beginn eines Ausflugs, vor Abflug
+und vor Abfahrt von Bahn, Bus, Fähre und Transfer. Der Vorlauf ist pro Art einstellbar (*Einstellungen → Erinnerungen aufs iPhone*) und wird
+durch deinen **persönlichen Zeitbedarf** verlängert. Die Nachricht sagt dann z. B. „Alle an Bord in 1 h 30 min, Vorlauf 1 h 30 min
+(normal 1 h)“. Eine Erinnerung, die der Server um mehr als 5 Minuten verpasst hat, wird nicht verspätet gesendet.
+
+**Nicht möglich** sind Erinnerungen nach Standort im Hintergrund („du bist am Hafen“). Das erlauben iOS und Safari einer Web-App nicht, dafür
+braucht es die iOS-App.
+
+**So kommt die Nachricht zum iPhone:** Die Syno schickt sie **ausgehend** (HTTPS) an den Push-Dienst von Apple, Apple stellt sie zu. Dafür
+muss nichts aus dem Internet auf die Syno zugreifen können. Die App bleibt nur über VPN erreichbar. Voraussetzungen:
+
+1. **iOS 16.4 oder neuer**, und Bordbuch liegt **auf dem Home-Bildschirm** (Safari → Teilen → Zum Home-Bildschirm). In Safari selbst gibt es
+   keine Web-Benachrichtigungen.
+2. **HTTPS mit vertrauenswürdigem Zertifikat.** Eine reine `http://`-Adresse reicht nicht, iOS erlaubt Benachrichtigungen nur auf sicheren Seiten.
+3. Die Syno darf ausgehend zu den Apple-Push-Servern (`*.push.apple.com`, Port 443).
+
+**HTTPS einrichten, ohne die App ins Internet zu stellen**
+
+*Variante A: Du erreichst die Syno schon über einen Namen mit gültigem Zertifikat* (z. B. `meinesyno.synology.me` mit Let's Encrypt):
+
+1. DSM → *Systemsteuerung → Anmeldeportal → Erweitert → Reverse-Proxy → Erstellen*.
+   Quelle: Protokoll **HTTPS**, Hostname = dein Syno-Name, Port **8443**. Ziel: Protokoll **HTTP**, Hostname `localhost`, Port **8080**.
+2. *Systemsteuerung → Sicherheit → Zertifikat → Einstellungen*: dem neuen Reverse-Proxy-Eintrag das gültige Zertifikat zuweisen.
+3. **Port 8443 nicht im Router freigeben.** Damit ist Bordbuch von außen nicht erreichbar.
+4. Zusätzlich in der DSM-Firewall (*Systemsteuerung → Sicherheit → Firewall*) Port 8443 nur für dein Heimnetz und das WireGuard-Netz erlauben
+   und für alle anderen Quellen verweigern.
+5. Der Name muss **im VPN auf die interne Adresse** der Syno zeigen. Zeigt er auf die öffentliche IP, kommst du aus dem Tunnel oft nicht
+   an deine eigene Syno zurück. Dann im WireGuard-Profil einen DNS-Server eintragen, der den Namen auf `172.16.10.1` auflöst
+   (Router mit lokalem DNS-Eintrag, Pi-hole oder das DNS-Server-Paket der Syno).
+6. Bordbuch auf dem iPhone über `https://<dein-name>:8443` öffnen und neu auf den Home-Bildschirm legen.
+
+*Variante B: kein passender Name mit Zertifikat.* Eigenes Zertifikat über eine eigene Zertifizierungsstelle (z. B. mit `mkcert`) für
+`172.16.10.1`, in DSM importieren (*Sicherheit → Zertifikat → Hinzufügen → Importieren*) und die Stelle auf dem iPhone installieren und unter
+*Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen* vollständig vertrauen. Reverse-Proxy und Firewall wie in A.
+
+**Einschalten:** In Bordbuch (vom Home-Bildschirm geöffnet) unter *Einstellungen → Erinnerungen aufs iPhone* **Auf diesem Gerät aktivieren**,
+Mitteilungen erlauben, dann **Testnachricht senden**. Danach stellst du ein, wofür und wie früh erinnert wird.
+
+**Fehlersuche:** Kommt die Testnachricht nicht an, steht in den Einstellungen der Grund (z. B. `HTTP 403`). Meist fehlt die HTTPS-Adresse
+oder der ausgehende Zugriff der Syno. Das Protokoll siehst du im Container Manager. Für die Kennung gegenüber den Push-Diensten gibt es die
+Umgebungsvariable `PUSH_SUBJECT` (Standard `mailto:bordbuch@example.com`). Setze dort bei Bedarf eine eigene Adresse in der `.env` ein,
+sie wird nur an Apples Push-Dienst geschickt.
 
 ### Daten & Backup
 

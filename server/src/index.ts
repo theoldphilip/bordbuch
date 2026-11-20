@@ -2,7 +2,7 @@ import { buildApp } from './app.ts';
 import { configFromEnv } from './config.ts';
 
 const config = configFromEnv();
-const app = await buildApp(config, { logger: true, backups: Number(process.env.BACKUP_KEEP ?? 14) });
+const app = await buildApp(config, { logger: true, backups: Number(process.env.BACKUP_KEEP ?? 14), scheduler: true });
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {

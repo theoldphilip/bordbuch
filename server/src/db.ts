@@ -116,6 +116,31 @@ const migrations: string[] = [
   `
   ALTER TABLE users ADD COLUMN settings TEXT NOT NULL DEFAULT '{}';
   `,
+  `
+  CREATE TABLE meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+
+  CREATE TABLE push_subscriptions (
+    id           TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint     TEXT NOT NULL UNIQUE,
+    p256dh       TEXT NOT NULL,
+    auth         TEXT NOT NULL,
+    device_name  TEXT,
+    created_at   TEXT NOT NULL
+  );
+  CREATE INDEX push_subscriptions_user ON push_subscriptions(user_id);
+
+  -- Which reminder was already sent to whom, so a reminder never fires twice.
+  CREATE TABLE push_log (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    key     TEXT NOT NULL,
+    sent_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, key)
+  );
+  `,
 ];
 
 export function openDb(file: string): DB {

@@ -174,7 +174,7 @@ describe('API', () => {
   });
 
   test('personal time need is a per-user setting and shapes that user\'s timeline', async () => {
-    assert.deepEqual((await ctx.call('GET', '/api/me/settings', admin)).body, { pace: { enabled: false, factor: 1.5, extraMinutes: 0 } });
+    assert.deepEqual((await ctx.call('GET', '/api/me/settings', admin)).body.pace, { enabled: false, factor: 1.5, extraMinutes: 0 });
     assert.equal((await ctx.call('GET', `/api/trips/${tripId}/timeline`, admin)).body.pace, null);
 
     const on = await ctx.call('PATCH', '/api/me/settings', admin, { pace: { enabled: true, factor: 2, extraMinutes: 10 } });

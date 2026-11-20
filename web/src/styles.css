@@ -363,3 +363,7 @@ small.inline-warn.info { background: var(--info-bg); color: var(--info); }
 .collector { display: grid; gap: 10px; }
 .collector-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .collector-list li { display: flex; align-items: center; gap: 8px; background: var(--surface-2); border-radius: 10px; padding: 4px 8px; }
+
+/* ---------- notifications ---------- */
+.notify-rule { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.notify-rule select { max-width: 220px; }

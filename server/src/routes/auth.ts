@@ -74,8 +74,12 @@ export function registerAuthRoutes(app: FastifyInstance, { db }: Ctx) {
   app.patch('/api/me/settings', async (req) => {
     const user = requireUser(req);
     const current = readSettings(db, user.id);
-    const body = (req.body ?? {}) as { pace?: object };
-    const next = userSettingsInput.parse({ ...current, pace: { ...current.pace, ...(body.pace ?? {}) } });
+    const body = (req.body ?? {}) as { pace?: object; notifications?: object };
+    const next = userSettingsInput.parse({
+      ...current,
+      pace: { ...current.pace, ...(body.pace ?? {}) },
+      notifications: { ...current.notifications, ...(body.notifications ?? {}) },
+    });
     writeSettings(db, user.id, next);
     return next;
   });

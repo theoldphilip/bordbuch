@@ -257,6 +257,18 @@ export interface Pace {
   extraMinutes: number;
 }
 
+export interface NotificationPrefs {
+  enabled: boolean;
+  boarding: boolean;
+  boardingLead: number;
+  excursion: boolean;
+  excursionLead: number;
+  transport: boolean;
+  transportLead: number;
+  flightLead: number;
+}
+
 export interface UserSettings {
   pace: Pace;
+  notifications: NotificationPrefs;
 }

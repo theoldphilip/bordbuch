@@ -35,6 +35,22 @@ HTTP-Status (400 Validierung, 401 nicht angemeldet, 403 keine Berechtigung, 404,
 
 `pace` (persönlicher Zeitbedarf): Jede empfohlene Mindestzeit des Puffer-Checks wird mit `factor` multipliziert, um `extraMinutes` verlängert und auf 5 Minuten aufgerundet. Die Einstellung gilt pro Benutzer; die Timeline des jeweiligen Aufrufers enthält `pace` (oder `null`).
 
+### Benachrichtigungen (Web Push)
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| GET | `/push/key` | `{publicKey}`, der öffentliche VAPID-Schlüssel für `pushManager.subscribe` |
+| POST | `/push/subscribe` | `{endpoint, keys: {p256dh, auth}, deviceName?}`. Nur Endpunkte von Apple, Google, Mozilla und Microsoft (HTTPS) werden akzeptiert; ein Gerät gehört genau einem Benutzer |
+| DELETE | `/push/subscribe` | `{endpoint}`, meldet ein eigenes Gerät ab |
+| GET | `/push/status` | angemeldete Geräte des Benutzers |
+| POST | `/push/test` | Testnachricht an alle eigenen Geräte, Antwort `{results: [{deviceName, ok, error}]}` |
+
+Einstellungen unter `GET|PATCH /me/settings` → `notifications`: `enabled`, `boarding`/`boardingLead` (Minuten, Standard 60), `excursion`/`excursionLead` (45),
+`transport`/`transportLead` (90), `flightLead` (180). Der Server prüft alle 30 Sekunden, welche Erinnerungen fällig sind, und sendet sie einmal
+je Ereignis (Tabelle `push_log`). Fällig heißt: Zeitpunkt = Ereignis minus Vorlauf, höchstens 5 Minuten zurück und das Ereignis liegt noch
+in der Zukunft. Der Vorlauf ist der eingestellte, verlängert um den persönlichen Zeitbedarf (`pace`). Nachrichtenform:
+`{title, body, url, tag}`; `url` öffnet die Reise.
+
 ### System & Konto
 | Methode | Pfad | Beschreibung |
 |---|---|---|
