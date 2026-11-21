@@ -81,7 +81,7 @@ in der Zukunft. Der Vorlauf ist der eingestellte, verlängert um den persönlich
 | Methode | Pfad | Rolle | Beschreibung |
 |---|---|---|---|
 | GET | `/trips` | – | eigene Reisen inkl. `role`, `effectiveStartDate/EndDate`, `ships[]`, `memberCount`, `updatedAt` |
-| POST | `/trips` | – | `{title, startDate?, endDate?, notes?, color?}` → `TripDetail` |
+| POST | `/trips` | – | `{title, kind?, startDate?, endDate?, notes?, color?}` → `TripDetail`. `kind`: `cruise` (Standard), `city` (Städtetrip/Urlaub) oder `roundtrip` (Rundreise). Mit `PATCH /trips/:id` änderbar. Das Anlegen einer Kreuzfahrt setzt `kind` auf `cruise`; zwei Stationen aus einem Dokument machen aus `city` eine `roundtrip` |
 | GET | `/trips/:id` | viewer | `TripDetail` = `{trip, role, members[], cruises[] (inkl. days[]), items[], attachments[]}` |
 | PATCH | `/trips/:id` | editor | Teil-Update |
 | DELETE | `/trips/:id` | owner | inkl. Dokumente |
@@ -117,7 +117,7 @@ Bei `disembarkation` bedeutet `departure` „von Bord bis“.
 `Item`:
 ```json
 {
-  "type": "flight | train | bus | ferry | transfer | car_rental | parking | hotel | activity | excursion | restaurant | note",
+  "type": "flight | train | bus | ferry | transfer | car_rental | parking | hotel | stop | activity | excursion | restaurant | note",
   "title": "Zürich → Rom",
   "startLocal": "2027-05-08T09:40", "startTz": "Europe/Zurich",
   "endLocal": "2027-05-08T11:15",   "endTz": "Europe/Rome",
@@ -226,6 +226,9 @@ Warnungscodes:
 | `hotel_late_arrival` | info | Ankunft am Hotel nach 22:00 |
 | `hotel_early_arrival` | info | Ankunft > 4 h vor dem Check-in |
 | `parking_short` | warning | Parkplatz endet vor dem Ende der Rückreise |
+| `stop_no_lodging` | warning | Für Nächte einer Station (Typ `stop`) ist keine Unterkunft eingetragen (Hotel oder Kreuzfahrt) |
+| `stop_no_transport` | info | Zwischen zwei aufeinanderfolgenden Stationen ist keine Verbindung eingetragen (Flug, Zug, Bus, Fähre, Transfer, Mietwagen) |
+| `stop_overlap` | warning | Zwei Stationen überschneiden sich um mehr als 12 h |
 | `excursion_late` | error | Ausflug endet nach *Alle an Bord* |
 | `excursion_tight` | warning | Puffer < 30 min (privat: 60, Tender: +30) |
 | `excursion_before_arrival` | warning | Beginn vor Ankunft des Schiffs |
@@ -243,3 +246,7 @@ Nur lesend: die KI sieht alle Einträge und Kreuzfahrt-Tage zusammen und meldet 
 | POST | `/trips/:id/review` | editor | Startet die Prüfung (202). Zum Abfragen `GET` wiederholen. 400 bei leerer Reise, 409 ohne API-Schlüssel oder wenn sie schon läuft |
 
 `findings[]`: `{severity: error/warning/hint, title, text, itemIds[], dayIds[], suggestion}`. `/ai/status` meldet zusätzlich `review: true/false`.
+
+### Stationen
+
+Eine Station ist ein Eintrag vom Typ `stop`: `title` ist der Ort, `startLocal` die Ankunft, `endLocal` die Abreise, `startTz` die Zeitzone, `details.country` das Land. Sie erscheint in der Zeitleiste mit Ankunft und Abreise und wird wie Hotels als mehrtägiger Eintrag behandelt.

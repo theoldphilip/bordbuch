@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { failedText, runImport, type ImportInput } from '../aiImport.ts';
+import { KindPicker } from '../components/KindPicker.tsx';
 import { InputCollector } from '../components/InputCollector.tsx';
 import { api, errorMessage } from '../api.ts';
-import { daysUntil, fmtRange, todayIso } from '../format.ts';
-import type { TripDetail, TripSummary } from '../types.ts';
+import { daysUntil, fmtRange, todayIso, tripKindInfo } from '../format.ts';
+import type { TripDetail, TripSummary, TripKind } from '../types.ts';
 import { Empty, ErrorBox, Field, Modal, Spinner } from '../components/ui.tsx';
 
 const COLORS = ['#14385c', '#1f7a8c', '#2e8b57', '#c0603a', '#8e44ad', '#b8860b'];
@@ -30,7 +31,7 @@ function TripCard({ trip }: { trip: TripSummary }) {
         </div>
         <p className="muted">{fmtRange(trip.effectiveStartDate, trip.effectiveEndDate)}</p>
         <p className="trip-card-meta">
-          {trip.ships.length > 0 && <span>🛳️ {trip.ships.join(', ')}</span>}
+          {trip.ships.length > 0 ? <span>🛳️ {trip.ships.join(', ')}</span> : <span>{tripKindInfo(trip.kind).icon} {tripKindInfo(trip.kind).label}</span>}
           {trip.memberCount > 1 && <span>👥 {trip.memberCount}</span>}
           {trip.role === 'viewer' && <span>👁 nur ansehen</span>}
         </p>
@@ -94,6 +95,7 @@ function NewTripModal({ onClose }: { onClose: () => void }) {
   const [inputs, setInputs] = useState<ImportInput[]>([]);
   const [grouped, setGrouped] = useState(false);
   const [title, setTitle] = useState('');
+  const [kind, setKind] = useState<TripKind | 'auto'>('cruise');
   const [color, setColor] = useState(COLORS[0]!);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +106,10 @@ function NewTripModal({ onClose }: { onClose: () => void }) {
       .get<{ enabled: boolean }>('/api/ai/status')
       .then((s) => {
         setAiEnabled(s.enabled);
-        if (s.enabled) setMode('ai');
+        if (s.enabled) {
+          setMode('ai');
+          setKind('auto');
+        }
       })
       .catch(() => setAiEnabled(false));
   }, []);
@@ -116,7 +121,7 @@ function NewTripModal({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await api.post<TripDetail>('/api/trips', { title: title.trim() || 'Neue Reise', color });
+      const res = await api.post<TripDetail>('/api/trips', { title: title.trim() || 'Neue Reise', color, kind: kind === 'auto' ? 'city' : kind });
       const id = res.trip.id;
       if (!useAi) return navigate(`/trips/${id}`);
       const imported = await runImport(id, inputs, grouped, setProgress);
@@ -153,13 +158,16 @@ function NewTripModal({ onClose }: { onClose: () => void }) {
         {mode === 'ai' && (
           <div className="ai-start wide">
             <p>
-              Lade die <strong>Kreuzfahrt-Buchung</strong> oder den Reiseplan hoch, dazu gern Flug-, Hotel-, Parkplatz- und Transfer-Bestätigungen. Dateien, Fotos, eingefügte Screenshots und Text sind möglich. Die KI baut daraus die Reise auf. Du prüfst alles, bevor etwas gespeichert wird, und kannst danach jederzeit selbst ändern, ergänzen oder löschen.
+              Lade die <strong>Buchungen</strong> oder den Reiseplan hoch (Kreuzfahrt, Flüge, Hotels, Mietwagen, Parkplatz, Transfers, Programm einer Rundreise). Dateien, Fotos, eingefügte Screenshots und Text sind möglich. Die KI baut daraus die Reise auf. Du prüfst alles, bevor etwas gespeichert wird, und kannst danach jederzeit selbst ändern, ergänzen oder löschen.
             </p>
             <InputCollector inputs={inputs} setInputs={setInputs} grouped={grouped} setGrouped={setGrouped} disabled={busy} />
             <p className="privacy-note">Die Dokumente werden zur Analyse an die Claude-API von Anthropic gesendet.</p>
           </div>
         )}
 
+        <Field label="Art der Reise" wide hint={kind === 'auto' ? 'Die App erkennt aus den Dokumenten, ob es eine Kreuzfahrt, ein Städtetrip oder eine Rundreise ist. Du kannst es danach ändern.' : undefined}>
+          <KindPicker value={kind} onChange={setKind} disabled={busy} extra={mode === 'ai' ? { value: 'auto', label: 'Automatisch erkennen', icon: '✨', hint: 'Nach den hochgeladenen Dokumenten' } : undefined} />
+        </Field>
         <Field label={mode === 'ai' ? 'Name der Reise (optional, sonst schlägt ihn die KI vor)' : 'Name der Reise'} wide>
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Mittelmeer Mai 2027" autoFocus={mode === 'manual'} disabled={busy} onKeyDown={(e) => e.key === 'Enter' && mode === 'manual' && save()} />
         </Field>
@@ -171,7 +179,7 @@ function NewTripModal({ onClose }: { onClose: () => void }) {
           </div>
         </Field>
         {progress && <p className="muted wide">{progress}. Das kann pro Dokument bis zu einer Minute dauern.</p>}
-        {mode === 'manual' && <p className="muted wide">Die Reisedaten ergeben sich automatisch aus Flügen, Hotels und der Kreuzfahrt.</p>}
+        {mode === 'manual' && <p className="muted wide">Die Reisedaten ergeben sich automatisch aus Flügen, Hotels, Stationen und der Kreuzfahrt.</p>}
       </div>
       <ErrorBox error={error} />
     </Modal>

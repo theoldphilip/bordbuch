@@ -52,10 +52,11 @@ describe('review: Anthropic extractor (fake client)', () => {
     const reply: any = { stop_reason: 'end_turn', parsed_output: { summary: 's', findings: [] } };
     const client: any = { messages: { create: async () => ({}) }, beta: { messages: { parse: async (p: any) => (calls.push(p), reply) } } };
     const ex = createAnthropicExtractor({ apiKey: 'k', model: 'claude-opus-5-5', client });
-    const out = await ex.review!({ outline: 'item i1: hotel', today: '2027-01-01', tripTitle: 'Mittelmeer' });
+    const out = await ex.review!({ outline: 'item i1: hotel', today: '2027-01-01', tripTitle: 'Mittelmeer', kind: 'city' });
     assert.deepEqual(out, { summary: 's', findings: [] });
     assert.equal(calls[0].system, REVIEW_PROMPT);
     assert.match(calls[0].messages[0].content, /item i1: hotel/);
+    assert.match(calls[0].messages[0].content, /Mittelmeer \(Städtetrip \/ Urlaub\)/);
     assert.ok(calls[0].output_config.format, 'structured output');
     assert.equal(calls[0].tools, undefined, 'no web access for the review');
     reply.stop_reason = 'refusal';

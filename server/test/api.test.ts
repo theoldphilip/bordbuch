@@ -200,3 +200,33 @@ describe('API', () => {
     assert.equal((await ctx.call('GET', `/api/trips/${tripId}`, admin)).status, 404);
   });
 });
+
+describe('trip kind', () => {
+  let ctx: Awaited<ReturnType<typeof setup>>;
+  let token = '';
+  before(async () => {
+    ctx = await setup();
+    token = (await ctx.call('POST', '/api/setup', undefined, { username: 'philip', displayName: 'Philip', password: 'geheim123' })).body.token;
+  });
+  after(async () => ctx.cleanup());
+
+  test('a trip is a cruise unless said otherwise; kind can be chosen and changed, invalid kinds are rejected', async () => {
+    const plain = await ctx.call('POST', '/api/trips', token, { title: 'Ohne Angabe' });
+    assert.equal(plain.body.trip.kind, 'cruise', 'default keeps existing behaviour');
+    const city = await ctx.call('POST', '/api/trips', token, { title: 'Rom', kind: 'city' });
+    assert.equal(city.body.trip.kind, 'city');
+    assert.equal((await ctx.call('POST', '/api/trips', token, { title: 'x', kind: 'raumschiff' })).status, 400);
+    const changed = await ctx.call('PATCH', `/api/trips/${city.body.trip.id}`, token, { kind: 'roundtrip' });
+    assert.equal(changed.body.trip.kind, 'roundtrip');
+    assert.equal((await ctx.call('PATCH', `/api/trips/${city.body.trip.id}`, token, { title: 'Italien' })).body.trip.kind, 'roundtrip', 'other edits keep the kind');
+    assert.equal((await ctx.call('GET', '/api/trips', token)).body.find((t: any) => t.id === city.body.trip.id).kind, 'roundtrip');
+  });
+
+  test('creating a cruise turns the trip into a cruise trip; stations can be created as items', async () => {
+    const id = (await ctx.call('POST', '/api/trips', token, { title: 'Wird Kreuzfahrt', kind: 'city' })).body.trip.id;
+    const stop = await ctx.call('POST', `/api/trips/${id}/items`, token, { type: 'stop', title: 'Florenz', startLocal: '2027-05-12T15:00', startTz: 'Europe/Rome', endLocal: '2027-05-15T10:00' });
+    assert.equal(stop.status, 201);
+    assert.equal((await ctx.call('POST', `/api/trips/${id}/cruises`, token, { shipName: 'MS Test', days: [] })).status, 201);
+    assert.equal((await ctx.call('GET', `/api/trips/${id}`, token)).body.trip.kind, 'cruise');
+  });
+});

@@ -308,6 +308,24 @@ describe('document inbox', () => {
     assert.equal(up.body.attachment.analysisStatus, null);
     assert.equal((await ctx.call('POST', `/api/attachments/${up.body.attachment.id}/analyze`, admin)).status, 400);
   });
+  test('two stations turn an automatically created city trip into a round trip; a cruise turns it into a cruise trip', async () => {
+    const t = (await ctx.call('POST', '/api/trips', admin, { title: 'Italien', kind: 'city' })).body.trip.id;
+    const stopItem = (title: string, startLocal: string, endLocal: string) => ({ type: 'stop', title, startLocal, endLocal, startTz: 'Europe/Rome' });
+    replies.set('programm.pdf', () => result({
+      documentKind: 'Rundreise-Programm', summary: 'Florenz und Rom',
+      items: [stopItem('Florenz', '2027-05-12T15:00', '2027-05-15T10:00'), stopItem('Rom', '2027-05-15T13:00', '2027-05-18T10:00')].map((x) => item(x as any)),
+    }));
+    const up = await upload(ctx.app, admin, `/api/trips/${t}/documents`, 'programm.pdf', 'application/pdf', '%PDF-1.4 x');
+    const id = up.body.attachment.id;
+    const a = (await ctx.call('GET', `/api/attachments/${id}/analysis`, admin)).body;
+    assert.deepEqual(a.items.map((i: any) => i.data.type), ['stop', 'stop']);
+    assert.equal((await ctx.call('GET', `/api/trips/${t}`, admin)).body.trip.kind, 'city', 'nothing changes before apply');
+    const ap = await ctx.call('POST', `/api/attachments/${id}/apply`, admin, { items: a.items.map((i: any) => ({ action: 'create', data: i.data })) });
+    assert.equal(ap.status, 200);
+    assert.equal((await ctx.call('GET', `/api/trips/${t}`, admin)).body.trip.kind, 'roundtrip');
+    const tl = (await ctx.call('GET', `/api/trips/${t}/timeline`, admin)).body;
+    assert.ok(tl.warnings.some((w: any) => w.code === 'stop_no_lodging'), 'stations without hotel are flagged');
+  });
 });
 
 describe('without API key', () => {

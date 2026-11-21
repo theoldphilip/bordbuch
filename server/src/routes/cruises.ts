@@ -45,6 +45,7 @@ export function registerCruiseRoutes(app: FastifyInstance, { db }: Ctx) {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(id, tripId, input.shipName, input.cruiseLine, input.cabin, input.bookingRef, input.notes, JSON.stringify(input.infos), now, now);
       for (const d of input.days) insertDay(db, id, d);
+      db.prepare("UPDATE trips SET kind = 'cruise' WHERE id = ?").run(tripId);
       touchTrip(db, tripId);
     });
     return reply.status(201).send(findCruise(db, tripId, id));

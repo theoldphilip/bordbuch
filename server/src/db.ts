@@ -148,6 +148,10 @@ const migrations: string[] = [
     data    TEXT NOT NULL
   );
   `,
+  `
+  -- Kind of trip: cruise (default, so existing trips behave as before), city (city trip / holiday), roundtrip.
+  ALTER TABLE trips ADD COLUMN kind TEXT NOT NULL DEFAULT 'cruise' CHECK (kind IN ('cruise', 'city', 'roundtrip'));
+  `,
 ];
 
 export function openDb(file: string): DB {

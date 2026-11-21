@@ -94,6 +94,7 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
       today: new Date().toISOString().slice(0, 10),
       defaultTz: config.defaultTz,
       tripTitle: trip.title,
+      tripKind: trip.kind,
       cruiseDays: loadCruises(db, tripId).flatMap((c) =>
         c.days.map((d) => ({ id: d.id, date: d.date, kind: d.kind, portName: d.portName, country: d.country, shipName: c.shipName })),
       ),
@@ -336,6 +337,7 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).run(cruiseId, tripId, data.shipName, data.cruiseLine, data.cabin, data.bookingRef, data.notes, JSON.stringify(data.infos), now, now);
         for (const d of data.days) insertDay(db, cruiseId, d);
+        db.prepare("UPDATE trips SET kind = 'cruise' WHERE id = ?").run(tripId);
       } else if (c && c.action === 'update') {
         const existing = loadCruises(db, tripId).find((x) => x.id === c.cruiseId);
         if (!existing) throw new HttpError(400, 'Die zu aktualisierende Kreuzfahrt gehört nicht zu dieser Reise');
@@ -412,6 +414,10 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
       if (created.length + updated.length === 0 && !cruiseId) throw new HttpError(400, 'Es wurde nichts zum Übernehmen ausgewählt');
 
       linkExcursions(tripId);
+
+      // Several stations make it a round trip (a trip created with "automatic" starts as city trip).
+      const stops = (db.prepare("SELECT count(*) AS n FROM items WHERE trip_id = ? AND type = 'stop'").get(tripId) as { n: number }).n;
+      if (stops >= 2) db.prepare("UPDATE trips SET kind = 'roundtrip' WHERE id = ? AND kind = 'city'").run(tripId);
 
       // 3) File the document under the first item it produced or updated.
       const primary = created[0] ?? updated[0] ?? null;

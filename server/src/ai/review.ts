@@ -46,6 +46,7 @@ export interface ReviewData {
 
 export interface ReviewInput {
   outline: string;
+  kind?: 'cruise' | 'city' | 'roundtrip';
   today: string;
   tripTitle: string;
 }

@@ -197,3 +197,53 @@ describe('buildTimeline', () => {
     });
   });
 });
+
+describe('stations (round trip / city trip)', () => {
+  const stop = (id: string, title: string, start: string, end: string | null, tz = 'Europe/Rome') =>
+    item({ id, type: 'stop', title, startLocal: start, endLocal: end, startTz: tz, endTz: tz });
+  const codes = (items: Item[], cruises: Cruise[] = []) => buildTimeline(cruises, items, 'Europe/Zurich').warnings.map((w) => w.code);
+
+  test('a station shows arrival and departure on the timeline', () => {
+    const tl = buildTimeline([], [stop('s1', 'Florenz', '2027-05-12T15:00', '2027-05-15T10:00')], 'Europe/Zurich');
+    const entries = tl.phases.flatMap((p) => p.days.flatMap((d) => d.entries)).map((e) => `${e.role}:${e.itemId}`);
+    assert.deepEqual(entries, ['start:s1', 'end:s1']);
+  });
+
+  test('every night needs an accommodation, runs of nights are summarised', () => {
+    const s = stop('s1', 'Florenz', '2027-05-12T15:00', '2027-05-16T10:00');
+    assert.ok(codes([s]).includes('stop_no_lodging'));
+    const msg = buildTimeline([], [s], 'Europe/Zurich').warnings.find((w) => w.code === 'stop_no_lodging')!.message;
+    assert.match(msg, /für 4 Nächte.*12\.05\.–15\.05\./);
+
+    const partly = item({ id: 'h', type: 'hotel', startLocal: '2027-05-12T15:00', endLocal: '2027-05-14T10:00' });
+    const msg2 = buildTimeline([], [s, partly], 'Europe/Zurich').warnings.find((w) => w.code === 'stop_no_lodging')!.message;
+    assert.match(msg2, /für 2 Nächte.*14\.05\.–15\.05\./, 'only the uncovered nights are named');
+
+    const full = item({ id: 'h2', type: 'hotel', startLocal: '2027-05-12T15:00', endLocal: '2027-05-16T10:00' });
+    assert.ok(!codes([s, full]).includes('stop_no_lodging'));
+    assert.ok(!codes([stop('s2', 'Tagesstopp', '2027-05-12T09:00', '2027-05-12T18:00')]).includes('stop_no_lodging'), 'a day stop needs no bed');
+  });
+
+  test('nights on a cruise count as accommodated', () => {
+    const c = cruise([day({ id: 'e', date: '2027-05-10', kind: 'embarkation', arrival: '12:00', departure: '17:00' }), day({ id: 'x', date: '2027-05-13', kind: 'disembarkation', arrival: '07:00' })]);
+    assert.ok(!codes([stop('s', 'Auf See', '2027-05-10T18:00', '2027-05-13T08:00')], [c]).includes('stop_no_lodging'));
+  });
+
+  test('a way from one station to the next is expected; flight, train or a rental car fits', () => {
+    const a = stop('a', 'Florenz', '2027-05-12T15:00', '2027-05-14T10:00');
+    const b = stop('b', 'Rom', '2027-05-14T13:00', '2027-05-16T10:00');
+    const hotels = [item({ id: 'h', type: 'hotel', startLocal: '2027-05-12', endLocal: '2027-05-16' })];
+    assert.ok(codes([a, b, ...hotels]).includes('stop_no_transport'));
+    const train = item({ id: 't', type: 'train', startLocal: '2027-05-14T10:30', endLocal: '2027-05-14T12:30' });
+    assert.ok(!codes([a, b, train, ...hotels]).includes('stop_no_transport'));
+    const car = item({ id: 'c', type: 'car_rental', startLocal: '2027-05-12T12:00', endLocal: '2027-05-16T12:00' });
+    assert.ok(!codes([a, b, car, ...hotels]).includes('stop_no_transport'), 'a rental car spanning both stays counts');
+  });
+
+  test('stations at the same time overlap', () => {
+    const a = stop('a', 'Florenz', '2027-05-12T15:00', '2027-05-15T10:00');
+    const b = stop('b', 'Rom', '2027-05-13T13:00', '2027-05-16T10:00');
+    assert.ok(codes([a, b]).includes('stop_overlap'));
+    assert.ok(!codes([a, stop('c', 'Rom', '2027-05-15T12:00', '2027-05-16T10:00')]).includes('stop_overlap'));
+  });
+});

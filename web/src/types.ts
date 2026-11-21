@@ -8,9 +8,13 @@ export interface User {
   isAdmin: boolean;
 }
 
+/** cruise, city (city trip / holiday) or roundtrip. Decides which parts the app shows. */
+export type TripKind = 'cruise' | 'city' | 'roundtrip';
+
 export interface Trip {
   id: string;
   title: string;
+  kind: TripKind;
   startDate: string | null;
   endDate: string | null;
   notes: string | null;
@@ -87,6 +91,7 @@ export type ItemType =
   | 'activity'
   | 'excursion'
   | 'restaurant'
+  | 'stop'
   | 'note';
 
 export interface Item {

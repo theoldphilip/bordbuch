@@ -9,6 +9,8 @@ export interface ExtractionContext {
   today: string;
   defaultTz: string;
   tripTitle: string;
+  /** cruise, city (city trip / holiday) or roundtrip */
+  tripKind?: 'cruise' | 'city' | 'roundtrip';
   cruiseDays: { id: string; date: string; kind: CruiseDayKind; portName: string | null; country: string | null; shipName: string }[];
 }
 

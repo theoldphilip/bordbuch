@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { api, errorMessage } from '../api.ts';
 import { DAY_KINDS, ITEM_TYPES, endLabel, fmtDayHeader, startLabel } from '../format.ts';
-import type { Cruise, Item, ItemType } from '../types.ts';
+import type { Cruise, Item, ItemType, TripKind } from '../types.ts';
 import { ErrorBox, Field, Modal, TimezoneInput } from './ui.tsx';
 import { InfoEditor } from './InfoEditor.tsx';
 
@@ -25,6 +25,7 @@ const DETAIL_FIELDS: Partial<Record<ItemType, DetailField[]>> = {
   ferry: [{ key: 'from', label: 'Von' }, { key: 'to', label: 'Nach' }, { key: 'cabin', label: 'Kabine/Deck' }],
   transfer: [{ key: 'mode', label: 'Art', placeholder: 'Taxi, Shuttle, Bahn…' }, { key: 'from', label: 'Von', placeholder: 'Flughafen FCO' }, { key: 'to', label: 'Nach', placeholder: 'Hafen Civitavecchia' }, { key: 'phone', label: 'Telefon Fahrer' }],
   car_rental: [{ key: 'carClass', label: 'Fahrzeug' }, { key: 'returnLocation', label: 'Rückgabeort' }],
+  stop: [{ key: 'country', label: 'Land' }],
   hotel: [{ key: 'room', label: 'Zimmer' }, { key: 'phone', label: 'Telefon' }, { key: 'breakfast', label: 'Verpflegung', placeholder: 'Frühstück inkl.' }],
   parking: [{ key: 'lot', label: 'Parkplatz / Parkhaus', placeholder: 'P3' }, { key: 'plate', label: 'Kennzeichen' }, { key: 'shuttle', label: 'Shuttle zum Terminal', placeholder: 'alle 15 min' }],
   excursion: [{ key: 'meetingPoint', label: 'Treffpunkt', placeholder: 'Theater, Deck 5' }],
@@ -32,7 +33,7 @@ const DETAIL_FIELDS: Partial<Record<ItemType, DetailField[]>> = {
 };
 
 const LINKABLE: ItemType[] = ['excursion', 'activity', 'restaurant', 'note', 'transfer'];
-const HAS_END: ItemType[] = ['flight', 'train', 'bus', 'ferry', 'transfer', 'car_rental', 'parking', 'hotel', 'excursion', 'activity', 'restaurant'];
+const HAS_END: ItemType[] = ['flight', 'train', 'bus', 'ferry', 'transfer', 'car_rental', 'parking', 'hotel', 'stop', 'excursion', 'activity', 'restaurant'];
 
 const split = (local: string | null) => ({ date: local?.slice(0, 10) ?? '', time: local && local.length > 10 ? local.slice(11, 16) : '' });
 const join = (date: string, time: string) => (date ? (time ? `${date}T${time}` : date) : null);
@@ -44,6 +45,8 @@ interface Props {
   initialType?: ItemType;
   initialDate?: string;
   initialCruiseDayId?: string;
+  /** Kind of the trip: decides which types are offered (excursions need a cruise, stations are for other trips). */
+  tripKind?: TripKind;
   readOnly?: boolean;
   /** When set, the form hands the payload back instead of saving it (used to edit AI proposals). */
   onSubmit?: (payload: Record<string, unknown>) => void | Promise<void>;
@@ -51,7 +54,8 @@ interface Props {
   onSaved: () => void;
 }
 
-export function ItemForm({ tripId, cruises, item, initialType, initialDate, initialCruiseDayId, readOnly, onSubmit, onClose, onSaved }: Props) {
+export function ItemForm({ tripId, cruises, item, initialType, initialDate, initialCruiseDayId, tripKind, readOnly, onSubmit, onClose, onSaved }: Props) {
+  const cruiseTrip = tripKind === undefined || tripKind === 'cruise' || cruises.length > 0;
   const [type, setType] = useState<ItemType>(item?.type ?? initialType ?? 'flight');
   const [title, setTitle] = useState(item?.title ?? '');
   const s = split(item?.startLocal ?? initialDate ?? null);
@@ -168,7 +172,7 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
       <fieldset disabled={readOnly} className="form">
         {!item && (
           <div className="type-picker wide" role="radiogroup" aria-label="Art">
-            {ITEM_TYPES.map((t) => (
+            {ITEM_TYPES.filter((t) => (t.type !== 'excursion' || cruiseTrip) && (t.type !== 'stop' || !cruiseTrip || tripKind === undefined)).map((t) => (
               <button key={t.type} type="button" role="radio" aria-checked={type === t.type} className={`type-chip${type === t.type ? ' active' : ''}`} onClick={() => setType(t.type)}>
                 <span aria-hidden>{t.icon}</span> {t.label}
               </button>
@@ -176,7 +180,7 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
           </div>
         )}
         <Field label="Titel" wide>
-          <input value={title} onChange={(ev) => setTitle(ev.target.value)} placeholder={type === 'flight' ? 'Zürich → Rom' : type === 'hotel' ? 'Hotel Artemide' : type === 'parking' ? 'Parkhaus Flughafen' : type === 'transfer' ? 'Taxi zum Hafen' : ''} autoFocus={!item} />
+          <input value={title} onChange={(ev) => setTitle(ev.target.value)} placeholder={type === 'flight' ? 'Zürich → Rom' : type === 'hotel' ? 'Hotel Artemide' : type === 'parking' ? 'Parkhaus Flughafen' : type === 'transfer' ? 'Taxi zum Hafen' : type === 'stop' ? 'Florenz' : ''} autoFocus={!item} />
         </Field>
         {infosOnTop && infoSection}
 

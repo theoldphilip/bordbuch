@@ -1,4 +1,4 @@
-import type { CruiseDayKind, Item, ItemType } from './types.ts';
+import type { CruiseDayKind, Item, ItemType, TripKind } from './types.ts';
 
 const locale = 'de-CH';
 
@@ -69,6 +69,7 @@ export const ITEM_TYPES: { type: ItemType; label: string; icon: string }[] = [
   { type: 'flight', label: 'Flug', icon: '✈️' },
   { type: 'train', label: 'Zug', icon: '🚆' },
   { type: 'transfer', label: 'Transfer', icon: '🚐' },
+  { type: 'stop', label: 'Station', icon: '📍' },
   { type: 'hotel', label: 'Übernachtung', icon: '🏨' },
   { type: 'parking', label: 'Parkplatz', icon: '🅿️' },
   { type: 'car_rental', label: 'Mietwagen', icon: '🚗' },
@@ -79,6 +80,13 @@ export const ITEM_TYPES: { type: ItemType; label: string; icon: string }[] = [
   { type: 'restaurant', label: 'Restaurant', icon: '🍽️' },
   { type: 'note', label: 'Notiz', icon: '📝' },
 ];
+export const TRIP_KINDS: { kind: TripKind; label: string; icon: string; hint: string }[] = [
+  { kind: 'cruise', label: 'Kreuzfahrt', icon: '🛳️', hint: 'Mit Anreise, Hafentagen und Abreise' },
+  { kind: 'city', label: 'Städtetrip / Urlaub', icon: '🏙️', hint: 'Flug, Hotel, Mietwagen und Aktivitäten an einem Ort' },
+  { kind: 'roundtrip', label: 'Rundreise', icon: '🗺️', hint: 'Mehrere Stationen nacheinander' },
+];
+export const tripKindInfo = (k: TripKind | undefined) => TRIP_KINDS.find((x) => x.kind === k) ?? TRIP_KINDS[0]!;
+
 export const itemTypeInfo = (t: ItemType) => ITEM_TYPES.find((x) => x.type === t)!;
 
 export const startLabel: Partial<Record<ItemType, string>> = {
@@ -90,6 +98,7 @@ export const startLabel: Partial<Record<ItemType, string>> = {
   car_rental: 'Abholung',
   parking: 'Einfahrt',
   hotel: 'Check-in',
+  stop: 'Ankunft',
 };
 export const endLabel: Partial<Record<ItemType, string>> = {
   flight: 'Ankunft',
@@ -100,6 +109,7 @@ export const endLabel: Partial<Record<ItemType, string>> = {
   car_rental: 'Rückgabe',
   parking: 'Ausfahrt',
   hotel: 'Check-out',
+  stop: 'Abreise',
 };
 
 export const DAY_KINDS: { kind: CruiseDayKind; label: string; icon: string }[] = [

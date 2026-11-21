@@ -53,7 +53,7 @@ export function registerReviewRoutes(app: FastifyInstance, { db, config, extract
     const warnings = buildTimeline(cruises, items, config.defaultTz, pace).warnings;
     const startedAt = nowIso();
     save(tripId, { status: 'pending', startedAt, findings: [], basedOn: trip.updatedAt });
-    const input = { outline: tripOutline(cruises, items, warnings), today: new Date().toISOString().slice(0, 10), tripTitle: trip.title };
+    const input = { outline: tripOutline(cruises, items, warnings), kind: trip.kind, today: new Date().toISOString().slice(0, 10), tripTitle: trip.title };
     const itemIds = new Set(items.map((i) => i.id));
     const dayIds = new Set(cruises.flatMap((c) => c.days.map((d) => d.id)));
     const { review } = extractor;

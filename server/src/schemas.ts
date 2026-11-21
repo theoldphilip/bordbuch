@@ -14,6 +14,9 @@ export const localDateTime = z
   .regex(/^\d{4}-\d{2}-\d{2}(T([01]\d|2[0-3]):[0-5]\d)?$/, 'Datum/Zeit im Format JJJJ-MM-TT oder JJJJ-MM-TTTHH:MM erwartet');
 export const timeZone = z.string().refine(isValidTimeZone, 'Unbekannte Zeitzone');
 
+export const TRIP_KINDS = ['cruise', 'city', 'roundtrip'] as const;
+export type TripKind = (typeof TRIP_KINDS)[number];
+
 export const ITEM_TYPES = [
   'flight',
   'train',
@@ -26,12 +29,13 @@ export const ITEM_TYPES = [
   'activity',
   'excursion',
   'restaurant',
+  'stop',
   'note',
 ] as const;
 export type ItemType = (typeof ITEM_TYPES)[number];
 export const TRANSPORT_TYPES: readonly ItemType[] = ['flight', 'train', 'bus', 'ferry', 'transfer'];
 /** Types whose end is shown as its own entry on the timeline (check-out, return). */
-export const SPAN_TYPES: readonly ItemType[] = ['hotel', 'car_rental', 'parking'];
+export const SPAN_TYPES: readonly ItemType[] = ['hotel', 'car_rental', 'parking', 'stop'];
 
 export const CRUISE_DAY_KINDS = ['embarkation', 'port', 'sea', 'disembarkation'] as const;
 export type CruiseDayKind = (typeof CRUISE_DAY_KINDS)[number];
@@ -127,6 +131,7 @@ export const resetPasswordInput = z.object({ password });
 // ---------- trips ----------
 export const tripInput = z.object({
   title: text(120).min(1),
+  kind: z.enum(TRIP_KINDS).default('cruise'),
   startDate: dateOnly.nullish().transform((v) => v ?? null),
   endDate: dateOnly.nullish().transform((v) => v ?? null),
   notes: optText(10000),

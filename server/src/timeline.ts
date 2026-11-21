@@ -627,6 +627,103 @@ function computeWarnings(
     }
   }
 
+  // --- Stationen (Städtetrip / Rundreise): Überschneidung, Verbindung, Unterkunft ---
+  warnings.push(...stopWarnings(items, windows, itemTz));
+
   const rank = { error: 0, warning: 1, info: 2 } as const;
   return warnings.sort((a, b) => rank[a.level] - rank[b.level]);
+}
+
+const dayAfter = (date: string, n: number): string => new Date(Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10) + n)).toISOString().slice(0, 10);
+const shortDate = (d: string): string => `${d.slice(8, 10)}.${d.slice(5, 7)}.`;
+
+/**
+ * Checks for stations (item type "stop": a place with arrival and departure): do they overlap, is there a way
+ * from one to the next, is every night in between covered by an accommodation (a cruise counts as one).
+ */
+function stopWarnings(
+  items: Item[],
+  windows: CruiseWindow[],
+  itemTz: (item: Item, which: 'start' | 'end') => string,
+): TimelineWarning[] {
+  const warnings: TimelineWarning[] = [];
+  const stops = items
+    .filter((i) => i.type === 'stop' && /^\d{4}-\d{2}-\d{2}/.test(i.startLocal))
+    .sort((a, b) => toInstant(a.startLocal, itemTz(a, 'start')) - toInstant(b.startLocal, itemTz(b, 'start')));
+  if (stops.length === 0) return warnings;
+  const endOf = (s: Item) => s.endLocal ?? s.startLocal;
+
+  // Two stations at the same time
+  for (let n = 1; n < stops.length; n++) {
+    const a = stops[n - 1]!;
+    const b = stops[n]!;
+    if (!a.endLocal) continue;
+    const aEnd = toInstant(a.endLocal, itemTz(a, 'end'));
+    const bStart = toInstant(b.startLocal, itemTz(b, 'start'));
+    if (bStart < aEnd - 12 * HOUR) {
+      warnings.push({
+        level: 'warning',
+        code: 'stop_overlap',
+        message: `„${a.title}“ (bis ${a.endLocal.replace('T', ' ')}) und „${b.title}“ (ab ${b.startLocal.replace('T', ' ')}) überschneiden sich.`,
+        itemId: b.id,
+      });
+    }
+  }
+
+  // A way from one station to the next
+  const movers = items.filter((i) => TRANSPORT_TYPES.includes(i.type) || i.type === 'car_rental');
+  for (let n = 1; n < stops.length; n++) {
+    const a = stops[n - 1]!;
+    const b = stops[n]!;
+    const from = endOf(a).slice(0, 10);
+    const to = b.startLocal.slice(0, 10);
+    if (to < from) continue;
+    const connected = movers.some((m) => {
+      const ms = m.startLocal.slice(0, 10);
+      const me = (m.endLocal ?? m.startLocal).slice(0, 10);
+      return m.type === 'car_rental' ? ms <= from && me >= to : ms >= from && ms <= to;
+    });
+    if (!connected) {
+      warnings.push({
+        level: 'info',
+        code: 'stop_no_transport',
+        message: `Zwischen „${a.title}“ und „${b.title}“ ist keine Verbindung eingetragen (Flug, Zug, Bus, Fähre, Transfer oder Mietwagen).`,
+        itemId: b.id,
+      });
+    }
+  }
+
+  // Every night of a stay needs somewhere to sleep
+  const hotels = items.filter((i) => i.type === 'hotel');
+  const covered = (night: string): boolean =>
+    hotels.some((h) => {
+      const hs = h.startLocal.slice(0, 10);
+      const he = h.endLocal?.slice(0, 10) ?? dayAfter(hs, 1);
+      return hs <= night && night < he;
+    }) ||
+    windows.some((w) => w.embark.date <= night && night < w.disembark.date);
+  for (const s of stops) {
+    if (!s.endLocal) continue;
+    const start = s.startLocal.slice(0, 10);
+    const end = s.endLocal.slice(0, 10);
+    if (end <= start) continue;
+    const missing: string[] = [];
+    for (let d = start; d < end && missing.length < 60; d = dayAfter(d, 1)) if (!covered(d)) missing.push(d);
+    if (missing.length === 0) continue;
+    // Runs of consecutive nights as "12.–14."
+    const runs: string[] = [];
+    for (let i = 0; i < missing.length; ) {
+      let j = i;
+      while (j + 1 < missing.length && dayAfter(missing[j]!, 1) === missing[j + 1]) j++;
+      runs.push(i === j ? shortDate(missing[i]!) : `${shortDate(missing[i]!)}–${shortDate(missing[j]!)}`);
+      i = j + 1;
+    }
+    warnings.push({
+      level: 'warning',
+      code: 'stop_no_lodging',
+      message: `Für „${s.title}“ ist ${missing.length === 1 ? 'für eine Nacht' : `für ${missing.length} Nächte`} keine Unterkunft eingetragen (${runs.join(', ')}).`,
+      itemId: s.id,
+    });
+  }
+  return warnings;
 }

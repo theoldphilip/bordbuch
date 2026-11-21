@@ -48,7 +48,7 @@ const host = (url: string) => {
  * Optional web research for gaps in the analysis. Results are shown here first; only the ones the user
  * ticks and accepts flow into the proposals below, and nothing is stored before "Übernehmen".
  */
-export function ResearchPanel({ view, attachmentId, hasEdits, onAccepted }: { view: AnalysisView; attachmentId: string; hasEdits: boolean; onAccepted: () => void }) {
+export function ResearchPanel({ view, attachmentId, hasEdits, canRoute = true, onAccepted }: { view: AnalysisView; attachmentId: string; hasEdits: boolean; /** The itinerary search only makes sense for cruises. */ canRoute?: boolean; onAccepted: () => void }) {
   const [research, setResearch] = useState<Research | null>(view.research);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -130,16 +130,16 @@ export function ResearchPanel({ view, attachmentId, hasEdits, onAccepted }: { vi
       {!research && (
         <>
           <p className="muted">
-            Die KI sucht im Internet nach dem, was fehlt. Du siehst die Funde mit Quelle zuerst hier und entscheidest, was übernommen wird.
+            Die KI sucht im Internet nach dem, was fehlt (Verbindungen, Zeiten, Telefonnummern, bei Kreuzfahrten auch den Reiseverlauf). Du siehst die Funde mit Quelle zuerst hier und entscheidest, was übernommen wird.
           </p>
           <label className="field">
             <span className="field-label">Link zur Reise (optional)</span>
-            <input type="url" inputMode="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://… Seite der Reederei oder des Anbieters mit der Route" />
+            <input type="url" inputMode="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://… Seite des Anbieters oder der Reederei" />
           </label>
           <p className="small-print muted">Mit Link liest die KI genau diese Seite. Das ist zuverlässiger als freies Suchen.</p>
           <div className="proposal-actions">
-            <button className="btn btn-primary small" onClick={() => start('route')} disabled={busy}>🧭 Reiseverlauf recherchieren</button>
-            <button className="btn small" onClick={() => start('gaps')} disabled={busy}>Lücken recherchieren</button>
+            {canRoute && <button className="btn btn-primary small" onClick={() => start('route')} disabled={busy}>🧭 Reiseverlauf recherchieren</button>}
+            <button className={`btn small${canRoute ? '' : ' btn-primary'}`} onClick={() => start('gaps')} disabled={busy}>Lücken recherchieren</button>
           </div>
           <p className="privacy-note">Dafür gehen Schiff, Orte und Reisedaten aus der Analyse (und dein Link) an die Websuche von Anthropic. Das Dokument selbst wird nicht erneut gesendet.</p>
         </>

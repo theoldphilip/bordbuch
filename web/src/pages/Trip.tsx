@@ -15,11 +15,13 @@ import {
   fmtSize,
   itemSubtitle,
   itemTypeInfo,
+  tripKindInfo,
   tzLabel,
 } from '../format.ts';
-import type { Attachment, Cruise, CruiseDay, Item, ItemType, Role, Timeline, TimelineEntry, TimelinePhase, TripDetail, User } from '../types.ts';
+import type { Attachment, Cruise, CruiseDay, Item, ItemType, Role, Timeline, TimelineEntry, TimelinePhase, TripDetail, User, TripKind } from '../types.ts';
 import { Empty, ErrorBox, Field, Modal, Spinner } from '../components/ui.tsx';
 import { ItemForm } from '../components/ItemForm.tsx';
+import { KindPicker } from '../components/KindPicker.tsx';
 import { TripReviewDialog } from '../components/TripReviewDialog.tsx';
 import { DocReview } from '../components/DocReview.tsx';
 import { CruiseDayForm, CruiseForm } from '../components/CruiseForms.tsx';
@@ -145,7 +147,7 @@ export function TripPage() {
         {(
           [
             ['timeline', 'Ablauf'],
-            ['cruise', 'Kreuzfahrt'],
+            ...((detail.trip.kind === 'cruise' || detail.cruises.length > 0 ? [['cruise', 'Kreuzfahrt']] : []) as [Tab, string][]),
             ['docs', `Dokumente${detail.attachments.length ? ` (${detail.attachments.length})` : ''}${canEdit && detail.attachments.some((a) => a.analysisStatus === 'done') ? ' 📥' : ''}`],
             ['share', 'Teilen'],
           ] as [Tab, string][]
@@ -192,6 +194,7 @@ export function TripPage() {
           initialType={dialog.type}
           initialDate={dialog.date}
           initialCruiseDayId={dialog.cruiseDayId}
+          tripKind={detail.trip.kind}
           readOnly={!canEdit}
           onClose={close}
           onSaved={saved}
@@ -209,7 +212,7 @@ export function TripPage() {
         />
       )}
       {dialog?.kind === 'trip' && <TripSettings detail={detail} onClose={close} onSaved={saved} />}
-      {dialog?.kind === 'review' && <DocReview key={dialog.attachmentId} attachmentId={dialog.attachmentId} tripId={detail.trip.id} cruises={detail.cruises} position={{ index: queueTotal - queue.length + 1, total: queueTotal }} onClose={saved} onApplied={reviewDone} />}
+      {dialog?.kind === 'review' && <DocReview key={dialog.attachmentId} attachmentId={dialog.attachmentId} tripId={detail.trip.id} tripKind={detail.trip.kind} cruises={detail.cruises} position={{ index: queueTotal - queue.length + 1, total: queueTotal }} onClose={saved} onApplied={reviewDone} />}
     </div>
   );
 }
@@ -269,12 +272,19 @@ function TimelineView({
     return (
       <>
       {banner}
-      <Empty icon="🗺️" title="Noch nichts geplant">
-        <p>Füge Flüge, Hotels und Transfers hinzu – oder lege direkt die Kreuzfahrt mit ihrer Route an.</p>
+      <Empty icon={tripKindInfo(detail.trip.kind).icon} title="Noch nichts geplant">
+        <p>
+          {detail.trip.kind === 'cruise'
+            ? 'Füge Flüge, Hotels und Transfers hinzu – oder lege direkt die Kreuzfahrt mit ihrer Route an.'
+            : detail.trip.kind === 'roundtrip'
+              ? 'Lege die Stationen deiner Rundreise an und ergänze Verbindungen, Unterkünfte und Aktivitäten.'
+              : 'Füge Flüge, Unterkünfte, Mietwagen und Aktivitäten hinzu.'}
+        </p>
         {canEdit && (
           <div className="btn-row">
             {aiImport}
-            <button className="btn btn-primary" onClick={onAddCruise}>🛳️ Kreuzfahrt anlegen</button>
+            {detail.trip.kind === 'cruise' && <button className="btn btn-primary" onClick={onAddCruise}>🛳️ Kreuzfahrt anlegen</button>}
+            {detail.trip.kind === 'roundtrip' && <button className="btn btn-primary" onClick={() => onAdd(undefined, undefined, 'stop')}>📍 Station anlegen</button>}
             <button className="btn" onClick={() => onAdd()}>+ Eintrag</button>
           </div>
         )}
@@ -287,7 +297,7 @@ function TimelineView({
     <div className="timeline">
       {banner}
       {timeline.warnings.length > 0 && <WarningList timeline={timeline} detail={detail} onOpenItem={onOpenItem} />}
-      {detail.cruises.length === 0 && canEdit && (
+      {detail.trip.kind === 'cruise' && detail.cruises.length === 0 && canEdit && (
         <button className="hint-card" onClick={onAddCruise}>
           🛳️ <span><strong>Kreuzfahrt hinzufügen</strong><br /><small>Dann wird dein Ablauf automatisch in Anreise, Kreuzfahrt und Abreise gegliedert.</small></span>
         </button>
@@ -296,6 +306,7 @@ function TimelineView({
         <PhaseSection
           key={`${phase.kind}-${i}`}
           phase={phase}
+          tripKind={detail.trip.kind}
           suggestDate={suggestDate(phase)}
           timeline={timeline}
           canEdit={canEdit}
@@ -346,10 +357,16 @@ function WarningList({ timeline, detail, onOpenItem }: { timeline: Timeline; det
 }
 
 const QUICK_ADD: ItemType[] = ['flight', 'train', 'transfer', 'hotel', 'parking', 'car_rental'];
+const TRIP_QUICK_ADD: Record<TripKind, ItemType[]> = {
+  cruise: QUICK_ADD,
+  city: ['flight', 'hotel', 'car_rental', 'transfer', 'activity', 'restaurant'],
+  roundtrip: ['stop', 'hotel', 'train', 'car_rental', 'flight', 'activity'],
+};
 const PHASE_ICONS: Record<TimelinePhase['kind'], string> = { trip: '🗺️', pre: '🛫', cruise: '🛳️', between: '🏨', post: '🛬' };
 
 function PhaseSection({
   phase,
+  tripKind,
   suggestDate,
   timeline,
   canEdit,
@@ -362,6 +379,7 @@ function PhaseSection({
   onOpenDay,
 }: {
   phase: TimelinePhase;
+  tripKind: TripKind;
   suggestDate?: string;
   timeline: Timeline;
   canEdit: boolean;
@@ -386,9 +404,9 @@ function PhaseSection({
           <button className="btn btn-ghost small clear-btn" onClick={() => onClear(itemIds, phase.title)} aria-label={`Abschnitt ${phase.title} leeren`}>Leeren</button>
         )}
       </header>
-      {canEdit && (phase.kind === 'pre' || phase.kind === 'post') && (
+      {canEdit && (phase.kind === 'pre' || phase.kind === 'post' || (phase.kind === 'trip' && tripKind !== 'cruise')) && (
         <div className="quick-add" aria-label={`${phase.title} planen`}>
-          {QUICK_ADD.map((t) => (
+          {(phase.kind === 'trip' ? TRIP_QUICK_ADD[tripKind] : QUICK_ADD).map((t) => (
             <button key={t} type="button" className="type-chip" onClick={() => onAdd(suggestDate, undefined, t)}>
               <span aria-hidden>{itemTypeInfo(t).icon}</span> {itemTypeInfo(t).label}
             </button>
@@ -777,11 +795,12 @@ function TripSettings({ detail, onClose, onSaved }: { detail: TripDetail; onClos
   const navigate = useNavigate();
   const [title, setTitle] = useState(detail.trip.title);
   const [notes, setNotes] = useState(detail.trip.notes ?? '');
+  const [kind, setKind] = useState<TripKind>(detail.trip.kind);
   const [error, setError] = useState<string | null>(null);
 
   const save = async () => {
     try {
-      await api.patch(`/api/trips/${detail.trip.id}`, { title, notes: notes || null });
+      await api.patch(`/api/trips/${detail.trip.id}`, { title, kind, notes: notes || null });
       onSaved();
     } catch (err) {
       setError(errorMessage(err));
@@ -812,6 +831,7 @@ function TripSettings({ detail, onClose, onSaved }: { detail: TripDetail; onClos
     >
       <div className="form">
         <Field label="Name" wide><input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
+        <Field label="Art der Reise" wide hint={kind !== 'cruise' && detail.cruises.length > 0 ? 'Die vorhandene Kreuzfahrt bleibt erhalten und sichtbar.' : undefined}><KindPicker value={kind} onChange={(k) => k !== 'auto' && setKind(k)} /></Field>
         <Field label="Notizen" wide><textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
       </div>
       <ErrorBox error={error} />

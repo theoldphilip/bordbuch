@@ -26,7 +26,7 @@ describe('version', () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.version, VERSION);
     assert.equal(res.body.builtAt, null, 'no build time when running from the repository');
-    assert.equal(res.body.schema, 6, 'number of database migrations');
+    assert.equal(res.body.schema, 7, 'number of database migrations');
     assert.equal((await ctx.call('GET', '/api/health')).body.version, VERSION);
   });
 });

@@ -132,6 +132,14 @@ describe('Anthropic extractor (fake client, no network)', () => {
   };
   const ok = { stop_reason: 'end_turn', parsed_output: aiResult() };
 
+  test('the trip kind and the station type reach the model', async () => {
+    const { calls, extractor } = make('claude-opus-5-5', ok);
+    await extractor.extract({ files: [{ data: Buffer.from('x'), mime: 'text/plain', filename: 'a.txt' }], context: { ...ctx, tripKind: 'roundtrip' } });
+    const text = JSON.stringify(calls[0].messages[0].content);
+    assert.match(text, /Reise: .*\(Rundreise\)/);
+    assert.match(calls[0].system, /- stop: eine Station/);
+  });
+
   test('sends the PDF as a document block with context and structured output', async () => {
     const { calls, extractor } = make('claude-opus-5-5', ok);
     const out = await extractor.extract({ files: [{ data: Buffer.from('%PDF-1.4 x'), mime: 'application/pdf', filename: 'Buchung.pdf' }], context: ctx });

@@ -50,9 +50,9 @@ export function registerTripRoutes(app: FastifyInstance, { db, config, uploadDir
     const now = nowIso();
     tx(db, () => {
       db.prepare(
-        `INSERT INTO trips (id, title, start_date, end_date, notes, color, created_by, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(id, input.title, input.startDate, input.endDate, input.notes, input.color, user.id, now, now);
+        `INSERT INTO trips (id, title, kind, start_date, end_date, notes, color, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(id, input.title, input.kind, input.startDate, input.endDate, input.notes, input.color, user.id, now, now);
       db.prepare(`INSERT INTO trip_members (trip_id, user_id, role) VALUES (?, ?, 'owner')`).run(id, user.id);
     });
     return reply.status(201).send(loadTripDetail(db, id, 'owner'));
@@ -70,8 +70,8 @@ export function registerTripRoutes(app: FastifyInstance, { db, config, uploadDir
     const current = loadTrip(db, req.params.tripId);
     const input = tripInput.parse({ ...current, ...(req.body as object) });
     db.prepare(
-      'UPDATE trips SET title = ?, start_date = ?, end_date = ?, notes = ?, color = ?, updated_at = ? WHERE id = ?',
-    ).run(input.title, input.startDate, input.endDate, input.notes, input.color, nowIso(), req.params.tripId);
+      'UPDATE trips SET title = ?, kind = ?, start_date = ?, end_date = ?, notes = ?, color = ?, updated_at = ? WHERE id = ?',
+    ).run(input.title, input.kind, input.startDate, input.endDate, input.notes, input.color, nowIso(), req.params.tripId);
     return loadTripDetail(db, req.params.tripId, role);
   });
 

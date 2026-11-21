@@ -1,5 +1,5 @@
 import type { DB } from './db.ts';
-import type { CruiseDayKind, Info, ItemType } from './schemas.ts';
+import type { CruiseDayKind, Info, ItemType, TripKind } from './schemas.ts';
 import type { Role } from './auth.ts';
 import { HttpError, nowIso } from './util.ts';
 
@@ -7,6 +7,8 @@ import { HttpError, nowIso } from './util.ts';
 export interface Trip {
   id: string;
   title: string;
+  /** cruise, city (city trip / holiday) or roundtrip. Decides which parts the app shows. */
+  kind: TripKind;
   startDate: string | null;
   endDate: string | null;
   notes: string | null;
@@ -109,6 +111,7 @@ export function parseInfos(raw: unknown): Info[] {
 export const tripFromRow = (r: Row): Trip => ({
   id: r.id,
   title: r.title,
+  kind: r.kind ?? 'cruise',
   startDate: r.start_date,
   endDate: r.end_date,
   notes: r.notes,

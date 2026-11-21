@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, errorMessage } from '../api.ts';
 import { fmtDate, fmtMoney, itemSubtitle, itemTypeInfo } from '../format.ts';
-import type { AnalysisView, Cruise, CruiseData, CruiseDay, Item, ItemData, ItemProposal } from '../types.ts';
+import type { AnalysisView, Cruise, CruiseData, CruiseDay, Item, ItemData, ItemProposal, TripKind } from '../types.ts';
 import { CruiseDayForm } from './CruiseForms.tsx';
 import { ItemForm } from './ItemForm.tsx';
 import { ErrorBox, Modal, Spinner } from './ui.tsx';
@@ -29,7 +29,7 @@ function when(d: ItemData): string {
 
 const CONFIDENCE = { high: ['sicher', 'conf-high'], medium: ['prüfen', 'conf-medium'], low: ['unsicher', 'conf-low'] } as const;
 
-export function DocReview({ attachmentId, tripId, cruises, position, onClose, onApplied }: { attachmentId: string; tripId: string; cruises: Cruise[]; /** Set while several documents are reviewed one after another. */ position?: { index: number; total: number }; onClose: () => void; onApplied: () => void }) {
+export function DocReview({ attachmentId, tripId, tripKind, cruises, position, onClose, onApplied }: { attachmentId: string; tripId: string; tripKind?: TripKind; cruises: Cruise[]; /** Set while several documents are reviewed one after another. */ position?: { index: number; total: number }; onClose: () => void; onApplied: () => void }) {
   const [view, setView] = useState<AnalysisView | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [cruiseAction, setCruiseAction] = useState<'apply' | 'skip'>('apply');
@@ -133,6 +133,7 @@ export function DocReview({ attachmentId, tripId, cruises, position, onClose, on
     return (
       <ItemForm
         tripId={tripId}
+        tripKind={tripKind}
         cruises={cruises}
         item={asItem(row.data)}
         onClose={() => setEditing(null)}
@@ -180,7 +181,7 @@ export function DocReview({ attachmentId, tripId, cruises, position, onClose, on
             </ul>
           )}
 
-          {canResearch && <ResearchPanel key={`${view.analyzedAt}-${view.research?.suggestions.filter((x) => x.accepted).length ?? 0}`} view={view} attachmentId={attachmentId} hasEdits={rows.some((r) => r.edited) || (!!view.cruise && cruiseData !== view.cruise.data)} onAccepted={load} />}
+          {canResearch && <ResearchPanel canRoute={tripKind === undefined || tripKind === 'cruise' || cruises.length > 0} key={`${view.analyzedAt}-${view.research?.suggestions.filter((x) => x.accepted).length ?? 0}`} view={view} attachmentId={attachmentId} hasEdits={rows.some((r) => r.edited) || (!!view.cruise && cruiseData !== view.cruise.data)} onAccepted={load} />}
 
           {view.cruise && cruiseData && (
             <section className={`proposal${cruiseAction === 'skip' ? ' skipped' : ''}`}>
