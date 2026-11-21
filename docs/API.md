@@ -250,3 +250,16 @@ Nur lesend: die KI sieht alle Einträge und Kreuzfahrt-Tage zusammen und meldet 
 ### Stationen
 
 Eine Station ist ein Eintrag vom Typ `stop`: `title` ist der Ort, `startLocal` die Ankunft, `endLocal` die Abreise, `startTz` die Zeitzone, `details.country` das Land. Sie erscheint in der Zeitleiste mit Ankunft und Abreise und wird wie Hotels als mehrtägiger Eintrag behandelt.
+
+### Hinweise quittieren
+
+Hinweise des Puffer-Checks lassen sich quittieren („gesehen, ist in Ordnung“). Das gilt für alle Mitglieder der Reise und ändert nichts am Plan (kein neuer `updatedAt`).
+
+| Methode | Pfad | Rolle | Zweck |
+|---|---|---|---|
+| GET | `/trips/:id/timeline` | viewer | Jede Warnung hat zusätzlich `key` (Hash aus Code, Eintrag und Text) und `ack: null` oder `{by, at}` |
+| PUT | `/trips/:id/warnings/:key/ack` | editor | Quittiert den Hinweis. 404, wenn er nicht mehr aktuell ist |
+| DELETE | `/trips/:id/warnings/:key/ack` | editor | Nimmt die Quittierung zurück |
+
+Ändert sich die Lage (andere Zeiten, anderer Eintrag), ändert sich der Text und damit der `key`: der Hinweis kommt unquittiert zurück.
+

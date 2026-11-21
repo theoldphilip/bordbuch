@@ -5,7 +5,7 @@ import { tx } from '../db.ts';
 import { unlinkAttachmentFiles } from '../files.ts';
 import { loadCruises, loadItems, loadMembers, loadTrip, loadTripDetail, touchTrip, tripFromRow } from '../model.ts';
 import { memberInput, tripInput } from '../schemas.ts';
-import { buildTimeline } from '../timeline.ts';
+import { buildTimeline, warningKey } from '../timeline.ts';
 import { HttpError, newId, nowIso } from '../util.ts';
 import { readSettings } from '../settings.ts';
 
@@ -89,14 +89,53 @@ export function registerTripRoutes(app: FastifyInstance, { db, config, uploadDir
     requireTripRole(db, req.params.tripId, user.id, 'viewer');
     const trip = loadTrip(db, req.params.tripId);
     const { pace } = readSettings(db, user.id);
+    const built = buildTimeline(loadCruises(db, trip.id), loadItems(db, trip.id), config.defaultTz, pace);
+    const acks = new Map(
+      (
+        db
+          .prepare('SELECT a.key, a.acked_at, u.display_name FROM warning_acks a LEFT JOIN users u ON u.id = a.user_id WHERE a.trip_id = ?')
+          .all(trip.id) as { key: string; acked_at: string; display_name: string | null }[]
+      ).map((r) => [r.key, { by: r.display_name, at: r.acked_at }] as const),
+    );
     return {
       tripId: trip.id,
       updatedAt: trip.updatedAt,
       defaultTimezone: config.defaultTz,
       /** The caller's personal time need, when enabled. All recommended times in the warnings already include it. */
       pace: pace.enabled ? pace : null,
-      ...buildTimeline(loadCruises(db, trip.id), loadItems(db, trip.id), config.defaultTz, pace),
+      ...built,
+      /** Every hint carries its key and, when somebody acknowledged it, who and when. */
+      warnings: built.warnings.map((w) => {
+        const key = warningKey(w);
+        return { ...w, key, ack: acks.get(key) ?? null };
+      }),
     };
+  });
+
+  /**
+   * Acknowledge a hint of the buffer check ("quittieren"). Shared by everyone on the trip, allowed for editors, also while the
+   * trip is under way. It changes nothing in the plan, so the trip's change time and the AI review stay untouched.
+   */
+  const currentKeys = (tripId: string, userId: string): Set<string> => {
+    const { pace } = readSettings(db, userId);
+    return new Set(buildTimeline(loadCruises(db, tripId), loadItems(db, tripId), config.defaultTz, pace).warnings.map(warningKey));
+  };
+
+  app.put<{ Params: { tripId: string; key: string } }>('/api/trips/:tripId/warnings/:key/ack', async (req) => {
+    const user = requireUser(req);
+    requireTripRole(db, req.params.tripId, user.id, 'editor');
+    if (!currentKeys(req.params.tripId, user.id).has(req.params.key)) throw new HttpError(404, 'Dieser Hinweis ist nicht mehr aktuell');
+    db.prepare('INSERT INTO warning_acks (trip_id, key, user_id, acked_at) VALUES (?, ?, ?, ?) ON CONFLICT(trip_id, key) DO UPDATE SET user_id = excluded.user_id, acked_at = excluded.acked_at').run(
+      req.params.tripId, req.params.key, user.id, nowIso(),
+    );
+    return { ok: true };
+  });
+
+  app.delete<{ Params: { tripId: string; key: string } }>('/api/trips/:tripId/warnings/:key/ack', async (req, reply) => {
+    const user = requireUser(req);
+    requireTripRole(db, req.params.tripId, user.id, 'editor');
+    db.prepare('DELETE FROM warning_acks WHERE trip_id = ? AND key = ?').run(req.params.tripId, req.params.key);
+    return reply.status(204).send();
   });
 
   // ----- sharing -----

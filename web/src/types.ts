@@ -170,6 +170,10 @@ export interface TimelineWarning {
   /** Fine with the normal time, too tight with the user's personal time need. */
   personal?: boolean;
   role?: 'start' | 'end';
+  /** Identity of the hint; used to acknowledge it. */
+  key: string;
+  /** Set when somebody acknowledged the hint ("quittiert"). */
+  ack: { by: string | null; at: string } | null;
 }
 
 export interface Timeline {

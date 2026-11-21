@@ -64,13 +64,15 @@ interface Props {
   /** Kind of the trip: decides which types are offered (excursions need a cruise, stations are for other trips). */
   tripKind?: TripKind;
   readOnly?: boolean;
+  /** View mode: offers a "Ändern" button that asks to leave the view mode first. */
+  onUnlock?: () => void;
   /** When set, the form hands the payload back instead of saving it (used to edit AI proposals). */
   onSubmit?: (payload: Record<string, unknown>) => void | Promise<void>;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function ItemForm({ tripId, cruises, item, initialType, initialDate, initialCruiseDayId, tripKind, readOnly, onSubmit, onClose, onSaved }: Props) {
+export function ItemForm({ tripId, cruises, item, initialType, initialDate, initialCruiseDayId, tripKind, readOnly, onUnlock, onSubmit, onClose, onSaved }: Props) {
   const cruiseTrip = tripKind === undefined || tripKind === 'cruise' || cruises.length > 0;
   const [type, setType] = useState<ItemType>(item?.type ?? initialType ?? 'flight');
   const [title, setTitle] = useState(item?.title ?? '');
@@ -176,7 +178,11 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
       onClose={onClose}
       footer={
         readOnly ? (
-          <button className="btn" onClick={onClose}>Schließen</button>
+          <>
+            {onUnlock && <button className="btn" onClick={onUnlock}>🔒 Ändern …</button>}
+            <span className="spacer" />
+            <button className="btn btn-primary" onClick={onClose}>Schließen</button>
+          </>
         ) : (
           <>
             {item && !onSubmit && <button className="btn btn-danger-ghost" onClick={remove} disabled={busy}>Löschen</button>}

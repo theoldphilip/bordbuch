@@ -103,7 +103,7 @@ export function CruiseForm({ tripId, cruise, onClose, onSaved }: { tripId: strin
   );
 }
 
-export function CruiseDayForm({ cruise, day, onSubmit, onClose, onSaved }: { cruise: Cruise; day?: CruiseDay; /** When set, the payload is handed back instead of saved (editing an AI proposal). */ onSubmit?: (payload: Record<string, unknown>) => void | Promise<void>; onClose: () => void; onSaved: () => void }) {
+export function CruiseDayForm({ cruise, day, readOnly, onUnlock, onSubmit, onClose, onSaved }: { cruise: Cruise; day?: CruiseDay; /** Show the day without letting anyone change it (view mode, viewers). */ readOnly?: boolean; onUnlock?: () => void; /** When set, the payload is handed back instead of saved (editing an AI proposal). */ onSubmit?: (payload: Record<string, unknown>) => void | Promise<void>; onClose: () => void; onSaved: () => void }) {
   const lastDay = cruise.days.at(-1);
   const [date, setDate] = useState(day?.date ?? (lastDay ? addDays(lastDay.date, 1) : ''));
   const [kind, setKind] = useState<CruiseDayKind>(day?.kind ?? 'port');
@@ -180,18 +180,26 @@ export function CruiseDayForm({ cruise, day, onSubmit, onClose, onSaved }: { cru
 
   return (
     <Modal
-      title={onSubmit ? 'Reisetag prüfen' : day ? 'Reisetag bearbeiten' : 'Reisetag hinzufügen'}
+      title={onSubmit ? 'Reisetag prüfen' : day ? (readOnly ? (day.portName ?? 'Reisetag') : 'Reisetag bearbeiten') : 'Reisetag hinzufügen'}
       onClose={onClose}
       footer={
+        readOnly ? (
+          <>
+            {onUnlock && <button className="btn" onClick={onUnlock}>🔒 Ändern …</button>}
+            <span className="spacer" />
+            <button className="btn btn-primary" onClick={onClose}>Schließen</button>
+          </>
+        ) : (
         <>
           {day && !onSubmit && <button className="btn btn-danger-ghost" onClick={remove} disabled={busy}>Löschen</button>}
           <span className="spacer" />
           <button className="btn" onClick={onClose}>Abbrechen</button>
           <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? 'Speichert…' : onSubmit ? 'Übernehmen' : 'Speichern'}</button>
         </>
+        )
       }
     >
-      <div className="form">
+      <fieldset disabled={readOnly} className="form">
         <div className="type-picker wide" role="radiogroup" aria-label="Art des Tages">
           {DAY_KINDS.map((k) => (
             <button key={k.kind} type="button" role="radio" aria-checked={kind === k.kind} className={`type-chip${kind === k.kind ? ' active' : ''}`} onClick={() => setKind(k.kind)}>
@@ -221,7 +229,7 @@ export function CruiseDayForm({ cruise, day, onSubmit, onClose, onSaved }: { cru
           <InfoEditor infos={infos} onChange={setInfos} />
         </div>
         <Field label="Notizen" wide><textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={isSea ? 'z. B. Kapitänsdinner' : ''} /></Field>
-      </div>
+      </fieldset>
       <ErrorBox error={error} />
     </Modal>
   );

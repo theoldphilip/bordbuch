@@ -152,6 +152,17 @@ const migrations: string[] = [
   -- Kind of trip: cruise (default, so existing trips behave as before), city (city trip / holiday), roundtrip.
   ALTER TABLE trips ADD COLUMN kind TEXT NOT NULL DEFAULT 'cruise' CHECK (kind IN ('cruise', 'city', 'roundtrip'));
   `,
+  `
+  -- Acknowledged ("quittiert") hints of the buffer check, shared by everyone on the trip. The key is a hash of what the
+  -- hint says, so a hint that changes (other times, other entry) comes back on its own.
+  CREATE TABLE warning_acks (
+    trip_id  TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    key      TEXT NOT NULL,
+    user_id  TEXT REFERENCES users(id) ON DELETE SET NULL,
+    acked_at TEXT NOT NULL,
+    PRIMARY KEY (trip_id, key)
+  );
+  `,
 ];
 
 export function openDb(file: string): DB {

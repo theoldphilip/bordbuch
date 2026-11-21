@@ -230,3 +230,66 @@ describe('trip kind', () => {
     assert.equal((await ctx.call('GET', `/api/trips/${id}`, token)).body.trip.kind, 'cruise');
   });
 });
+
+describe('acknowledging hints', () => {
+  let ctx: Awaited<ReturnType<typeof setup>>;
+  let admin = '';
+  let viewer = '';
+  let tripId = '';
+  let itemId = '';
+  before(async () => {
+    ctx = await setup();
+    admin = (await ctx.call('POST', '/api/setup', undefined, { username: 'philip', displayName: 'Philip', password: 'geheim123' })).body.token;
+    const anna = await ctx.call('POST', '/api/users', admin, { username: 'anna', displayName: 'Anna', password: 'annapass1' });
+    viewer = (await ctx.call('POST', '/api/auth/login', undefined, { username: 'anna', password: 'annapass1' })).body.token;
+    tripId = (await ctx.call('POST', '/api/trips', admin, { title: 'Quittieren' })).body.trip.id;
+    await ctx.call('PUT', `/api/trips/${tripId}/members/${anna.body.id}`, admin, { role: 'viewer' });
+    const cruise = (await ctx.call('POST', `/api/trips/${tripId}/cruises`, admin, {
+      shipName: 'MS Test',
+      days: [
+        { date: '2027-05-10', kind: 'embarkation', portName: 'Rom', timezone: 'Europe/Rome', arrival: '12:00', allAboard: '16:30', departure: '17:00' },
+        { date: '2027-05-11', kind: 'port', portName: 'Neapel', timezone: 'Europe/Rome', arrival: '08:00', allAboard: '17:30', departure: '18:00' },
+        { date: '2027-05-12', kind: 'disembarkation', portName: 'Rom', timezone: 'Europe/Rome', arrival: '07:00' },
+      ],
+    })).body;
+    itemId = (await ctx.call('POST', `/api/trips/${tripId}/items`, admin, { type: 'excursion', title: 'Altstadt', startLocal: '2027-05-11T09:00', endLocal: '2027-05-11T17:10', cruiseDayId: cruise.days[1].id })).body.id;
+  });
+  after(async () => ctx.cleanup());
+
+  const warnings = async (token = admin) => (await ctx.call('GET', `/api/trips/${tripId}/timeline`, token)).body.warnings as any[];
+
+  test('every hint has a key and no acknowledgement at first', async () => {
+    const w = (await warnings()).find((x) => x.code === 'excursion_tight');
+    assert.ok(w, 'tight excursion is flagged');
+    assert.match(w.key, /^[0-9a-f]{16}$/);
+    assert.equal(w.ack, null);
+  });
+
+  test('editors acknowledge and withdraw; viewers cannot; unknown keys are refused; others see who acknowledged', async () => {
+    const key = (await warnings()).find((x) => x.code === 'excursion_tight').key;
+    assert.equal((await ctx.call('PUT', `/api/trips/${tripId}/warnings/${key}/ack`, viewer)).status, 403);
+    assert.equal((await ctx.call('PUT', `/api/trips/${tripId}/warnings/0123456789abcdef/ack`, admin)).status, 404);
+    assert.equal((await ctx.call('PUT', `/api/trips/${tripId}/warnings/${key}/ack`, admin)).status, 200);
+    const seenByViewer = (await warnings(viewer)).find((x) => x.key === key);
+    assert.equal(seenByViewer.ack.by, 'Philip');
+    assert.ok(seenByViewer.ack.at);
+    assert.equal((await ctx.call('DELETE', `/api/trips/${tripId}/warnings/${key}/ack`, viewer)).status, 403);
+    assert.equal((await ctx.call('DELETE', `/api/trips/${tripId}/warnings/${key}/ack`, admin)).status, 204);
+    assert.equal((await warnings()).find((x) => x.key === key).ack, null);
+  });
+
+  test('a hint that changes comes back unacknowledged; acknowledging does not touch the trip', async () => {
+    const before = (await warnings()).find((x) => x.code === 'excursion_tight');
+    await ctx.call('PUT', `/api/trips/${tripId}/warnings/${before.key}/ack`, admin);
+    const updatedAt = (await ctx.call('GET', `/api/trips/${tripId}`, admin)).body.trip.updatedAt;
+    assert.equal((await ctx.call('GET', `/api/trips/${tripId}/timeline`, admin)).body.updatedAt, updatedAt);
+    // the excursion now ends 25 minutes before all aboard: other numbers in the message, so a new hint
+    await ctx.call('PATCH', `/api/items/${itemId}`, admin, { endLocal: '2027-05-11T17:05' });
+    const after = (await warnings()).find((x) => x.code === 'excursion_tight');
+    assert.notEqual(after.key, before.key);
+    assert.equal(after.ack, null);
+    // unchanged situation = same key
+    assert.equal((await warnings()).find((x) => x.code === 'excursion_tight').key, after.key);
+  });
+});
+

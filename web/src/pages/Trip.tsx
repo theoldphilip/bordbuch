@@ -20,7 +20,7 @@ import {
   tripKindInfo,
   tzLabel,
 } from '../format.ts';
-import type { Attachment, Cruise, CruiseDay, Item, ItemType, Role, Timeline, TimelineEntry, TimelinePhase, TripDetail, User, TripKind } from '../types.ts';
+import type { Attachment, Cruise, CruiseDay, Item, ItemType, Role, Timeline, TimelineEntry, TimelinePhase, TimelineWarning, TripDetail, User, TripKind } from '../types.ts';
 import { Empty, ErrorBox, Field, Modal, Spinner } from '../components/ui.tsx';
 import { ItemForm } from '../components/ItemForm.tsx';
 import { KindPicker } from '../components/KindPicker.tsx';
@@ -51,6 +51,27 @@ export function TripPage() {
   const [queueTotal, setQueueTotal] = useState(0);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [canReview, setCanReview] = useState(false);
+  // View mode ("Ansichtsmodus"): once the trip has begun, editors cannot change anything by accident.
+  // Leaving it is remembered for this session only, so the next start is protected again.
+  const now = useNow();
+  const unlockKey = `reisebuch.unlocked.${tripId}`;
+  const [unlocked, setUnlockedState] = useState(() => {
+    try {
+      return sessionStorage.getItem(unlockKey) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [lockNotice, setLockNotice] = useState(false);
+  const setUnlocked = (v: boolean) => {
+    setUnlockedState(v);
+    try {
+      if (v) sessionStorage.setItem(unlockKey, '1');
+      else sessionStorage.removeItem(unlockKey);
+    } catch {
+      /* storage can be unavailable */
+    }
+  };
   const location = useLocation();
   const navigate = useNavigate();
   const consumedNav = useRef(false);
@@ -81,6 +102,20 @@ export function TripPage() {
     }
   }, [tripId]);
 
+  /** Acknowledge a hint of the buffer check or take it back. Shared by everyone on the trip. */
+  const ackWarning = useCallback(
+    async (key: string, ack: boolean) => {
+      try {
+        if (ack) await api.put(`/api/trips/${tripId}/warnings/${key}/ack`);
+        else await api.del(`/api/trips/${tripId}/warnings/${key}/ack`);
+        await load();
+      } catch (err) {
+        setError(errorMessage(err));
+      }
+    },
+    [tripId, load],
+  );
+
   useEffect(() => {
     load();
     const onVisible = () => document.visibilityState === 'visible' && load();
@@ -100,7 +135,12 @@ export function TripPage() {
 
   if (!detail || !timeline) return error ? <ErrorBox error={error} /> : <Spinner />;
 
-  const canEdit = detail.role !== 'viewer';
+  const isEditor = detail.role !== 'viewer';
+  const started = firstStart(timeline) <= now;
+  const locked = isEditor && started && !unlocked;
+  /** Editing is possible now: an editor, and not in view mode. */
+  const canEdit = isEditor && !locked;
+  const askUnlock = () => setLockNotice(true);
   const allDates = timeline.phases.flatMap((p) => p.days.map((d) => d.date));
   const close = () => setDialog(null);
   const saved = () => {
@@ -142,7 +182,7 @@ export function TripPage() {
         </div>
         <div className="hero-actions">
           {canReview && (detail.items.length > 0 || detail.cruises.length > 0) && <button className="btn btn-on-color" onClick={() => setDialog({ kind: 'tripreview' })}>🔍 Prüfen</button>}
-          {canEdit && <button className="btn btn-on-color" onClick={() => setDialog({ kind: 'trip' })}>Bearbeiten</button>}
+          {isEditor && <button className="btn btn-on-color" onClick={() => (locked ? askUnlock() : setDialog({ kind: 'trip' }))}>{locked ? '🔒 Bearbeiten' : 'Bearbeiten'}</button>}
         </div>
       </div>
 
@@ -161,12 +201,29 @@ export function TripPage() {
         ))}
       </nav>
       <ErrorBox error={error} />
+      {isEditor && started && (
+        <div className={`view-mode${locked ? ' locked' : ''}`} role="status">
+          {locked ? (
+            <>
+              <span>🔒 <strong>Ansichtsmodus</strong>: Die Reise läuft, Änderungen sind gesperrt.</span>
+              <button className="link" onClick={askUnlock}>Verlassen</button>
+            </>
+          ) : (
+            <>
+              <span>🔓 <strong>Bearbeiten ist aktiv.</strong> Bis du die App schließt.</span>
+              <button className="link" onClick={() => setUnlocked(false)}>Ansichtsmodus einschalten</button>
+            </>
+          )}
+        </div>
+      )}
 
       {tab === 'timeline' && (
         <TimelineView
           timeline={timeline}
           detail={detail}
           canEdit={canEdit}
+          canAck={isEditor}
+          onAck={ackWarning}
           onOpenItem={(item) => setDialog({ kind: 'item', item })}
           onAdd={(date, cruiseDayId, type) => setDialog({ kind: 'item', date, cruiseDayId, type })}
           onAddCruise={() => setDialog({ kind: 'cruise' })}
@@ -175,7 +232,7 @@ export function TripPage() {
           aiImport={aiImport}
           onOpenDay={(day) => {
             const cruise = detail.cruises.find((c) => c.id === day.cruiseId);
-            if (cruise && canEdit) setDialog({ kind: 'day', cruise, day });
+            if (cruise) setDialog({ kind: 'day', cruise, day });
           }}
         />
       )}
@@ -185,8 +242,8 @@ export function TripPage() {
       {tab === 'docs' && <DocsTab detail={detail} canEdit={canEdit} onChanged={load} onReview={(id) => openReview([id])} onReviewMany={openReview} />}
       {tab === 'share' && <ShareTab detail={detail} onChanged={load} />}
 
-      {canEdit && tab === 'timeline' && (
-        <button className="fab" onClick={() => setDialog({ kind: 'item' })} aria-label="Eintrag hinzufügen">+</button>
+      {isEditor && tab === 'timeline' && (
+        <button className="fab" onClick={() => (locked ? askUnlock() : setDialog({ kind: 'item' }))} aria-label={locked ? 'Eintrag hinzufügen (Ansichtsmodus aktiv)' : 'Eintrag hinzufügen'}>{locked ? '🔒' : '+'}</button>
       )}
 
       {dialog?.kind === 'item' && (
@@ -199,16 +256,35 @@ export function TripPage() {
           initialCruiseDayId={dialog.cruiseDayId}
           tripKind={detail.trip.kind}
           readOnly={!canEdit}
+          onUnlock={locked ? () => { setDialog(null); askUnlock(); } : undefined}
           onClose={close}
           onSaved={saved}
         />
       )}
       {dialog?.kind === 'cruise' && <CruiseForm tripId={detail.trip.id} cruise={dialog.cruise} onClose={close} onSaved={saved} />}
-      {dialog?.kind === 'day' && <CruiseDayForm cruise={dialog.cruise} day={dialog.day} onClose={close} onSaved={saved} />}
+      {dialog?.kind === 'day' && <CruiseDayForm cruise={dialog.cruise} day={dialog.day} readOnly={!canEdit} onUnlock={locked ? () => { setDialog(null); askUnlock(); } : undefined} onClose={close} onSaved={saved} />}
+      {lockNotice && (
+        <Modal
+          title="Ansichtsmodus"
+          onClose={() => setLockNotice(false)}
+          footer={
+            <>
+              <span className="spacer" />
+              <button className="btn" onClick={() => setLockNotice(false)}>Abbrechen</button>
+              <button className="btn btn-primary" onClick={() => { setUnlocked(true); setLockNotice(false); }}>Ansichtsmodus verlassen</button>
+            </>
+          }
+        >
+          <div className="stack">
+            <p>⚠️ <strong>Die Reise läuft bereits.</strong> Damit nichts aus Versehen verstellt wird, sind Änderungen gesperrt.</p>
+            <p className="muted">Verlasse zuerst den Ansichtsmodus, wenn du wirklich etwas ändern möchtest. Er schaltet sich wieder ein, wenn du die App neu öffnest. Ansehen, Anrufen, „Prüfen“ und das Quittieren von Hinweisen gehen weiterhin.</p>
+          </div>
+        </Modal>
+      )}
       {dialog?.kind === 'tripreview' && (
         <TripReviewDialog
           detail={detail}
-          canEdit={canEdit}
+          canEdit={isEditor}
           onClose={close}
           onOpenItem={(item) => setDialog({ kind: 'item', item })}
           onOpenDay={(cruise, day) => setDialog({ kind: 'day', cruise, day })}
@@ -227,6 +303,8 @@ function TimelineView({
   timeline,
   detail,
   canEdit,
+  canAck,
+  onAck,
   onOpenItem,
   onAdd,
   onAddCruise,
@@ -238,6 +316,9 @@ function TimelineView({
   timeline: Timeline;
   detail: TripDetail;
   canEdit: boolean;
+  /** Acknowledging hints is allowed for editors even when the plan itself is locked. */
+  canAck: boolean;
+  onAck: (key: string, ack: boolean) => Promise<void>;
   onOpenItem: (item: Item) => void;
   onAdd: (date?: string, cruiseDayId?: string, type?: ItemType) => void;
   onAddCruise: () => void;
@@ -257,8 +338,8 @@ function TimelineView({
   const nowKey = elements.some((e) => e.end < now) ? elements.find((e) => e.end >= now)?.key : undefined;
   const attachmentCount = (itemId: string) => detail.attachments.filter((a) => a.itemId === itemId).length;
   const warningsFor = (itemId: string, role: 'start' | 'end') =>
-    timeline.warnings.filter((w) => w.itemId === itemId && (w.role ?? 'start') === role);
-  const dayWarnings = (dayId: string) => timeline.warnings.filter((w) => w.cruiseDayId === dayId && !w.itemId);
+    timeline.warnings.filter((w) => !w.ack && w.itemId === itemId && (w.role ?? 'start') === role);
+  const dayWarnings = (dayId: string) => timeline.warnings.filter((w) => !w.ack && w.cruiseDayId === dayId && !w.itemId);
   const cruisePhases = timeline.phases.filter((p) => p.kind === 'cruise');
   const suggestDate = (phase: TimelinePhase): string | undefined =>
     phase.kind === 'pre'
@@ -308,7 +389,7 @@ function TimelineView({
   return (
     <div className="timeline">
       {banner}
-      {timeline.warnings.length > 0 && <WarningList timeline={timeline} detail={detail} onOpenItem={onOpenItem} />}
+      {timeline.warnings.length > 0 && <WarningList timeline={timeline} detail={detail} canAck={canAck} onAck={onAck} onOpenItem={onOpenItem} />}
       {detail.trip.kind === 'cruise' && detail.cruises.length === 0 && canEdit && (
         <button className="hint-card" onClick={onAddCruise}>
           🛳️ <span><strong>Kreuzfahrt hinzufügen</strong><br /><small>Dann wird dein Ablauf automatisch in Anreise, Kreuzfahrt und Abreise gegliedert.</small></span>
@@ -337,34 +418,55 @@ function TimelineView({
   );
 }
 
-function WarningList({ timeline, detail, onOpenItem }: { timeline: Timeline; detail: TripDetail; onOpenItem: (i: Item) => void }) {
+function WarningList({ timeline, detail, canAck, onAck, onOpenItem }: { timeline: Timeline; detail: TripDetail; canAck: boolean; onAck: (key: string, ack: boolean) => Promise<void>; onOpenItem: (i: Item) => void }) {
   const pace = timeline.pace;
   const [open, setOpen] = useState(true);
-  const errors = timeline.warnings.filter((w) => w.level === 'error').length;
-  const warns = timeline.warnings.filter((w) => w.level === 'warning').length;
-  const infos = timeline.warnings.length - errors - warns;
+  const [showAcked, setShowAcked] = useState(false);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const live = timeline.warnings.filter((w) => !w.ack);
+  const acked = timeline.warnings.filter((w) => w.ack);
+  const errors = live.filter((w) => w.level === 'error').length;
+  const warns = live.filter((w) => w.level === 'warning').length;
+  const infos = live.length - errors - warns;
   const summary = [errors && `${errors} kritisch`, warns && `${warns} knapp`, infos && `${infos} Hinweis${infos > 1 ? 'e' : ''}`].filter(Boolean).join(' · ');
+  const act = async (key: string, ack: boolean) => {
+    setBusyKey(key);
+    await onAck(key, ack);
+    setBusyKey(null);
+  };
+  const row = (w: TimelineWarning, quittiert: boolean) => {
+    const item = w.itemId ? detail.items.find((x) => x.id === w.itemId) : undefined;
+    return (
+      <li key={w.key} className={`check-item check-${w.level}${quittiert ? ' acked' : ''}`}>
+        <span>
+          {w.personal && <b className="chip-personal">nur persönlich</b>}
+          {w.message}
+          {quittiert && w.ack && <small className="muted ack-by"> ✓ quittiert{w.ack.by ? ` von ${w.ack.by}` : ''}, {new Date(w.ack.at).toLocaleString('de-CH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</small>}
+        </span>
+        <span className="check-actions">
+          {item && <button className="link" onClick={() => onOpenItem(item)}>öffnen</button>}
+          {canAck && <button className="link" disabled={busyKey === w.key} onClick={() => act(w.key, !quittiert)}>{quittiert ? 'zurücknehmen' : 'quittieren'}</button>}
+        </span>
+      </li>
+    );
+  };
   return (
-    <section className={`checks ${errors ? 'has-error' : warns ? 'has-warning' : ''}`}>
+    <section className={`checks ${errors ? 'has-error' : warns ? 'has-warning' : live.length === 0 ? 'all-acked' : ''}`}>
       <button className="checks-head" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span>{errors ? '⛔' : warns ? '⚠️' : 'ℹ️'} Puffer-Check: {summary}</span>
+        <span>{live.length === 0 ? `✓ Puffer-Check: ${acked.length === 1 ? 'der Hinweis ist' : `alle ${acked.length} Hinweise sind`} quittiert` : `${errors ? '⛔' : warns ? '⚠️' : 'ℹ️'} Puffer-Check: ${summary}`}</span>
         <span aria-hidden>{open ? '▾' : '▸'}</span>
       </button>
       {open && pace && (
         <p className="muted small-print checks-note">Mit deinem persönlichen Zeitbedarf (× {String(pace.factor).replace('.', ',')}{pace.extraMinutes ? ` + ${pace.extraMinutes} min` : ''}). Die Einstellung findest du unter Einstellungen.</p>
       )}
-      {open && (
-        <ul>
-          {timeline.warnings.map((w, i) => {
-            const item = w.itemId ? detail.items.find((x) => x.id === w.itemId) : undefined;
-            return (
-              <li key={i} className={`check-item check-${w.level}`}>
-                <span>{w.personal && <b className="chip-personal">nur persönlich</b>}{w.message}</span>
-                {item && <button className="link" onClick={() => onOpenItem(item)}>öffnen</button>}
-              </li>
-            );
-          })}
-        </ul>
+      {open && live.length > 0 && <ul>{live.map((w) => row(w, false))}</ul>}
+      {open && acked.length > 0 && (
+        <>
+          <button className="link acked-toggle" onClick={() => setShowAcked(!showAcked)} aria-expanded={showAcked}>
+            {showAcked ? '▾' : '▸'} Quittiert ({acked.length})
+          </button>
+          {showAcked && <ul className="acked-list">{acked.map((w) => row(w, true))}</ul>}
+        </>
       )}
     </section>
   );
@@ -377,6 +479,24 @@ const TRIP_QUICK_ADD: Record<TripKind, ItemType[]> = {
   roundtrip: ['stop', 'hotel', 'train', 'car_rental', 'flight', 'activity'],
 };
 const PHASE_ICONS: Record<TimelinePhase['kind'], string> = { trip: '🗺️', pre: '🛫', cruise: '🛳️', between: '🏨', post: '🛬' };
+
+/** When an entry begins; entries without a time begin at the start of their day. */
+function entryStart(e: TimelineEntry): number {
+  const local = e.role === 'end' ? (e.item.endLocal ?? e.item.startLocal) : e.item.startLocal;
+  return localToInstant(local.length > 10 ? local : `${local}T00:00`, e.timezone);
+}
+
+/** The moment the first point of the trip begins (Infinity for an empty trip). */
+function firstStart(timeline: Timeline): number {
+  let first = Infinity;
+  for (const ph of timeline.phases) {
+    for (const d of ph.days) {
+      if (d.cruiseDay) first = Math.min(first, localToInstant(`${d.date}T${d.cruiseDay.arrival ?? '00:00'}`, d.cruiseDay.timezone ?? timeline.defaultTimezone));
+      for (const e of d.entries) first = Math.min(first, entryStart(e));
+    }
+  }
+  return first;
+}
 
 const SPAN_ITEMS = ['hotel', 'car_rental', 'parking', 'stop'];
 const entryKey = (e: TimelineEntry) => `${e.itemId}-${e.role}`;

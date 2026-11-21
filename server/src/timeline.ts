@@ -3,6 +3,7 @@
  * and checks for tight connections. Pure functions, no DB access, so the logic is testable
  * and every client (web, iOS) gets identical results from GET /api/trips/:id/timeline.
  */
+import { createHash } from 'node:crypto';
 import type { Cruise, CruiseDay, Item } from './model.ts';
 import { SPAN_TYPES, TRANSPORT_TYPES } from './schemas.ts';
 
@@ -44,6 +45,14 @@ export interface TimelineWarning {
   personal?: boolean;
   /** Which appearance of a multi-day item the warning belongs to (default 'start'). */
   role?: 'start' | 'end';
+}
+
+/** Stable identity of a hint: the same situation gives the same key, a changed one (other numbers, other entry) a new one. */
+export function warningKey(w: TimelineWarning): string {
+  return createHash('sha1')
+    .update([w.code, w.itemId ?? '', w.role ?? '', w.cruiseId ?? '', w.cruiseDayId ?? '', w.message].join('|'))
+    .digest('hex')
+    .slice(0, 16);
 }
 
 export interface Timeline {
