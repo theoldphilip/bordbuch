@@ -153,7 +153,7 @@ Setzt `ANTHROPIC_API_KEY` auf dem Server voraus. `GET /ai/status` zeigt, ob sie 
 | POST | `/attachments/:id/analyze` | editor | Analyse erneut starten (bei einer Gruppe weiterhin mit allen Dateien) |
 | GET | `/attachments/:id/analysis` | viewer | Vorschläge: `{status, attachment, documentKind, summary, warnings, items[], cruise, research}` |
 | GET | `/attachments/:id/research` | viewer | Stand der optionalen Web-Recherche: `{research: null | {status: pending/done/failed, summary, suggestions[], error}}` |
-| POST | `/attachments/:id/research` | editor | Startet die Recherche im Hintergrund (202). Sucht im Web nach Lücken (Routen, Zeiten, Telefonnummern). Ergebnisse stehen mit Quellen in `suggestions[]`, nichts wird ohne Annahme übernommen. Zum Abfragen `GET` wiederholen |
+| POST | `/attachments/:id/research` | editor | Startet die Recherche im Hintergrund (202). Body optional: `{mode: "gaps"\|"route", url?}`. `gaps` sucht Lücken (Routen, Zeiten, Telefonnummern), `route` den Reiseverlauf der Kreuzfahrt (Vorschlag mit `route.days[]`). `url` ist eine Seite, die die KI zuerst liest (nur http/https). Ergebnisse stehen mit Quellen in `suggestions[]`, `diagnostics` zeigt Suchanfragen, gelesene Seiten und verworfene Funde. Nichts wird ohne Annahme übernommen. Zum Abfragen `GET` wiederholen |
 | POST | `/attachments/:id/research/accept` | editor | `{ids: [...]}` übernimmt Vorschläge in die Analyse (füllt nur Lücken, Infos mit `source: "web"`, Quelle in den Notizen). Danach ganz normal `apply` |
 | POST | `/attachments/:id/research/dismiss` | editor | Verwirft die Recherche |
 | POST | `/attachments/:id/apply` | editor | Vorschläge übernehmen (siehe unten), alles in einer Transaktion |

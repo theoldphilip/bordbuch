@@ -65,7 +65,10 @@ export const RESEARCH_STRUCTURE_PROMPT = `Du wandelst Recherche-Notizen in struk
 - note: Routen, Fahrzeiten, Hinweise als kurzer deutscher Text (z. B. "Vom Flughafen Rom-Fiumicino mit dem Leonardo Express in ca. 32 Min nach Roma Termini, ca. 14 EUR").
 - sourceUrls: die URLs aus den Notizen, auf die sich der Vorschlag stützt. Ein Vorschlag ohne URL aus den Notizen ist nicht erlaubt.
 - title: kurze Überschrift des Vorschlags.
-- summary: ein bis zwei Sätze, was gefunden wurde und was nicht.`;
+- summary: ein bis zwei Sätze, was gefunden wurde und was nicht.
+- route: nur im Modus "Reiseverlauf", sonst null. Die Route der Kreuzfahrt als Tage: date (JJJJ-MM-TT), kind (embarkation = Einschiffungstag, port = Hafentag, sea = Seetag, disembarkation = Ausschiffungstag), portName, country, timezone (IANA, nur wenn sicher), arrival, departure, allAboard (HH:MM Hafenzeit, nur wenn in den Notizen), tender (nur wenn Tenderhafen genannt). Ein Eintrag pro Kalendertag, keine Tage erfinden, auch wenn die Route lückenhaft ist. sourceUrls: die Seiten, auf denen der Verlauf steht. In diesem Modus bleibt suggestions leer, außer die Notizen enthalten zusätzlich klar belegte Einzelfunde.`;
+
+export const RESEARCH_ROUTE_FOCUS = `Schwerpunkt dieser Recherche ist der REISEVERLAUF der Kreuzfahrt: Finde die vollständige Route mit allen Tagen (Datum, Hafen und Land, Ankunft/Abfahrt, "Alle an Bord", Seetage). Suche mit Schiffsname, Reederei und Abreisedatum, z. B. auf der Seite der Reederei, einer Reiseverlauf-Seite des Anbieters oder einem Kreuzfahrt-Portal. Hat der Nutzer eine Seite angegeben, lies zuerst diese. Vergleiche, wenn möglich, zwei Quellen und nenne Abweichungen. Die Reise ist durch Schiff und Datum der bekannten Reisepunkte bestimmt.`;
 
 type Client = Pick<Anthropic, 'beta' | 'messages'>;
 
@@ -76,16 +79,30 @@ export const webSearchTool = (model: string) => ({
   max_uses: 8,
 });
 
+export const webFetchTool = (model: string) => ({
+  type: /fable|mythos|opus-5|opus-4-[678]|sonnet-5|sonnet-4-6/.test(model) ? 'web_fetch_20260209' : 'web_fetch_20250910',
+  name: 'web_fetch',
+  max_uses: 4,
+});
+
 /** URLs and titles of every search result in the response, so suggestions can only cite pages that really came back. */
-function collectSources(content: unknown[], into: Map<string, ResearchSource>): void {
-  for (const block of content as any[]) {
-    if (block?.type === 'web_search_tool_result' && Array.isArray(block.content)) {
-      for (const r of block.content) if (typeof r?.url === 'string') into.set(r.url, { title: String(r.title ?? r.url).slice(0, 200), url: r.url });
+function collectSources(content: unknown[], into: Map<string, ResearchSource>, trace: { queries: string[]; fetched: string[] }): void {
+  const add = (url: unknown, title: unknown) => {
+    if (typeof url === 'string' && /^https?:\/\//.test(url) && !into.has(url)) into.set(url, { title: String(title ?? url).slice(0, 200), url });
+  };
+  // Results can sit in different blocks depending on the search variant, so walk everything.
+  const walk = (node: any, depth = 0): void => {
+    if (!node || typeof node !== 'object' || depth > 6) return;
+    if (Array.isArray(node)) return node.forEach((n) => walk(n, depth + 1));
+    if (node.type === 'web_search_result' || node.type === 'web_fetch_result' || node.type === 'web_search_result_location') add(node.url, node.title);
+    if (node.type === 'server_tool_use') {
+      if (node.name === 'web_search' && typeof node.input?.query === 'string') trace.queries.push(node.input.query);
+      if (node.name === 'web_fetch' && typeof node.input?.url === 'string') trace.fetched.push(node.input.url);
     }
-    if (block?.type === 'text' && Array.isArray(block.citations)) {
-      for (const c of block.citations) if (typeof c?.url === 'string' && !into.has(c.url)) into.set(c.url, { title: String(c.title ?? c.url).slice(0, 200), url: c.url });
-    }
-  }
+    if (Array.isArray(node.citations)) for (const c of node.citations) add(c?.url, c?.title);
+    for (const v of Object.values(node)) if (v && typeof v === 'object') walk(v, depth + 1);
+  };
+  walk(content);
 }
 
 function contextText(input: ExtractInput): string {
@@ -179,16 +196,20 @@ export function createAnthropicExtractor(opts: { apiKey: string; model: string; 
       return parsed;
     },
 
-    async research({ analysis, context }) {
+    async research({ analysis, context, mode = 'gaps', url = null }) {
       const outline = analysisOutline(analysis);
       const found = new Map<string, ResearchSource>();
+      const trace = { queries: [] as string[], fetched: [] as string[] };
+      if (url) found.set(url, { title: 'Von dir angegebene Seite', url });
       let searches = 0;
+      const task =
+        mode === 'route'
+          ? `${RESEARCH_ROUTE_FOCUS}${url ? `\n\nSeite des Nutzers, bitte zuerst lesen: ${url}` : ''}`
+          : `Recherchiere die Lücken bei den bekannten Reisepunkten.${url ? `\n\nSeite des Nutzers, bitte zuerst lesen: ${url}` : ''}`;
       const messages: Anthropic.MessageParam[] = [
-        {
-          role: 'user',
-          content: `Heutiges Datum: ${context.today}\nReise: ${context.tripTitle}\n\nBereits bekannte Reisepunkte:\n${outline}\n\nRecherchiere die Lücken.`,
-        },
+        { role: 'user', content: `Heutiges Datum: ${context.today}\nReise: ${context.tripTitle}\n\nBereits bekannte Reisepunkte:\n${outline}\n\n${task}` },
       ];
+      const tools = [{ ...webSearchTool(model), max_uses: mode === 'route' ? 10 : 8 }, ...(url ? [webFetchTool(model)] : [])];
       let notes = '';
       // A long search turn can be paused by the server; continue it a few times.
       for (let turn = 0; turn < 5; turn++) {
@@ -196,11 +217,11 @@ export function createAnthropicExtractor(opts: { apiKey: string; model: string; 
           model,
           max_tokens: 8000,
           system: RESEARCH_PROMPT,
-          tools: [webSearchTool(model)] as any,
+          tools: tools as any,
           messages,
         });
         searches += (response.usage as any)?.server_tool_use?.web_search_requests ?? 0;
-        collectSources(response.content, found);
+        collectSources(response.content, found, trace);
         if (response.stop_reason === 'refusal') throw new ExtractionError('Die KI hat die Recherche abgelehnt.');
         notes = response.content
           .filter((b): b is Anthropic.TextBlock => b.type === 'text')
@@ -210,19 +231,24 @@ export function createAnthropicExtractor(opts: { apiKey: string; model: string; 
         if (response.stop_reason !== 'pause_turn') break;
         messages.push({ role: 'assistant', content: response.content as Anthropic.ContentBlockParam[] });
       }
-      if (!notes || found.size === 0) return { summary: 'Die Recherche hat nichts Verwertbares gefunden.', suggestions: [], searches };
+      const diag = (summary: string): ReturnType<typeof cleanResearch> => ({
+        summary, suggestions: [], searches,
+        diagnostics: { queries: trace.queries.slice(0, 20), fetched: trace.fetched.slice(0, 10), sourcesFound: found.size, droppedNoSource: 0, droppedInvalid: 0, notes: notes.slice(0, 1500) },
+      });
+      if (!notes) return diag('Die Recherche hat keine Antwort geliefert.');
+      if (found.size === 0) return diag('Die Suche lieferte Text, aber keine prüfbaren Quellen. Deshalb wird nichts vorgeschlagen. Unter „Was wurde gesucht?“ siehst du die Notizen der KI.');
 
       const response = await client.beta.messages.parse({
         model,
-        max_tokens: 8000,
+        max_tokens: 16000,
         system: RESEARCH_STRUCTURE_PROMPT,
-        messages: [{ role: 'user', content: `Reisepunkte:\n${outline}\n\nRecherche-Notizen:\n${notes}` }],
+        messages: [{ role: 'user', content: `Modus: ${mode === 'route' ? 'Reiseverlauf' : 'Lücken'}\n\nReisepunkte:\n${outline}\n\nRecherche-Notizen:\n${notes}` }],
         output_config: { format: zodOutputFormat(researchSchema) },
         ...(useFallback ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const } : {}),
       });
       const parsed = response.parsed_output;
       if (response.stop_reason === 'refusal' || !parsed) throw new ExtractionError('Die Recherche-Ergebnisse konnten nicht gelesen werden. Bitte erneut versuchen.');
-      return cleanResearch(parsed, [...found.values()], analysis, searches);
+      return cleanResearch(parsed, [...found.values()], analysis, searches, { ...trace, notes });
     },
 
     async check() {

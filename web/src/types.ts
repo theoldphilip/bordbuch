@@ -245,7 +245,30 @@ export interface ResearchSuggestion {
   infos: Info[];
   note: string | null;
   sources: { title: string; url: string }[];
+  /** A found itinerary; target.kind is then 'cruise'. */
+  route?: { shipName: string | null; cruiseLine: string | null; days: ResearchRouteDay[] };
   accepted?: boolean;
+}
+
+export interface ResearchRouteDay {
+  date: string;
+  kind: CruiseDay['kind'];
+  portName: string | null;
+  country: string | null;
+  timezone: string | null;
+  arrival: string | null;
+  departure: string | null;
+  allAboard: string | null;
+  tender: boolean;
+}
+
+export interface ResearchDiagnostics {
+  queries: string[];
+  fetched: string[];
+  sourcesFound: number;
+  droppedNoSource: number;
+  droppedInvalid: number;
+  notes: string;
 }
 
 export interface Research {
@@ -257,6 +280,9 @@ export interface Research {
   suggestions: ResearchSuggestion[];
   searches?: number;
   model?: string;
+  mode?: 'gaps' | 'route';
+  url?: string | null;
+  diagnostics?: ResearchDiagnostics;
 }
 
 export interface AnalysisView {

@@ -28,6 +28,36 @@ export interface ResearchSource {
   url: string;
 }
 
+export interface ResearchRouteDay {
+  date: string;
+  kind: CruiseDayKind;
+  portName: string | null;
+  country: string | null;
+  timezone: string | null;
+  arrival: string | null;
+  departure: string | null;
+  allAboard: string | null;
+  tender: boolean;
+}
+
+/** The cruise itinerary found on the web: becomes cruise days (new ones are added, existing ones only get gaps filled). */
+export interface ResearchRoute {
+  shipName: string | null;
+  cruiseLine: string | null;
+  days: ResearchRouteDay[];
+}
+
+/** What the research did, so "nothing found" can be understood instead of guessed. */
+export interface ResearchDiagnostics {
+  queries: string[];
+  fetched: string[];
+  sourcesFound: number;
+  droppedNoSource: number;
+  droppedInvalid: number;
+  /** Start of the model's own notes, before they were turned into suggestions. */
+  notes: string;
+}
+
 /** One proposed addition from the web research. Nothing is stored in trips until a user accepts it and applies the document. */
 export interface ResearchSuggestion {
   id: string;
@@ -39,6 +69,8 @@ export interface ResearchSuggestion {
   infos: Info[];
   note: string | null;
   sources: ResearchSource[];
+  /** Set for a found itinerary (target.kind is then 'cruise'). */
+  route?: ResearchRoute;
   accepted?: boolean;
 }
 
@@ -51,17 +83,28 @@ export interface ResearchData {
   suggestions: ResearchSuggestion[];
   searches?: number;
   model?: string;
+  mode?: ResearchMode;
+  /** Page the user pointed the research to. */
+  url?: string | null;
+  diagnostics?: ResearchDiagnostics;
 }
+
+export type ResearchMode = 'gaps' | 'route';
 
 export interface ResearchInput {
   analysis: NormalizedExtraction;
   context: ExtractionContext;
+  /** gaps: fill what is missing at known points. route: find the cruise itinerary. Default gaps. */
+  mode?: ResearchMode;
+  /** A page to read first (e.g. the cruise line's page for this trip). */
+  url?: string | null;
 }
 
 export interface ResearchOutput {
   summary: string;
   suggestions: Omit<ResearchSuggestion, 'id'>[];
   searches: number;
+  diagnostics?: ResearchDiagnostics;
 }
 
 export interface Extractor {

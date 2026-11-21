@@ -43,6 +43,19 @@ const applyInput = z.object({
     .nullish(),
 });
 
+/** Optional start options: what to research and a page to read first (only http/https, the model reads it, not this server). */
+const researchStartInput = z.object({
+  mode: z.enum(['gaps', 'route']).default('gaps'),
+  url: z
+    .string()
+    .trim()
+    .max(500)
+    .url()
+    .refine((u) => /^https?:\/\//i.test(u), 'Nur Internetadressen mit http oder https')
+    .nullish()
+    .transform((v) => v || null),
+});
+
 type Row = Record<string, any>;
 
 export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
@@ -249,23 +262,24 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
     if (!extractor?.research) throw new HttpError(409, 'Die Recherche ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
     const analysis = readAnalysis(row);
     if (analysis.research?.status === 'pending') throw new HttpError(409, 'Die Recherche läuft bereits.');
+    const { mode, url } = researchStartInput.parse(req.body ?? {});
     const startedAt = nowIso();
-    saveResearch(row.id, { status: 'pending', startedAt, suggestions: [] });
+    saveResearch(row.id, { status: 'pending', startedAt, suggestions: [], mode, url });
     const context = contextFor(row.trip_id);
     const { research } = extractor;
     void (async () => {
       try {
-        const out = await research.call(extractor, { analysis: { ...analysis, research: undefined }, context });
+        const out = await research.call(extractor, { analysis: { ...analysis, research: undefined }, context, mode, url });
         saveResearch(row.id, {
-          status: 'done', startedAt, finishedAt: nowIso(), summary: out.summary, searches: out.searches, model: extractor.model,
+          status: 'done', startedAt, finishedAt: nowIso(), summary: out.summary, searches: out.searches, model: extractor.model, mode, url, diagnostics: out.diagnostics,
           suggestions: out.suggestions.map((s) => ({ ...s, id: newId() })),
         });
       } catch (err) {
         app.log.warn({ err }, 'Recherche fehlgeschlagen');
-        saveResearch(row.id, { status: 'failed', startedAt, finishedAt: nowIso(), error: describeAiError(err), suggestions: [] });
+        saveResearch(row.id, { status: 'failed', startedAt, finishedAt: nowIso(), error: describeAiError(err), suggestions: [], mode, url });
       }
     })();
-    return reply.status(202).send({ research: { status: 'pending', startedAt, suggestions: [] } });
+    return reply.status(202).send({ research: { status: 'pending', startedAt, suggestions: [], mode, url } });
   });
 
   app.post<{ Params: { id: string } }>('/api/attachments/:id/research/accept', async (req) => {

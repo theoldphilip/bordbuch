@@ -272,6 +272,6 @@ docs/     API-Referenz (Grundlage für die iOS-App)
 - [ ] Bordzeit vs. Ortszeit (Schiffe stellen die Uhr nicht immer auf Ortszeit um)
 - [x] Erinnerungen nach Uhrzeit (Alle an Bord, Ausflug, Abflug, Abfahrt) per Web Push, siehe oben
 - [ ] Erinnerungen nach Standort (nur mit der iOS-App möglich)
-- [x] **Web-Recherche für Lücken** (optional im Prüfdialog: Route, Fahrzeiten, Check-in-Zeiten, Telefonnummern; Funde mit Quelle zuerst zur Auswahl, nichts wird automatisch übernommen)
+- [x] **Web-Recherche** (optional im Prüfdialog: Reiseverlauf der Kreuzfahrt, Routen, Fahrzeiten, Check-in-Zeiten, Telefonnummern; optional mit Link zur Reise; Funde mit Quelle zuerst zur Auswahl, Anzeige, was gesucht wurde, nichts wird automatisch übernommen)
 - [x] **Version der App in den Einstellungen anzeigen** (Versionsnummer und Stand, damit man nach einem Update sieht, was läuft)
 - [ ] Packliste & Kostenübersicht pro Person

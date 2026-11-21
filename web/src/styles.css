@@ -442,3 +442,7 @@ a.btn { text-decoration: none; }
 .stack, .field, .auth-card, .trip-card-body, .timeline, .checks ul, .day, .entry-main, .review-summary, .review-warnings, .proposal,
 .route-preview, .ai-start, .info-editor, .info-summary, .notify-rule, .steps, .settings-nav, .guide, .guide-body { grid-template-columns: minmax(0, 1fr); }
 .collector-list .file-name { white-space: normal; overflow-wrap: anywhere; }
+.research-diag { font-size: 0.9rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; overflow-wrap: anywhere; }
+.research-diag summary { cursor: pointer; font-weight: 600; }
+.research-notes { white-space: pre-line; max-height: 14em; overflow: auto; }
+.route-day.static { cursor: default; }
