@@ -80,7 +80,7 @@ export function App() {
           <header className="topbar">
             <Link to="/" className="brand">
               <img src="/icon.svg" alt="" width={28} height={28} />
-              <span>Bordbuch</span>
+              <span>Reisebuch</span>
             </Link>
             <nav className="top-links" aria-label="Hauptnavigation">
               <NavLink to="/" end>Reisen</NavLink>

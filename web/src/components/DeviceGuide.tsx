@@ -24,16 +24,16 @@ export function DeviceGuide({ steps, cert, onNavigate }: { steps: SetupStep[]; c
                   <li>Öffne diese Seite in <strong>Safari</strong> (nicht in der Home-Bildschirm-App) und tippe oben auf <em>Zertifikat herunterladen</em>. Erlaube den Download.</li>
                   <li><em>Einstellungen → Profil geladen → Installieren</em>.</li>
                   <li><em>Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen</em>: dem Zertifikat <strong>vollständig vertrauen</strong>.</li>
-                  <li>Öffne Bordbuch danach über die HTTPS-Adresse.</li>
+                  <li>Öffne Reisebuch danach über die HTTPS-Adresse.</li>
                 </ol>
               </>
             )}
             {s.id === 'cert' && s.state === 'todo' && !cert?.present && <p className="muted">Lade zuerst das Zertifikat unten hoch. Dann steht es für alle bereit.</p>}
 
-            {s.id === 'home' && s.state === 'done' && <p className="muted">Bordbuch läuft als App vom Home-Bildschirm.</p>}
+            {s.id === 'home' && s.state === 'done' && <p className="muted">Reisebuch läuft als App vom Home-Bildschirm.</p>}
             {s.id === 'home' && s.state === 'todo' && (
               <p className="muted">
-                Öffne Bordbuch in Safari über die <strong>HTTPS-Adresse</strong>, tippe auf <em>Teilen</em> und wähle <em>Zum Home-Bildschirm</em>. Öffne es danach von dort. Die Kachel merkt sich die Adresse, über die du sie angelegt hast.
+                Öffne Reisebuch in Safari über die <strong>HTTPS-Adresse</strong>, tippe auf <em>Teilen</em> und wähle <em>Zum Home-Bildschirm</em>. Öffne es danach von dort. Die Kachel merkt sich die Adresse, über die du sie angelegt hast.
               </p>
             )}
 

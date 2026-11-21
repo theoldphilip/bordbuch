@@ -1,4 +1,4 @@
-# Bordbuch REST-API
+# Reisebuch REST-API
 
 Basis-URL: `http://<server>:8080/api` · JSON · Feldnamen in camelCase.
 Die Web-App und die geplante iOS-App nutzen ausschließlich diese API.
@@ -42,7 +42,7 @@ HTTP-Status (400 Validierung, 401 nicht angemeldet, 403 keine Berechtigung, 404,
 | GET | `/certificate/info` | angemeldet | `{present, subject, validFrom, validTo, daysLeft, altNames[], fingerprint}` |
 | GET | `/certificate` | **öffentlich** | Zertifikat als `bordbuch.crt` (DER, `application/x-x509-ca-cert`, iOS bietet die Installation an); `?format=pem` liefert PEM |
 | PUT | `/certificate` | Admin | `{pem}`. Nur ein Zertifikat; privater Schlüssel, Unlesbares und Abgelaufenes werden abgelehnt (400) |
-| DELETE | `/certificate` | Admin | entfernt das Zertifikat aus Bordbuch (Syno und Geräte bleiben unberührt) |
+| DELETE | `/certificate` | Admin | entfernt das Zertifikat aus Reisebuch (Syno und Geräte bleiben unberührt) |
 
 Der Download ist öffentlich, weil Safari einen Link ohne das Token der App öffnet. Es ist ein öffentliches Zertifikat.
 

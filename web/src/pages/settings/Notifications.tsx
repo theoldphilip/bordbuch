@@ -56,7 +56,7 @@ export function NotificationSettings() {
     setMsg(null);
     try {
       if ((await Notification.requestPermission()) !== 'granted') {
-        throw new Error('Mitteilungen wurden nicht erlaubt. Du kannst das in den iPhone-Einstellungen unter Bordbuch ändern.');
+        throw new Error('Mitteilungen wurden nicht erlaubt. Du kannst das in den iPhone-Einstellungen unter Reisebuch ändern.');
       }
       const reg = await navigator.serviceWorker.ready;
       const { publicKey } = await api.get<{ publicKey: string }>('/api/push/key');
@@ -129,7 +129,7 @@ export function NotificationSettings() {
     <section className="card">
       <h3>Erinnerungen aufs iPhone</h3>
       <p className="muted">
-        Bordbuch erinnert dich nach Uhrzeit, auch wenn die App geschlossen ist: vor „Alle an Bord“, vor dem Beginn eines Ausflugs und vor
+        Reisebuch erinnert dich nach Uhrzeit, auch wenn die App geschlossen ist: vor „Alle an Bord“, vor dem Beginn eines Ausflugs und vor
         Abflug oder Abfahrt. Dein persönlicher Zeitbedarf verlängert den Vorlauf automatisch. Standort-Erinnerungen im Hintergrund sind mit einer Web-App nicht möglich.
       </p>
       {blocked && (

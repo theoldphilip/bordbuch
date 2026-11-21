@@ -1,6 +1,6 @@
 {
-  "name": "Bordbuch – Reise & Kreuzfahrt",
-  "short_name": "Bordbuch",
+  "name": "Reisebuch – Reisen & Kreuzfahrten",
+  "short_name": "Reisebuch",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f2236",

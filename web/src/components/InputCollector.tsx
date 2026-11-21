@@ -104,7 +104,7 @@ export function InputCollector({ inputs, setInputs, grouped, setGrouped, disable
       }
       if (files.length) addFiles(files);
       texts.forEach(addText);
-      if (!files.length && !texts.some((t) => t.trim())) setClipNote('In der Zwischenablage liegt nichts, das Bordbuch lesen kann (Bild, PDF oder Text).');
+      if (!files.length && !texts.some((t) => t.trim())) setClipNote('In der Zwischenablage liegt nichts, das Reisebuch lesen kann (Bild, PDF oder Text).');
     } catch (err) {
       setClipNote((err as Error).name === 'NotAllowedError'
         ? 'Der Zugriff auf die Zwischenablage wurde nicht erlaubt. Tippe auf „Einfügen“, wenn iOS fragt, oder füge den Inhalt in das Feld darunter ein.'

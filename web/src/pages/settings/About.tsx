@@ -5,7 +5,7 @@ export function AboutSettings() {
   const built = info?.builtAt ? new Date(info.builtAt).toLocaleString('de-CH', { dateStyle: 'medium', timeStyle: 'short' }) : null;
   return (
     <section className="card">
-      <h3>Über Bordbuch</h3>
+      <h3>Über Reisebuch</h3>
       {outdated && (
         <div className="alert alert-error">
           Die App auf diesem Gerät ist älter als der Server (App {__APP_VERSION__}, Server {info?.version}). Lade sie neu, um die neue Version zu bekommen.

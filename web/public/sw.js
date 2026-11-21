@@ -1,4 +1,4 @@
-// Bordbuch service worker: app shell offline + last-known API data (network first).
+// Reisebuch service worker: app shell offline + last-known API data (network first).
 const SHELL = 'bordbuch-shell-v1';
 const DATA = 'bordbuch-data-v1';
 
@@ -23,7 +23,7 @@ self.addEventListener('push', (event) => {
     data = { body: event.data ? event.data.text() : '' };
   }
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Bordbuch', {
+    self.registration.showNotification(data.title || 'Reisebuch', {
       body: data.body || '',
       icon: '/icon-192.png',
       badge: '/icon-192.png',

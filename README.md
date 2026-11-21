@@ -1,9 +1,9 @@
-# Bordbuch
+# Reisebuch
 
 Reiseplaner für die Familie, gebaut für **Kreuzfahrten mit An- und Abreise** (Flug, Bahn, eigenes Auto, Parkplatz, Übernachtung, Transfer).
 Self-hosted als ein Docker-Container (z. B. auf einer Synology), erreichbar per VPN.
 
-## Was Bordbuch anders macht
+## Was Reisebuch anders macht
 
 - **Phasen statt einer flachen Liste:** Der Ablauf gliedert sich automatisch in
   *Anreise → Kreuzfahrt → (Zwischenprogramm) → Abreise*. Die Zuordnung ergibt sich aus
@@ -68,7 +68,7 @@ mehrere Dateien gemeinsam gelesen, z. B. drei Screenshots derselben Buchungsseit
 eine komplette E-Mail oder den Text einer Buchungsseite. Mit Strg+V nimmt der Dialog auch kopierte **Dateien** an (z. B. ein PDF aus dem
 Dateimanager), solange der Browser sie in der Zwischenablage bereitstellt. Auf dem iPhone gibt es über HTTPS den Knopf **Aus Zwischenablage
 einfügen**: Er liest Bilder, PDF und Text direkt aus der Zwischenablage, iOS fragt dabei einmal nach („Einfügen“). Fotos wählst du alternativ
-über die Fotomediathek. Dateien, die Bordbuch nicht lesen kann (z. B. Word oder Pages, HEIC-Fotos), warnt der Dialog schon in der Liste. Sie werden
+über die Fotomediathek. Dateien, die Reisebuch nicht lesen kann (z. B. Word oder Pages, HEIC-Fotos), warnt der Dialog schon in der Liste. Sie werden
 nur abgelegt. Speichere sie als PDF oder kopiere den Text.
 
 **Zusatzinfos an jedem Reisepunkt:** Einträge, Hafentage und die Kreuzfahrt selbst haben eine Liste mit Zusatzinfos: Telefonnummern,
@@ -122,7 +122,7 @@ read -rsp "API-Schlüssel: " K; echo; printf 'ANTHROPIC_API_KEY=%s\n' "$K" | sud
 cd /volume1/docker/bordbuch && sudo docker compose up -d
 ```
 
-4. In Bordbuch unter *Einstellungen → KI und Dokumente* auf **Verbindung testen** tippen.
+4. In Reisebuch unter *Einstellungen → KI und Dokumente* auf **Verbindung testen** tippen.
 
 Die Datei `.env` ist von Git und aus dem Docker-Image ausgeschlossen. Der Schlüssel gehört nie ins Repository.
 
@@ -143,7 +143,7 @@ jede andere Eingabe geprüft und nur mit deiner Bestätigung gespeichert.
 
 ### Erinnerungen aufs iPhone (Benachrichtigungen, nur per VPN)
 
-Bordbuch kann dich **nach Uhrzeit** erinnern, auch bei geschlossener App: vor „Alle an Bord“, vor dem Beginn eines Ausflugs, vor Abflug
+Reisebuch kann dich **nach Uhrzeit** erinnern, auch bei geschlossener App: vor „Alle an Bord“, vor dem Beginn eines Ausflugs, vor Abflug
 und vor Abfahrt von Bahn, Bus, Fähre und Transfer. Der Vorlauf ist pro Art einstellbar (*Einstellungen → Erinnerungen*) und wird
 durch deinen **persönlichen Zeitbedarf** verlängert. Die Nachricht sagt dann z. B. „Alle an Bord in 1 h 30 min, Vorlauf 1 h 30 min
 (normal 1 h)“. Eine Erinnerung, die der Server um mehr als 5 Minuten verpasst hat, wird nicht verspätet gesendet.
@@ -154,7 +154,7 @@ braucht es die iOS-App.
 **So kommt die Nachricht zum iPhone:** Die Syno schickt sie **ausgehend** (HTTPS) an den Push-Dienst von Apple, Apple stellt sie zu. Dafür
 muss nichts aus dem Internet auf die Syno zugreifen können. Die App bleibt nur über VPN erreichbar. Voraussetzungen:
 
-1. **iOS 16.4 oder neuer**, und Bordbuch liegt **auf dem Home-Bildschirm** (Safari → Teilen → Zum Home-Bildschirm). In Safari selbst gibt es
+1. **iOS 16.4 oder neuer**, und Reisebuch liegt **auf dem Home-Bildschirm** (Safari → Teilen → Zum Home-Bildschirm). In Safari selbst gibt es
    keine Web-Benachrichtigungen.
 2. **HTTPS mit vertrauenswürdigem Zertifikat.** Eine reine `http://`-Adresse reicht nicht, iOS erlaubt Benachrichtigungen nur auf sicheren Seiten.
 3. Die Syno darf ausgehend zu den Apple-Push-Servern (`*.push.apple.com`, Port 443).
@@ -168,7 +168,7 @@ muss nichts aus dem Internet auf die Syno zugreifen können. Die App bleibt nur 
 2. DSM → *Systemsteuerung → Anmeldeportal → Erweitert → Reverse-Proxy → Erstellen*.
    Quelle: Protokoll **HTTPS**, Hostname = dein Syno-Name, Port **8444**. Ziel: Protokoll **HTTP**, Hostname `localhost`, Port **8080**.
 3. *Systemsteuerung → Sicherheit → Zertifikat → Einstellungen*: dem neuen Reverse-Proxy-Eintrag das gültige Zertifikat des Namens zuweisen.
-4. **Port 8444 nicht im Router freigeben** und prüfen, dass keine Weiterleitung auf die Syno alles durchlässt. Damit ist Bordbuch von außen nicht erreichbar.
+4. **Port 8444 nicht im Router freigeben** und prüfen, dass keine Weiterleitung auf die Syno alles durchlässt. Damit ist Reisebuch von außen nicht erreichbar.
 5. In der DSM-Firewall (*Systemsteuerung → Sicherheit → Firewall*) Port 8444 nur für dein Heimnetz und das WireGuard-Netz erlauben und für alle
    anderen Quellen verweigern. Wer will, schützt Port 8080 genauso.
 6. **Test ohne iPhone** (am Computer im Heimnetz). Der Befehl erzwingt die interne Adresse und prüft dabei das Zertifikat des Namens:
@@ -183,9 +183,9 @@ curl -s --resolve meinesyno.synology.me:8444:172.16.10.1 https://meinesyno.synol
    Hauptzone*, Zonentyp „Vorwärtszone“, Domänenname = dein kompletter Syno-Name, dann einen Eintrag **A** (Name leer) auf `172.16.10.1`
    anlegen und bei den Weiterleitungen den Router oder einen öffentlichen DNS eintragen. Im WireGuard-Profil auf dem iPhone setzt du dann
    `DNS = 172.16.10.1`. Test im Tunnel: `nslookup meinesyno.synology.me 172.16.10.1`.
-8. Bordbuch auf dem iPhone (mit aktivem WireGuard) über `https://meinesyno.synology.me:8444` öffnen und neu auf den Home-Bildschirm legen.
+8. Reisebuch auf dem iPhone (mit aktivem WireGuard) über `https://meinesyno.synology.me:8444` öffnen und neu auf den Home-Bildschirm legen.
 
-*Variante B: ohne DNS und ohne Namen* (wenn du am VPN nichts einstellen kannst). Bordbuch wird über die IP `https://172.16.10.1:8444` aufgerufen.
+*Variante B: ohne DNS und ohne Namen* (wenn du am VPN nichts einstellen kannst). Reisebuch wird über die IP `https://172.16.10.1:8444` aufgerufen.
 Dafür erzeugst du ein **eigenes Zertifikat nur für diese IP**, das du einmal auf dem iPhone als vertrauenswürdig einträgst. Es gibt keine
 Zertifizierungsstelle, der Schlüssel liegt nur auf der Syno, und das iPhone vertraut genau diesem einen Zertifikat.
 
@@ -200,14 +200,14 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 825 -keyout bordbuch-key.pem -ou
 3. Reverse-Proxy wie in Variante A anlegen (Port 8444, Ziel `localhost:8080`), als Hostname `172.16.10.1` (lehnt DSM die IP ab, `*`), und unter
    *Zertifikat → Einstellungen* das importierte Zertifikat zuweisen. Router und Firewall wie in A.
 4. Test am Computer: `curl --cacert bordbuch.pem https://172.16.10.1:8444/api/health` muss `{"ok":true,…}` liefern.
-5. **Zertifikat aufs iPhone bringen.** Am einfachsten über Bordbuch: Als Admin unter *Einstellungen → Dieses Gerät einrichten → Zertifikat verwalten* `bordbuch.pem`
+5. **Zertifikat aufs iPhone bringen.** Am einfachsten über Reisebuch: Als Admin unter *Einstellungen → Dieses Gerät einrichten → Zertifikat verwalten* `bordbuch.pem`
    hochladen (nur das Zertifikat; einen privaten Schlüssel lehnt die App ab). Auf dem iPhone in **Safari** die normale http-Adresse im VPN
    öffnen, anmelden, unter *Einstellungen → Dieses Gerät einrichten* **Zertifikat herunterladen** antippen (oder gleich im Einrichtungsdialog nach der ersten Anmeldung), dann *Einstellungen → Profil geladen → Installieren* und unter
    *Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen* dem Zertifikat **vollständig vertrauen**. Alternativ die Datei als
    `bordbuch.crt` per E-Mail schicken.
 6. Mit aktivem WireGuard `https://172.16.10.1:8444` in Safari öffnen, auf den Home-Bildschirm legen. Nach 825 Tagen Schritt 1 bis 5 wiederholen.
 
-**Einschalten:** In Bordbuch (vom Home-Bildschirm geöffnet) unter *Einstellungen → Erinnerungen* **Auf diesem Gerät aktivieren**,
+**Einschalten:** In Reisebuch (vom Home-Bildschirm geöffnet) unter *Einstellungen → Erinnerungen* **Auf diesem Gerät aktivieren**,
 Mitteilungen erlauben, dann **Testnachricht senden**. Danach stellst du ein, wofür und wie früh erinnert wird.
 
 **Logo auf dem Home-Bildschirm:** iOS liest das Symbol nur in dem Moment, in dem die Kachel angelegt wird, und merkt es sich dann. Das Logo ist

@@ -17,9 +17,9 @@ export function getPushSupport() {
   const standalone = (navigator as unknown as { standalone?: boolean }).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
   const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const blocked = !secure
-    ? `Dafür braucht Bordbuch eine HTTPS-Adresse. Du hast die App gerade über ${location.origin} geöffnet.`
+    ? `Dafür braucht Reisebuch eine HTTPS-Adresse. Du hast die App gerade über ${location.origin} geöffnet.`
     : ios && !standalone
-      ? 'Lege Bordbuch zuerst auf den Home-Bildschirm (Teilen → Zum Home-Bildschirm) und öffne es von dort. Nur dann erlaubt iOS Benachrichtigungen.'
+      ? 'Lege Reisebuch zuerst auf den Home-Bildschirm (Teilen → Zum Home-Bildschirm) und öffne es von dort. Nur dann erlaubt iOS Benachrichtigungen.'
       : !supported
         ? 'Dieser Browser unterstützt keine Push-Benachrichtigungen.'
         : null;

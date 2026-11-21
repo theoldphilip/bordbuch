@@ -43,7 +43,7 @@ export function AuthPage({ onLogin }: { onLogin: (token: string, user: User) => 
     <div className="auth">
       <form className="auth-card" onSubmit={submit}>
         <img src="/icon.svg" alt="" width={72} height={72} />
-        <h1>Bordbuch</h1>
+        <h1>Reisebuch</h1>
         <p className="muted">{needsSetup ? 'Willkommen! Lege das Administrator-Konto an. Weitere Familienmitglieder fügst du danach in den Einstellungen hinzu.' : 'Reisen & Kreuzfahrten planen'}</p>
         <Field label="Benutzername">
           <input value={username} onChange={(e) => setUsername(e.target.value)} autoCapitalize="off" autoCorrect="off" autoComplete="username" required />
@@ -61,7 +61,7 @@ export function AuthPage({ onLogin }: { onLogin: (token: string, user: User) => 
           {busy ? 'Moment…' : needsSetup ? 'Konto anlegen' : 'Anmelden'}
         </button>
       </form>
-      <p className="auth-version">Bordbuch {__APP_VERSION__}</p>
+      <p className="auth-version">Reisebuch {__APP_VERSION__}</p>
     </div>
   );
 }

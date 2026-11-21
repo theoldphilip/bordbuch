@@ -23,7 +23,7 @@ export function CertificateAdmin({ cert, onChanged }: { cert: CertInfo | null; o
   };
 
   const remove = async () => {
-    if (!confirm('Das Zertifikat aus Bordbuch entfernen? Auf der Syno und auf den Geräten bleibt es unberührt.')) return;
+    if (!confirm('Das Zertifikat aus Reisebuch entfernen? Auf der Syno und auf den Geräten bleibt es unberührt.')) return;
     try {
       await api.del('/api/certificate');
       onChanged();

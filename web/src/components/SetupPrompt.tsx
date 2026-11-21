@@ -45,7 +45,7 @@ export function SetupPrompt() {
         </>
       }
     >
-      <p className="muted">Damit Bordbuch auf diesem Gerät sicher läuft und dich erinnern kann, sind noch ein paar Schritte offen. Du findest sie jederzeit unter <em>Einstellungen → Dieses Gerät einrichten</em>.</p>
+      <p className="muted">Damit Reisebuch auf diesem Gerät sicher läuft und dich erinnern kann, sind noch ein paar Schritte offen. Du findest sie jederzeit unter <em>Einstellungen → Dieses Gerät einrichten</em>.</p>
       <DeviceGuide steps={setup.steps} cert={setup.cert} onNavigate={close} />
     </Modal>
   );

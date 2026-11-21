@@ -17,7 +17,7 @@ const SECTIONS = [
   { id: 'geraet', icon: '📱', title: 'Dieses Gerät einrichten', sub: 'Zertifikat, Home-Bildschirm' },
   { id: 'familie', icon: '👪', title: 'Familie', sub: 'Konten verwalten', admin: true },
   { id: 'ki', icon: '✨', title: 'KI und Dokumente', sub: 'Verbindung zur Claude-API', admin: true },
-  { id: 'ueber', icon: 'ℹ️', title: 'Über Bordbuch', sub: 'Version und Stand' },
+  { id: 'ueber', icon: 'ℹ️', title: 'Über Reisebuch', sub: 'Version und Stand' },
 ] as const;
 
 type SectionId = (typeof SECTIONS)[number]['id'];
@@ -60,7 +60,7 @@ export function SettingsPage() {
             <span className="chev" aria-hidden>›</span>
           </NavLink>
         ))}
-        <p className="muted small-print">Bordbuch · angemeldet als {user.username}</p>
+        <p className="muted small-print">Reisebuch · angemeldet als {user.username}</p>
       </nav>
       <div className="settings-content">
         <Link to="/settings" className="back-link">‹ Einstellungen</Link>

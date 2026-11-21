@@ -18,7 +18,7 @@ export function inviteText(input: { displayName: string; username: string; passw
   return [
     `Hallo ${input.displayName},`,
     '',
-    'du hast jetzt Zugang zu Bordbuch, unserem Reiseplaner.',
+    'du hast jetzt Zugang zu Reisebuch, unserem Reiseplaner.',
     '',
     `Adresse: ${input.address}`,
     `Benutzername: ${input.username}`,

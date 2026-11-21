@@ -18,7 +18,7 @@ export function InviteDialog({ displayName, username, password, onClose }: { dis
 
   const share = async () => {
     try {
-      await navigator.share({ title: 'Zugang zu Bordbuch', text });
+      await navigator.share({ title: 'Zugang zu Reisebuch', text });
     } catch (err) {
       // Closing the share sheet is not an error.
       if ((err as Error).name !== 'AbortError') setNote('Teilen ist nicht möglich. Nutze Kopieren, Nachricht oder E-Mail.');
@@ -42,14 +42,14 @@ export function InviteDialog({ displayName, username, password, onClose }: { dis
         <div className="btn-row" style={{ justifyContent: 'flex-start' }}>
           {canShare && <button className="btn btn-primary" onClick={share}>Teilen …</button>}
           <a className="btn" href={`sms:&body=${encodeURIComponent(text)}`}>Nachricht</a>
-          <a className="btn" href={`mailto:?subject=${encodeURIComponent('Zugang zu Bordbuch')}&body=${encodeURIComponent(text)}`}>E-Mail</a>
+          <a className="btn" href={`mailto:?subject=${encodeURIComponent('Zugang zu Reisebuch')}&body=${encodeURIComponent(text)}`}>E-Mail</a>
           <button className="btn" onClick={copy}>Kopieren</button>
         </div>
         {note && <div className="alert alert-ok">{note}</div>}
         <label className="field">
           <span className="field-label">Adresse in der Nachricht</span>
           <input value={address} onChange={(e) => { setAddress(e.target.value); setEdited(null); }} inputMode="url" autoCapitalize="off" />
-          <span className="field-hint">Standard ist die Adresse, über die du Bordbuch gerade geöffnet hast. Ändere sie, wenn die Familie eine andere nutzt.</span>
+          <span className="field-hint">Standard ist die Adresse, über die du Reisebuch gerade geöffnet hast. Ändere sie, wenn die Familie eine andere nutzt.</span>
         </label>
         <label className="check">
           <input type="checkbox" checked={withPassword} onChange={(e) => { setWithPassword(e.target.checked); setEdited(null); }} />

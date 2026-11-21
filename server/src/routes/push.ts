@@ -50,7 +50,7 @@ export function registerPushRoutes(app: FastifyInstance, { db, sender }: Ctx) {
     for (const s of subs) {
       const res = await sender.send(
         { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth },
-        { title: '🔔 Bordbuch', body: 'Test: So sehen Erinnerungen aus.', url: '/', tag: 'test' },
+        { title: '🔔 Reisebuch', body: 'Test: So sehen Erinnerungen aus.', url: '/', tag: 'test' },
       );
       if (res.gone) db.prepare('DELETE FROM push_subscriptions WHERE id = ?').run(s.id);
       results.push({ deviceName: s.device_name as string | null, ok: res.ok, error: res.error ?? null });
