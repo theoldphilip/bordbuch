@@ -430,3 +430,10 @@ a.btn { text-decoration: none; }
 .about dt { color: var(--muted); }
 .about dd { margin: 0; overflow-wrap: anywhere; }
 .auth-version { position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 10px); text-align: center; color: rgba(255, 255, 255, 0.75); font-size: 0.8rem; }
+.research { border-color: var(--info); background: var(--info-bg); }
+.research-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.research-list > li { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; overflow-wrap: anywhere; }
+.research-pick { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.research-pick input { width: 20px; height: 20px; min-height: 0; margin: 2px 0 0; flex: none; padding: 0; }
+.research-pick > span { min-width: 0; flex: 1; }
+.notes-preview { white-space: pre-line; font-size: 0.9em; }

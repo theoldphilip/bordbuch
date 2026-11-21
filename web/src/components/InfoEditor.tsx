@@ -15,6 +15,7 @@ export function infoHref(i: Info): string | null {
 }
 
 export const AI_NOTE = 'KI-Wissen, bitte prüfen';
+export const WEB_NOTE = 'Web-Recherche, bitte prüfen';
 
 /** Compact read-only list, used in review cards. */
 export function InfoSummary({ infos }: { infos: Info[] }) {
@@ -25,6 +26,7 @@ export function InfoSummary({ infos }: { infos: Info[] }) {
         <li key={n} className={i.kind === 'emergency' ? 'emergency' : ''}>
           <span aria-hidden>{KIND_ICONS[i.kind]}</span> <strong>{i.label}:</strong> {i.value}
           {i.source === 'ai' && <small className="info-ai"> · {AI_NOTE}</small>}
+          {i.source === 'web' && <small className="info-ai"> · {WEB_NOTE}</small>}
         </li>
       ))}
     </ul>
@@ -52,6 +54,7 @@ export function InfoEditor({ infos, onChange }: { infos: Info[]; onChange: (info
             {href && <a className="btn small info-call" href={href}>{i.kind === 'email' ? 'Mail' : i.kind === 'link' ? 'Öffnen' : 'Anrufen'}</a>}
             <button type="button" className="icon-btn small" onClick={() => onChange(infos.filter((_, k) => k !== n))} aria-label="Info entfernen">✕</button>
             {i.source === 'ai' && <small className="info-ai wide-row">{AI_NOTE}: Nummer aus dem allgemeinen Wissen der KI, nicht aus deinen Unterlagen.</small>}
+            {i.source === 'web' && <small className="info-ai wide-row">{WEB_NOTE}: aus dem Internet, nicht aus deinen Unterlagen.</small>}
             {i.source === 'document' && <small className="muted wide-row">aus deinem Dokument</small>}
           </div>
         );

@@ -6,6 +6,7 @@ import { CruiseDayForm } from './CruiseForms.tsx';
 import { ItemForm } from './ItemForm.tsx';
 import { ErrorBox, Modal, Spinner } from './ui.tsx';
 import { InfoSummary } from './InfoEditor.tsx';
+import { ResearchPanel } from './ResearchPanel.tsx';
 
 type Action = 'create' | 'update' | 'skip';
 interface Row {
@@ -37,6 +38,7 @@ export function DocReview({ attachmentId, tripId, cruises, position, onClose, on
   const [editing, setEditing] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [canResearch, setCanResearch] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -60,6 +62,9 @@ export function DocReview({ attachmentId, tripId, cruises, position, onClose, on
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    api.get<{ research?: boolean }>('/api/ai/status').then((s) => setCanResearch(!!s.research)).catch(() => {});
+  }, []);
 
   const setRow = (i: number, patch: Partial<Row>) => setRows((rs) => rs.map((r, n) => (n === i ? { ...r, ...patch } : r)));
 
@@ -175,6 +180,8 @@ export function DocReview({ attachmentId, tripId, cruises, position, onClose, on
             </ul>
           )}
 
+          {canResearch && <ResearchPanel key={`${view.analyzedAt}-${view.research?.suggestions.filter((x) => x.accepted).length ?? 0}`} view={view} attachmentId={attachmentId} hasEdits={rows.some((r) => r.edited) || (!!view.cruise && cruiseData !== view.cruise.data)} onAccepted={load} />}
+
           {view.cruise && cruiseData && (
             <section className={`proposal${cruiseAction === 'skip' ? ' skipped' : ''}`}>
               <header>
@@ -230,6 +237,7 @@ export function DocReview({ attachmentId, tripId, cruises, position, onClose, on
                   {[r.data.confirmation && `Buchung ${r.data.confirmation}`, r.data.cost != null && fmtMoney(r.data.cost, r.data.currency)].filter(Boolean).join(' · ')}
                 </p>
                 {r.data.cruiseDayId && <p className="muted">⚓ Einem Hafentag zugeordnet</p>}
+                {r.data.notes && <p className="muted notes-preview">📝 {r.data.notes}</p>}
                 <InfoSummary infos={r.data.infos ?? []} />
                 {r.proposal.match ? (
                   <div className="match-note">

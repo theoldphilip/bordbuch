@@ -38,13 +38,13 @@ export type CruiseDayKind = (typeof CRUISE_DAY_KINDS)[number];
 
 // ---------- additional information (phone numbers, emergency numbers, hints) ----------
 export const INFO_KINDS = ['phone', 'emergency', 'email', 'link', 'text'] as const;
-export const INFO_SOURCES = ['user', 'document', 'ai'] as const;
+export const INFO_SOURCES = ['user', 'document', 'ai', 'web'] as const;
 
 export const infoInput = z.object({
   label: text(80).min(1),
   value: text(500).min(1),
   kind: z.enum(INFO_KINDS).default('text'),
-  /** user = typed in, document = read from a document, ai = general knowledge of the model (must be verified). */
+  /** user = typed in, document = read from a document, ai = general knowledge of the model, web = web research (both must be verified). */
   source: z.enum(INFO_SOURCES).default('user'),
 });
 export const infoList = z.array(infoInput).max(30).default([]);

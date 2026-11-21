@@ -11,8 +11,9 @@ import type { Ctx } from '../app.ts';
 import { describeAiError } from '../ai/anthropic.ts';
 import { classifyFile } from '../ai/files.ts';
 import { normalizeExtraction } from '../ai/normalize.ts';
+import { acceptSuggestions } from '../ai/research.ts';
 import { buildProposals, findDay, mergeItem } from '../ai/proposals.ts';
-import { ExtractionError, type ExtractionContext, type ItemData, type NormalizedExtraction } from '../ai/types.ts';
+import { ExtractionError, type ExtractionContext, type ItemData, type NormalizedExtraction, type ResearchData } from '../ai/types.ts';
 import { requireAdmin, requireTripRole, requireUser } from '../auth.ts';
 import { tx } from '../db.ts';
 import { attachmentFromRow, itemFromRow, loadCruises, loadItems, loadTrip, touchTrip } from '../model.ts';
@@ -52,6 +53,19 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
     `UPDATE attachments SET analysis_status = 'failed', analysis_error = 'Die Analyse wurde unterbrochen. Bitte erneut starten.'
       WHERE analysis_status = 'pending'`,
   ).run();
+
+  // The same for a web research that was running when the server stopped.
+  for (const r of db.prepare(`SELECT id, analysis FROM attachments WHERE analysis_status = 'done' AND analysis LIKE '%"status":"pending"%'`).all() as Row[]) {
+    try {
+      const a = JSON.parse(r.analysis) as NormalizedExtraction;
+      if (a.research?.status === 'pending') {
+        a.research = { ...a.research, status: 'failed', error: 'Die Recherche wurde unterbrochen. Bitte erneut starten.', finishedAt: new Date().toISOString() };
+        db.prepare('UPDATE attachments SET analysis = ? WHERE id = ?').run(JSON.stringify(a), r.id);
+      }
+    } catch {
+      /* leave it alone */
+    }
+  }
 
   const attachmentRow = (id: string): Row => {
     const row = db.prepare('SELECT * FROM attachments WHERE id = ?').get(id) as Row | undefined;
@@ -120,7 +134,7 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
   }
 
   // ----- status & key check -----
-  app.get('/api/ai/status', async () => ({ enabled: !!extractor, model: extractor?.model ?? null }));
+  app.get('/api/ai/status', async () => ({ enabled: !!extractor, model: extractor?.model ?? null, research: typeof extractor?.research === 'function' }));
 
   app.post('/api/ai/check', async (req) => {
     requireAdmin(req);
@@ -201,8 +215,78 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
       status: row.analysis_status,
       attachment: view(req.params.id),
       files: [row, ...groupMembers(req.params.id, row.trip_id)].map((r) => ({ id: r.id as string, filename: r.filename as string })),
+      research: normalized.research ?? null,
       ...buildProposals(normalized, { items: loadItems(db, row.trip_id), cruises: loadCruises(db, row.trip_id) }),
     };
+  });
+
+  // ----- optional web research for gaps (runs in the background, shown for review first) -----
+  const readAnalysis = (row: Row): NormalizedExtraction => {
+    if (row.analysis_status !== 'done' || !row.analysis) throw new HttpError(409, 'Für dieses Dokument liegt keine offene Analyse vor');
+    return JSON.parse(row.analysis) as NormalizedExtraction;
+  };
+  const saveResearch = (id: string, research: ResearchData | undefined) => {
+    // Re-read: the analysis may have been applied, dismissed or redone while the research was running.
+    const row = attachmentRow(id);
+    if (row.analysis_status !== 'done' || !row.analysis) return;
+    const a = JSON.parse(row.analysis) as NormalizedExtraction;
+    if (research) a.research = research;
+    else delete a.research;
+    db.prepare('UPDATE attachments SET analysis = ? WHERE id = ?').run(JSON.stringify(a), id);
+  };
+
+  app.get<{ Params: { id: string } }>('/api/attachments/:id/research', async (req) => {
+    const user = requireUser(req);
+    const row = attachmentRow(req.params.id);
+    requireTripRole(db, row.trip_id, user.id, 'viewer');
+    return { research: readAnalysis(row).research ?? null };
+  });
+
+  app.post<{ Params: { id: string } }>('/api/attachments/:id/research', async (req, reply) => {
+    const user = requireUser(req);
+    const row = attachmentRow(req.params.id);
+    requireTripRole(db, row.trip_id, user.id, 'editor');
+    if (!extractor?.research) throw new HttpError(409, 'Die Recherche ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
+    const analysis = readAnalysis(row);
+    if (analysis.research?.status === 'pending') throw new HttpError(409, 'Die Recherche läuft bereits.');
+    const startedAt = nowIso();
+    saveResearch(row.id, { status: 'pending', startedAt, suggestions: [] });
+    const context = contextFor(row.trip_id);
+    const { research } = extractor;
+    void (async () => {
+      try {
+        const out = await research.call(extractor, { analysis: { ...analysis, research: undefined }, context });
+        saveResearch(row.id, {
+          status: 'done', startedAt, finishedAt: nowIso(), summary: out.summary, searches: out.searches, model: extractor.model,
+          suggestions: out.suggestions.map((s) => ({ ...s, id: newId() })),
+        });
+      } catch (err) {
+        app.log.warn({ err }, 'Recherche fehlgeschlagen');
+        saveResearch(row.id, { status: 'failed', startedAt, finishedAt: nowIso(), error: describeAiError(err), suggestions: [] });
+      }
+    })();
+    return reply.status(202).send({ research: { status: 'pending', startedAt, suggestions: [] } });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/attachments/:id/research/accept', async (req) => {
+    const user = requireUser(req);
+    const row = attachmentRow(req.params.id);
+    requireTripRole(db, row.trip_id, user.id, 'editor');
+    const { ids } = z.object({ ids: z.array(z.string()).min(1).max(100) }).parse(req.body);
+    const analysis = readAnalysis(row);
+    const n = acceptSuggestions(analysis, ids);
+    if (n === 0) throw new HttpError(400, 'Es wurde nichts zum Übernehmen ausgewählt');
+    db.prepare('UPDATE attachments SET analysis = ? WHERE id = ?').run(JSON.stringify(analysis), row.id);
+    return { accepted: n };
+  });
+
+  app.post<{ Params: { id: string } }>('/api/attachments/:id/research/dismiss', async (req) => {
+    const user = requireUser(req);
+    const row = attachmentRow(req.params.id);
+    requireTripRole(db, row.trip_id, user.id, 'editor');
+    readAnalysis(row);
+    saveResearch(row.id, undefined);
+    return { ok: true };
   });
 
   app.post<{ Params: { id: string } }>('/api/attachments/:id/dismiss', async (req) => {

@@ -23,9 +23,52 @@ export interface ExtractInput {
   context: ExtractionContext;
 }
 
+export interface ResearchSource {
+  title: string;
+  url: string;
+}
+
+/** One proposed addition from the web research. Nothing is stored in trips until a user accepts it and applies the document. */
+export interface ResearchSuggestion {
+  id: string;
+  target: { kind: 'item' | 'day' | 'cruise'; index: number };
+  title: string;
+  /** Only gaps are filled: fields that are already set are never overwritten. */
+  fields: { field: string; value: string }[];
+  details: { key: string; value: string }[];
+  infos: Info[];
+  note: string | null;
+  sources: ResearchSource[];
+  accepted?: boolean;
+}
+
+export interface ResearchData {
+  status: 'pending' | 'done' | 'failed';
+  startedAt: string;
+  finishedAt?: string;
+  error?: string;
+  summary?: string;
+  suggestions: ResearchSuggestion[];
+  searches?: number;
+  model?: string;
+}
+
+export interface ResearchInput {
+  analysis: NormalizedExtraction;
+  context: ExtractionContext;
+}
+
+export interface ResearchOutput {
+  summary: string;
+  suggestions: Omit<ResearchSuggestion, 'id'>[];
+  searches: number;
+}
+
 export interface Extractor {
   readonly model: string;
   extract(input: ExtractInput): Promise<AiResult>;
+  /** Optional web research for gaps in an analysis (routes, times, phone numbers). Slow: runs in the background. */
+  research?(input: ResearchInput): Promise<ResearchOutput>;
   /** Cheap request to verify key, model and network. Throws ExtractionError with a readable message. */
   check(): Promise<void>;
 }
@@ -83,4 +126,6 @@ export interface NormalizedExtraction {
   warnings: string[];
   model: string;
   analyzedAt: string;
+  /** Web research started from the review dialog (optional). */
+  research?: ResearchData;
 }

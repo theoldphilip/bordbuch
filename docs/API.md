@@ -151,7 +151,11 @@ Setzt `ANTHROPIC_API_KEY` auf dem Server voraus. `GET /ai/status` zeigt, ob sie 
 | POST | `/trips/:id/documents?itemId=` | editor | `multipart/form-data` (Feld `file`), speichert und analysiert. Antwort: `{attachment, aiEnabled, analyzable}`; die Anfrage dauert bis zum Ende der Analyse (bis ca. 1 Minute) |
 | POST | `/trips/:id/documents/group` | editor | `{attachmentIds: [2..10]}` bereits hochgeladener Dateien (über `POST /trips/:id/attachments`) als **eine** Unterlage auswerten. Die erste ID führt: sie trägt die Vorschläge, die übrigen haben `analysisStatus: "grouped"`, folgen beim Übernehmen oder Verwerfen und erscheinen nicht im Posteingang. Antwort `{attachment, memberIds}` |
 | POST | `/attachments/:id/analyze` | editor | Analyse erneut starten (bei einer Gruppe weiterhin mit allen Dateien) |
-| GET | `/attachments/:id/analysis` | viewer | Vorschläge: `{status, attachment, documentKind, summary, warnings, items[], cruise}` |
+| GET | `/attachments/:id/analysis` | viewer | Vorschläge: `{status, attachment, documentKind, summary, warnings, items[], cruise, research}` |
+| GET | `/attachments/:id/research` | viewer | Stand der optionalen Web-Recherche: `{research: null | {status: pending/done/failed, summary, suggestions[], error}}` |
+| POST | `/attachments/:id/research` | editor | Startet die Recherche im Hintergrund (202). Sucht im Web nach Lücken (Routen, Zeiten, Telefonnummern). Ergebnisse stehen mit Quellen in `suggestions[]`, nichts wird ohne Annahme übernommen. Zum Abfragen `GET` wiederholen |
+| POST | `/attachments/:id/research/accept` | editor | `{ids: [...]}` übernimmt Vorschläge in die Analyse (füllt nur Lücken, Infos mit `source: "web"`, Quelle in den Notizen). Danach ganz normal `apply` |
+| POST | `/attachments/:id/research/dismiss` | editor | Verwirft die Recherche |
 | POST | `/attachments/:id/apply` | editor | Vorschläge übernehmen (siehe unten), alles in einer Transaktion |
 | POST | `/attachments/:id/dismiss` | editor | Dokument ohne Übernahme behalten |
 

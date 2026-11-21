@@ -43,8 +43,8 @@ export interface Info {
   label: string;
   value: string;
   kind: InfoKind;
-  /** user = typed in, document = read from a document, ai = general knowledge of the model, to be verified */
-  source: 'user' | 'document' | 'ai';
+  /** user = typed in, document = read from a document, ai = general knowledge of the model, web = web research (both to be verified) */
+  source: 'user' | 'document' | 'ai' | 'web';
 }
 
 export interface CruiseDay {
@@ -236,7 +236,31 @@ export interface CruiseProposal {
   problems: string[];
 }
 
+export interface ResearchSuggestion {
+  id: string;
+  target: { kind: 'item' | 'day' | 'cruise'; index: number };
+  title: string;
+  fields: { field: string; value: string }[];
+  details: { key: string; value: string }[];
+  infos: Info[];
+  note: string | null;
+  sources: { title: string; url: string }[];
+  accepted?: boolean;
+}
+
+export interface Research {
+  status: 'pending' | 'done' | 'failed';
+  startedAt: string;
+  finishedAt?: string;
+  error?: string;
+  summary?: string;
+  suggestions: ResearchSuggestion[];
+  searches?: number;
+  model?: string;
+}
+
 export interface AnalysisView {
+  research: Research | null;
   suggestedTripTitle: string | null;
   status: Attachment['analysisStatus'];
   attachment: Attachment;
