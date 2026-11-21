@@ -786,7 +786,7 @@ function ShareTab({ detail, onChanged }: { detail: TripDetail; onChanged: () => 
   };
 
   const total = detail.items.reduce<Record<string, number>>((acc, i) => {
-    if (i.cost != null) acc[i.currency ?? 'CHF'] = (acc[i.currency ?? 'CHF'] ?? 0) + i.cost;
+    if (i.cost != null) acc[i.currency ?? ''] = (acc[i.currency ?? ''] ?? 0) + i.cost;
     return acc;
   }, {});
 
@@ -834,7 +834,7 @@ function ShareTab({ detail, onChanged }: { detail: TripDetail; onChanged: () => 
       {Object.keys(total).length > 0 && (
         <section className="card">
           <h3>Kosten (erfasst)</h3>
-          <ul className="plain">{Object.entries(total).map(([cur, sum]) => <li key={cur}><strong>{fmtMoney(sum, cur)}</strong></li>)}</ul>
+          <ul className="plain">{Object.entries(total).map(([cur, sum]) => <li key={cur}><strong>{fmtMoney(sum, cur || null)}</strong></li>)}</ul>
         </section>
       )}
     </div>

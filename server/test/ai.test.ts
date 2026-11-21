@@ -137,6 +137,8 @@ describe('Anthropic extractor (fake client, no network)', () => {
     await extractor.extract({ files: [{ data: Buffer.from('Bord-ABC'), mime: 'text/plain', filename: 'bord-abc.txt' }], context: { ...ctx, ships: ['Mein Schiff Relax'] } });
     assert.match(JSON.stringify(calls[0].messages[0].content), /Schiffe dieser Reise: Mein Schiff Relax/);
     assert.match(calls[0].system, /Allgemeine Unterlagen ohne eigene Buchung/);
+    assert.match(calls[0].system, /€ oder "Euro" = EUR/);
+    assert.match(calls[0].system, /Rate sie nicht aus dem Land/);
     assert.match(calls[0].system, /Alles zu anderen Schiffen und Reisen lässt du weg/);
   });
 

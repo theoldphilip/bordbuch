@@ -16,7 +16,7 @@ Allgemeine Regeln:
 - Zeiten sind lokale Zeiten am jeweiligen Ort, im Format JJJJ-MM-TTTHH:MM (24 Stunden). Ist keine Uhrzeit angegeben, nur das Datum JJJJ-MM-TT. Fehlt das Jahr, nimm das nächste passende Datum ab dem heutigen Datum.
 - Zeitzonen sind IANA-Namen (z. B. Europe/Zurich). Leite sie aus dem Ort ab (bei Flügen für Abflug und Ankunft getrennt: startTz am Abflughafen, endTz am Zielflughafen). Bist du unsicher, setze null.
 - confirmation ist die Buchungs-/Bestätigungsnummer (bei Flügen die Buchungsreferenz/PNR), provider der Anbieter (Airline, Hotel, Reederei, Parkhaus, Transferfirma).
-- cost nur, wenn für genau diesen Eintrag ein Preis dasteht, sonst null. Teile Gesamtpreise nicht auf. currency als 3-stelliger Code.
+- cost nur, wenn für genau diesen Eintrag ein Preis dasteht, sonst null. Teile Gesamtpreise nicht auf. currency als 3-stelliger Code, aus dem Dokument abgeleitet (€ oder "Euro" = EUR, £ = GBP, $ = USD, "Fr." oder "CHF" = CHF). Steht keine Währung im Dokument, ist currency null. Rate sie nicht aus dem Land.
 - notes: nützliche Hinweise aus dem Dokument (Gepäck, Check-in-Zeiten, Treffpunkt, Stornobedingungen, Passagiernamen), kurz.
 - confidence: high = alle wichtigen Angaben stehen eindeutig im Dokument, medium = etwas musste gefolgert werden, low = unsicher oder unleserlich.
 - Ist das Dokument keine Reiseunterlage oder enthält es keine verwertbaren Reisedaten, gib items als leere Liste zurück und erkläre es in summary.

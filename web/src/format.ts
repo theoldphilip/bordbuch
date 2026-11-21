@@ -47,11 +47,13 @@ export function fmtSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+/** Without a known currency only the number is shown: guessing one (CHF) would be wrong for euro bookings. */
 export function fmtMoney(amount: number, currency: string | null) {
+  if (!currency) return `${amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (ohne Währung)`;
   try {
-    return amount.toLocaleString(locale, { style: 'currency', currency: currency ?? 'CHF' });
+    return amount.toLocaleString(locale, { style: 'currency', currency });
   } catch {
-    return `${amount.toFixed(2)} ${currency ?? ''}`;
+    return `${amount.toFixed(2)} ${currency}`;
   }
 }
 
