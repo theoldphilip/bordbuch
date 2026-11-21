@@ -187,7 +187,7 @@ export function ResearchPanel({ view, attachmentId, hasEdits, onAccepted }: { vi
                       <li key={n}>
                         <span className="route-day static">
                           <span>{fmtDate(d.date, { day: 'numeric', month: 'short' })}</span>
-                          <span>{d.kind === 'sea' ? 'Seetag' : [d.portName, d.country].filter(Boolean).join(', ') || KIND_LABEL[d.kind]}</span>
+                          <span>{d.kind === 'sea' ? 'Seetag' : `${d.kind === 'embarkation' || d.kind === 'disembarkation' ? `${KIND_LABEL[d.kind]} · ` : ''}${[d.portName, d.country].filter(Boolean).join(', ') || (d.kind === 'port' ? 'Hafen' : '')}`}</span>
                           <span className="muted">{[d.arrival, d.departure].filter(Boolean).join(' – ')}</span>
                         </span>
                       </li>

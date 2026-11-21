@@ -195,12 +195,15 @@ export function DocReview({ attachmentId, tripId, cruises, position, onClose, on
               </div>
               <InfoSummary infos={cruiseData.infos ?? []} />
               <p className="muted small-print">Tippe auf einen Tag, um ihn zu korrigieren, oder entferne ihn mit ✕.{cruiseData.days.some((d) => d.infos?.length) ? ' Zusatzinfos zu den Tagen siehst du im Tag.' : ''}</p>
+              {cruiseData.days.length > 0 && cruiseData.days.every((d) => d.kind === 'embarkation' || d.kind === 'disembarkation') && (
+                <p className="match-note">Aus dem Dokument sind nur Beginn und Ende der Kreuzfahrt bekannt. Die Tage dazwischen ergänzt „Reiseverlauf recherchieren“ oder du legst sie später selbst an.</p>
+              )}
               <ul className="route-preview">
                 {cruiseData.days.map((d, i) => (
                   <li key={i}>
                     <button className="route-day" onClick={() => setEditingDay(i)}>
                       <span>{fmtDate(d.date, { day: 'numeric', month: 'short' })}</span>
-                      <span>{d.kind === 'sea' ? 'Seetag' : [d.portName, d.country].filter(Boolean).join(', ') || d.kind}</span>
+                      <span>{d.kind === 'sea' ? 'Seetag' : `${d.kind === 'embarkation' ? 'Einschiffung · ' : d.kind === 'disembarkation' ? 'Ausschiffung · ' : ''}${[d.portName, d.country].filter(Boolean).join(', ') || (d.kind === 'port' ? 'Hafen' : '')}`}</span>
                       <span className="muted">{[d.arrival, d.departure].filter(Boolean).join(' – ')}</span>
                     </button>
                     <button className="icon-btn small" aria-label="Tag entfernen" onClick={() => setCruiseData({ ...cruiseData, days: cruiseData.days.filter((_, n) => n !== i) })}>✕</button>
