@@ -141,6 +141,13 @@ describe('buildTimeline', () => {
       assert.deepEqual(run([preHotel('07:00')]).map((x) => x.code), ['hotel_wait_boarding']);
     });
 
+    test('no wait hint when a flight or train leaves before the ship opens (the hotel time is only a limit)', () => {
+      const flight = item({ id: 'fl', type: 'flight', startLocal: '2027-05-10T09:30', startTz: 'Europe/Zurich', endLocal: '2027-05-10T11:30', endTz: 'Europe/Rome' });
+      assert.ok(!run([preHotel('12:00'), flight]).some((x) => x.code === 'hotel_wait_boarding'));
+      const later = item({ id: 'fl2', type: 'flight', startLocal: '2027-05-10T20:00', startTz: 'Europe/Zurich', endLocal: '2027-05-10T22:00', endTz: 'Europe/Rome' });
+      assert.ok(run([preHotel('07:00'), later]).some((x) => x.code === 'hotel_wait_boarding'), 'a flight after the ship opened does not explain the wait');
+    });
+
     test('long wait between leaving the ship and hotel check-in', () => {
       const h = item({ id: 'h2', type: 'hotel', startLocal: '2027-05-12T15:00', startTz: 'Europe/Rome', endLocal: '2027-05-14T11:00', endTz: 'Europe/Rome' });
       assert.deepEqual(run([h]).map((x) => x.code), ['hotel_checkin_wait']);

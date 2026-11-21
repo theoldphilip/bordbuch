@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode, Fragment } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AiImportDialog } from '../components/AiImportDialog.tsx';
 import { api, errorMessage } from '../api.ts';
@@ -15,6 +15,8 @@ import {
   fmtSize,
   itemSubtitle,
   itemTypeInfo,
+  localToInstant,
+  todayIn,
   tripKindInfo,
   tzLabel,
 } from '../format.ts';
@@ -22,6 +24,7 @@ import type { Attachment, Cruise, CruiseDay, Item, ItemType, Role, Timeline, Tim
 import { Empty, ErrorBox, Field, Modal, Spinner } from '../components/ui.tsx';
 import { ItemForm } from '../components/ItemForm.tsx';
 import { KindPicker } from '../components/KindPicker.tsx';
+import { useNow } from '../hooks/useNow.ts';
 import { TripReviewDialog } from '../components/TripReviewDialog.tsx';
 import { DocReview } from '../components/DocReview.tsx';
 import { CruiseDayForm, CruiseForm } from '../components/CruiseForms.tsx';
@@ -243,6 +246,15 @@ function TimelineView({
   aiImport: ReactNode;
   onOpenDay: (day: CruiseDay) => void;
 }) {
+  const now = useNow();
+  // Where is "now"? Before the first element that is not over yet, but only while the trip is under way.
+  const elements = timeline.phases.flatMap((ph) =>
+    ph.days.flatMap((d) => [
+      ...(d.cruiseDay ? [{ key: `p:${d.cruiseDay.id}`, end: dayEnd(d.cruiseDay, timeline.defaultTimezone) }] : []),
+      ...d.entries.map((e) => ({ key: entryKey(e), end: entryEnd(e) })),
+    ]),
+  );
+  const nowKey = elements.some((e) => e.end < now) ? elements.find((e) => e.end >= now)?.key : undefined;
   const attachmentCount = (itemId: string) => detail.attachments.filter((a) => a.itemId === itemId).length;
   const warningsFor = (itemId: string, role: 'start' | 'end') =>
     timeline.warnings.filter((w) => w.itemId === itemId && (w.role ?? 'start') === role);
@@ -306,6 +318,8 @@ function TimelineView({
         <PhaseSection
           key={`${phase.kind}-${i}`}
           phase={phase}
+          now={now}
+          nowKey={nowKey}
           tripKind={detail.trip.kind}
           suggestDate={suggestDate(phase)}
           timeline={timeline}
@@ -364,8 +378,32 @@ const TRIP_QUICK_ADD: Record<TripKind, ItemType[]> = {
 };
 const PHASE_ICONS: Record<TimelinePhase['kind'], string> = { trip: '🗺️', pre: '🛫', cruise: '🛳️', between: '🏨', post: '🛬' };
 
+const SPAN_ITEMS = ['hotel', 'car_rental', 'parking', 'stop'];
+const entryKey = (e: TimelineEntry) => `${e.itemId}-${e.role}`;
+
+/** The moment an entry is over: its end for flights and the like, its own time for check-in/check-out entries. */
+function entryEnd(e: TimelineEntry): number {
+  const { item } = e;
+  if (e.role === 'end') return localToInstant(item.endLocal ?? item.startLocal, e.timezone);
+  if (!SPAN_ITEMS.includes(item.type) && item.endLocal) return localToInstant(item.endLocal, item.endTz ?? e.timezone);
+  return localToInstant(item.startLocal, e.timezone);
+}
+const dayEnd = (day: CruiseDay, defaultTz: string): number => localToInstant(day.departure && day.kind !== 'sea' ? `${day.date}T${day.departure}` : day.date, day.timezone ?? defaultTz);
+
+/** Marker on the time line: where "now" is. */
+function NowMarker({ now, tz }: { now: number; tz: string }) {
+  const time = new Date(now).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: tz });
+  return (
+    <div className="now-marker" role="separator" aria-label={`Jetzt, ${time}`}>
+      <span className="now-pill">Jetzt · {time}</span>
+    </div>
+  );
+}
+
 function PhaseSection({
   phase,
+  now,
+  nowKey,
   tripKind,
   suggestDate,
   timeline,
@@ -379,6 +417,9 @@ function PhaseSection({
   onOpenDay,
 }: {
   phase: TimelinePhase;
+  /** Current time (ms) and the element before which the "now" marker goes. */
+  now: number;
+  nowKey?: string;
   tripKind: TripKind;
   suggestDate?: string;
   timeline: Timeline;
@@ -422,17 +463,29 @@ function PhaseSection({
       )}
       {phase.days.map((day) => {
         const cd = day.cruiseDay;
+        const tz = timeline.defaultTimezone;
+        const today = todayIn(tz, now);
+        const keys = [...(cd ? [`p:${cd.id}`] : []), ...day.entries.map(entryKey)];
+        const dayFuture = day.date > today;
+        const marker = (k: string, inside: boolean) => (nowKey === k && (inside ? !(dayFuture && k === keys[0]) : dayFuture && k === keys[0]) ? <NowMarker now={now} tz={tz} /> : null);
+        const cdPast = !!cd && dayEnd(cd, tz) < now;
+        const allPast = keys.length > 0 ? (!cd || cdPast) && day.entries.every((e) => entryEnd(e) < now) : day.date < today;
         return (
-          <div className="day" key={`${day.date}-${cd?.id ?? ''}`}>
+          <div className={`day${allPast ? ' day-past' : ''}`} key={`${day.date}-${cd?.id ?? ''}`}>
+            {keys[0] && marker(keys[0], false)}
             <div className="day-head">
               <span className="day-date">{fmtDayHeader(day.date)}</span>
               {canEdit && (
                 <button className="icon-btn small" onClick={() => onAdd(day.date, cd && cd.kind !== 'sea' ? cd.id : undefined, cd?.kind === 'port' ? 'excursion' : undefined)} aria-label="Eintrag an diesem Tag hinzufügen">+</button>
               )}
             </div>
-            {cd && <PortCard day={cd} defaultTz={timeline.defaultTimezone} warnings={dayWarnings(cd.id)} onClick={() => onOpenDay(cd)} />}
+            {cd && marker(`p:${cd.id}`, true)}
+            {cd && <PortCard day={cd} past={cdPast} defaultTz={timeline.defaultTimezone} warnings={dayWarnings(cd.id)} onClick={() => onOpenDay(cd)} />}
             {day.entries.map((e) => (
-              <EntryRow key={`${e.itemId}-${e.role}`} entry={e} defaultTz={timeline.defaultTimezone} attachments={e.role === 'start' ? attachmentCount(e.itemId) : 0} warnings={warningsFor(e.itemId, e.role)} onClick={() => onOpenItem(e.item)} />
+              <Fragment key={entryKey(e)}>
+                {marker(entryKey(e), true)}
+                <EntryRow entry={e} past={entryEnd(e) < now} defaultTz={timeline.defaultTimezone} attachments={e.role === 'start' ? attachmentCount(e.itemId) : 0} warnings={warningsFor(e.itemId, e.role)} onClick={() => onOpenItem(e.item)} />
+              </Fragment>
             ))}
           </div>
         );
@@ -441,7 +494,7 @@ function PhaseSection({
   );
 }
 
-function PortCard({ day, defaultTz, warnings, onClick }: { day: CruiseDay; defaultTz: string; warnings: Timeline['warnings']; onClick: () => void }) {
+function PortCard({ day, past, defaultTz, warnings, onClick }: { day: CruiseDay; past?: boolean; defaultTz: string; warnings: Timeline['warnings']; onClick: () => void }) {
   const info = dayKindInfo(day.kind);
   const tz = day.timezone && tzLabel(day.timezone, day.date) !== tzLabel(defaultTz, day.date) ? tzLabel(day.timezone, day.date) : null;
   const times: [string, string | null][] =
@@ -451,7 +504,7 @@ function PortCard({ day, defaultTz, warnings, onClick }: { day: CruiseDay; defau
         ? [['Ankunft', day.arrival], ['Von Bord bis', day.departure]]
         : [['An', day.arrival], ['Ab', day.departure], ['Alle an Bord', day.allAboard]];
   return (
-    <button className={`port-card kind-${day.kind}`} onClick={onClick}>
+    <button className={`port-card kind-${day.kind}${past ? ' is-past' : ''}`} onClick={onClick}>
       <span className="port-icon" aria-hidden>{info.icon}</span>
       <span className="port-main">
         <strong>{day.kind === 'sea' ? 'Seetag' : (day.portName ?? info.label)}</strong>
@@ -480,7 +533,7 @@ function PortCard({ day, defaultTz, warnings, onClick }: { day: CruiseDay; defau
   );
 }
 
-function EntryRow({ entry, defaultTz, attachments, warnings, onClick }: { entry: TimelineEntry; defaultTz: string; attachments: number; warnings: Timeline['warnings']; onClick: () => void }) {
+function EntryRow({ entry, past, defaultTz, attachments, warnings, onClick }: { entry: TimelineEntry; past?: boolean; defaultTz: string; attachments: number; warnings: Timeline['warnings']; onClick: () => void }) {
   const { item } = entry;
   const info = itemTypeInfo(item.type);
   const isEnd = entry.role === 'end';
@@ -489,7 +542,7 @@ function EntryRow({ entry, defaultTz, attachments, warnings, onClick }: { entry:
   const tz = tzLabel(entry.timezone, item.startLocal) !== tzLabel(defaultTz, item.startLocal) ? tzLabel(entry.timezone, item.startLocal) : null;
   const level = warnings.find((w) => w.level === 'error') ? 'error' : warnings.find((w) => w.level === 'warning') ? 'warning' : null;
   return (
-    <button className={`entry type-${item.type}${isEnd ? ' is-end' : ''}${level ? ` has-${level}` : ''}`} onClick={onClick}>
+    <button className={`entry type-${item.type}${isEnd ? ' is-end' : ''}${level ? ` has-${level}` : ''}${past ? ' is-past' : ''}`} onClick={onClick}>
       <span className="entry-time">
         {entry.time ?? '—'}
         {endTime && <small>– {endTime}</small>}

@@ -159,3 +159,35 @@ export const COMMON_TIMEZONES = [
   'Pacific/Honolulu',
   'Australia/Sydney',
 ];
+
+// ---------- time zone arithmetic for the "now" marker (same method as the server's timeline) ----------
+const dtfCache = new Map<string, Intl.DateTimeFormat>();
+function zoneFormat(tz: string): Intl.DateTimeFormat {
+  let f = dtfCache.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' });
+    dtfCache.set(tz, f);
+  }
+  return f;
+}
+function zoneOffsetMs(utcMs: number, tz: string): number {
+  const parts = zoneFormat(tz).formatToParts(new Date(utcMs));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  return Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second')) - Math.floor(utcMs / 1000) * 1000;
+}
+
+/** Local "YYYY-MM-DD[THH:MM]" in an IANA zone to a UTC timestamp in ms. A bare date means the end of that day. */
+export function localToInstant(local: string, tz: string): number {
+  const full = local.length > 10 ? local : `${local}T23:59`;
+  const [datePart, timePart] = full.split('T') as [string, string];
+  const [y, m, d] = datePart.split('-').map(Number) as [number, number, number];
+  const [h, mi] = timePart.split(':').map(Number) as [number, number];
+  const guess = Date.UTC(y, m - 1, d, h, mi);
+  const first = guess - zoneOffsetMs(guess, tz);
+  return guess - zoneOffsetMs(first, tz);
+}
+
+/** Today's date (YYYY-MM-DD) in a zone. */
+export function todayIn(tz: string, now: number): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(now));
+}

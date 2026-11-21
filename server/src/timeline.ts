@@ -440,7 +440,16 @@ function computeWarnings(
         });
       } else if (embark.arrival) {
         const opens = toInstant(`${embark.date}T${embark.arrival}`, dayTz(embark));
-        if (opens - checkout > 3 * HOUR) {
+        // The hotel's check-out time is only a limit. Anyone who flies (or takes a train, bus or ferry) before the ship opens
+        // does not wait at all, so the hint would be wrong.
+        const travelsBefore = items.some(
+          (t) =>
+            ['flight', 'train', 'bus', 'ferry'].includes(t.type) &&
+            hasTime(t.startLocal) &&
+            t.startLocal.slice(0, 10) === embark.date &&
+            toInstant(t.startLocal, itemTz(t, 'start')) < opens,
+        );
+        if (!travelsBefore && opens - checkout > 3 * HOUR) {
           warnings.push({
             ...base,
             level: 'info',
