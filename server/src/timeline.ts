@@ -371,11 +371,11 @@ function computeWarnings(
     // --- Ausschiffung → Abreise ---
     const dis = w.disembark;
     const shipArrives = dis.arrival ? toInstant(`${dis.date}T${dis.arrival}`, dayTz(dis)) : null;
-    const offShip = dis.departure
-      ? toInstant(`${dis.date}T${dis.departure}`, dayTz(dis))
-      : shipArrives !== null
-        ? shipArrives + HOUR
-        : null;
+    // Own departure (the usual case): guests can leave the ship from about 06:00, or shortly after it has docked.
+    // A fixed disembarkation slot exists only when the departure is organised by the cruise line. "Von Bord bis"
+    // (dis.departure) is the latest time, not the time you leave, so it does not enter the buffer.
+    const offLocal = dis.arrival ? [addMinutes(dis.arrival, 30), '06:00'].sort().at(-1)! : null;
+    const offShip = shipArrives !== null && offLocal ? Math.max(shipArrives + 30 * MIN, toInstant(`${dis.date}T06:00`, dayTz(dis))) : null;
     if (shipArrives !== null && offShip !== null) {
       const departures = transports
         .filter((t) => hasTime(t.startLocal))
@@ -402,7 +402,7 @@ function computeWarnings(
               level: 'warning',
               code: 'disembark_tight',
               personal: personalOnly(gap, need),
-              message: `${gap < 0 ? 'Kein' : `Nur ${formatDuration(gap)}`} Puffer zwischen Ausschiffung (ca. ${dis.departure ?? addMinutes(dis.arrival!, 60)}) und „${t.title}“. Empfohlen sind mindestens ${needText(need)}.${personalNote(gap, need)}`,
+              message: `${gap < 0 ? 'Kein' : `Nur ${formatDuration(gap)}`} Puffer zwischen dem frühestmöglichen Von-Bord-Gehen (ca. ${offLocal}) und „${t.title}“. Empfohlen sind mindestens ${needText(need)}.${personalNote(gap, need)}`,
               itemId: t.id,
               cruiseId: w.cruise.id,
               cruiseDayId: dis.id,
@@ -471,7 +471,7 @@ function computeWarnings(
         warnings.push({
           level: 'info',
           code: 'hotel_checkin_wait',
-          message: `Von Bord ca. ${dis.departure ?? addMinutes(dis.arrival ?? '09:00', 60)}, Check-in im „${postHotel.title}“ aber erst ab ${postHotel.startLocal.slice(11, 16)} (ca. ${formatDuration(gap)} Wartezeit). Früheren Check-in oder Gepäckaufbewahrung anfragen.`,
+          message: `Von Bord frühestens ca. ${offLocal}, Check-in im „${postHotel.title}“ aber erst ab ${postHotel.startLocal.slice(11, 16)} (ca. ${formatDuration(gap)} Wartezeit). Früheren Check-in oder Gepäckaufbewahrung anfragen.`,
           itemId: postHotel.id,
           cruiseId: w.cruise.id,
           cruiseDayId: dis.id,

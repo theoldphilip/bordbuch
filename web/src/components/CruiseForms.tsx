@@ -206,7 +206,7 @@ export function CruiseDayForm({ cruise, day, onSubmit, onClose, onSaved }: { cru
             <Field label="Hafen"><input value={portName} onChange={(e) => setPortName(e.target.value)} placeholder="Neapel" /></Field>
             <Field label="Land"><input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Italien" /></Field>
             <Field label={lArr}><input type="time" value={arrival} onChange={(e) => setArrival(e.target.value)} /></Field>
-            <Field label={lDep}><input type="time" value={departure} onChange={(e) => setDeparture(e.target.value)} onBlur={suggestAllAboard} /></Field>
+            <Field label={lDep} hint={kind === 'disembarkation' ? 'Nur das Limit oder dein Slot, wenn die Abreise über die Reederei läuft. Bei eigener Abreise rechnet die App ab 06:00 (oder 30 Min. nach Ankunft des Schiffs).' : undefined}><input type="time" value={departure} onChange={(e) => setDeparture(e.target.value)} onBlur={suggestAllAboard} /></Field>
             {lAll && <Field label={lAll} hint="Steht im Tagesprogramm an Bord"><input type="time" value={allAboard} onChange={(e) => setAllAboard(e.target.value)} /></Field>}
             {kind !== 'disembarkation' && (
               <label className="check">

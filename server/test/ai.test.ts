@@ -132,6 +132,14 @@ describe('Anthropic extractor (fake client, no network)', () => {
   };
   const ok = { stop_reason: 'end_turn', parsed_output: aiResult() };
 
+  test('general documents: the trip\'s ship is in the context and the prompt tells the model to keep only that ship\'s information', async () => {
+    const { calls, extractor } = make('claude-opus-5-5', ok);
+    await extractor.extract({ files: [{ data: Buffer.from('Bord-ABC'), mime: 'text/plain', filename: 'bord-abc.txt' }], context: { ...ctx, ships: ['Mein Schiff Relax'] } });
+    assert.match(JSON.stringify(calls[0].messages[0].content), /Schiffe dieser Reise: Mein Schiff Relax/);
+    assert.match(calls[0].system, /Allgemeine Unterlagen ohne eigene Buchung/);
+    assert.match(calls[0].system, /Alles zu anderen Schiffen und Reisen lässt du weg/);
+  });
+
   test('the trip kind and the station type reach the model', async () => {
     const { calls, extractor } = make('claude-opus-5-5', ok);
     await extractor.extract({ files: [{ data: Buffer.from('x'), mime: 'text/plain', filename: 'a.txt' }], context: { ...ctx, tripKind: 'roundtrip' } });

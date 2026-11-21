@@ -326,6 +326,42 @@ describe('document inbox', () => {
     const tl = (await ctx.call('GET', `/api/trips/${t}/timeline`, admin)).body;
     assert.ok(tl.warnings.some((w: any) => w.code === 'stop_no_lodging'), 'stations without hotel are flagged');
   });
+
+  test('a general document (Bord-ABC): only the ship\'s numbers arrive as infos on the existing cruise and its embarkation day, no new days', async () => {
+    const t = (await ctx.call('POST', '/api/trips', admin, { title: 'Relax' })).body.trip.id;
+    const created = await ctx.call('POST', `/api/trips/${t}/cruises`, admin, {
+      shipName: 'Mein Schiff Relax',
+      days: [
+        { date: '2026-12-04', kind: 'embarkation', portName: 'Santa Cruz', arrival: '16:00', departure: '22:30', timezone: 'Atlantic/Canary' },
+        { date: '2026-12-11', kind: 'disembarkation', portName: 'Santa Cruz', arrival: '06:00', timezone: 'Atlantic/Canary' },
+      ],
+    });
+    assert.equal(created.status, 201);
+    const info = (label: string, value: string) => ({ label, value, kind: 'phone' as const, source: 'document' as const });
+    const emptyDay = { portName: null, country: null, timezone: null, arrival: null, departure: null, allAboard: null, tender: false, notes: null };
+    replies.set('bord-abc.pdf', () => result({
+      documentKind: 'Bord-ABC', summary: 'Allgemeine Bordinformationen', items: [], warnings: [],
+      cruise: {
+        shipName: 'Mein Schiff Relax', cruiseLine: null, cabin: null, bookingRef: null, notes: null,
+        infos: [info('Notfalltelefon Mein Schiff Relax', '+49 40 87 40 80 28')],
+        days: [{ ...emptyDay, date: '2026-12-04', kind: 'embarkation', infos: [{ ...info('Verspätete Anreise (nur am Anreisetag)', '+49 40 600 01-7108'), kind: 'emergency' as const }] }],
+      },
+    }));
+    const up = await upload(ctx.app, admin, `/api/trips/${t}/documents`, 'bord-abc.pdf', 'application/pdf', '%PDF-1.4 x');
+    const id = up.body.attachment.id;
+    const a = (await ctx.call('GET', `/api/attachments/${id}/analysis`, admin)).body;
+    assert.equal(a.items.length, 0);
+    assert.equal(a.cruise.match.shipName, 'Mein Schiff Relax', 'the document belongs to the existing cruise');
+    assert.equal(a.cruise.newDays, 0, 'no new days');
+    const ap = await ctx.call('POST', `/api/attachments/${id}/apply`, admin, { items: [], cruise: { action: 'update', cruiseId: a.cruise.match.cruiseId, data: a.cruise.data } });
+    assert.equal(ap.status, 200);
+    const cruise = (await ctx.call('GET', `/api/trips/${t}`, admin)).body.cruises[0];
+    assert.equal(cruise.days.length, 2, 'still two days');
+    assert.deepEqual(cruise.infos.map((i: any) => i.value), ['+49 40 87 40 80 28']);
+    const embark = cruise.days.find((d: any) => d.kind === 'embarkation');
+    assert.deepEqual(embark.infos.map((i: any) => [i.kind, i.value]), [['emergency', '+49 40 600 01-7108']]);
+    assert.equal(embark.arrival, '16:00', 'existing times stay');
+  });
 });
 
 describe('without API key', () => {

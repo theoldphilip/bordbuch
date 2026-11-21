@@ -148,6 +148,21 @@ describe('buildTimeline', () => {
       assert.ok(run([preHotel('07:00'), later]).some((x) => x.code === 'hotel_wait_boarding'), 'a flight after the ship opened does not explain the wait');
     });
 
+    test('own departure: counted from the earliest possible disembarkation, not from "Von Bord bis"', () => {
+      const late = day({ id: 'd', date: '2027-05-12', kind: 'disembarkation', arrival: '07:00', departure: '11:00' });
+      const early = day({ id: 'd', date: '2027-05-12', kind: 'disembarkation', arrival: '05:00', departure: '11:00' });
+      const transfer = (at: string) => item({ id: 't', type: 'transfer', title: 'Transfer Flughafen', startLocal: `2027-05-12T${at}`, startTz: 'Europe/Rome' });
+      const codes = (d: CruiseDay, at: string) => buildTimeline([cruise([embark, port, d])], [transfer(at)], 'Europe/Zurich').warnings.map((x) => x.code);
+      // ship docks 07:00 -> off at 07:30 at the earliest; a transfer at 09:00 has 1.5 h, enough for 1 h, although "Von Bord bis" is 11:00
+      assert.deepEqual(codes(late, '09:00'), []);
+      assert.deepEqual(codes(late, '08:00'), ['disembark_tight'], '30 min after the earliest disembarkation is too tight');
+      // ship docks 05:00 -> guests can leave from 06:00
+      assert.deepEqual(codes(early, '07:30'), [], '1.5 h after 06:00');
+      assert.deepEqual(codes(early, '06:30'), ['disembark_tight']);
+      const w = buildTimeline([cruise([embark, port, late])], [transfer('08:00')], 'Europe/Zurich').warnings[0]!;
+      assert.match(w.message, /frühestmöglichen Von-Bord-Gehen \(ca\. 07:30\)/);
+    });
+
     test('long wait between leaving the ship and hotel check-in', () => {
       const h = item({ id: 'h2', type: 'hotel', startLocal: '2027-05-12T15:00', startTz: 'Europe/Rome', endLocal: '2027-05-14T11:00', endTz: 'Europe/Rome' });
       assert.deepEqual(run([h]).map((x) => x.code), ['hotel_checkin_wait']);

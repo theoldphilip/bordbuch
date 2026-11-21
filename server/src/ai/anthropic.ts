@@ -45,7 +45,13 @@ Kreuzfahrt (cruise): Nur wenn das Dokument die Kreuzfahrt selbst beschreibt (Buc
 - kind: embarkation (Einschiffungstag), port (Hafentag), sea (Seetag), disembarkation (Ausschiffungstag).
 - arrival/departure als HH:MM in Hafenzeit, allAboard ("Alle an Bord") nur wenn angegeben, tender true nur wenn das Dokument Tenderhafen/Ausbooten nennt. timezone des Hafens als IANA-Name oder null.
 - Bei embarkation ist arrival der Beginn des Check-ins, bei disembarkation ist departure die Zeit, bis zu der man von Bord muss.
-Beschreibt das Dokument keine Kreuzfahrt, ist cruise null. Bei einem Städtetrip oder einer Rundreise ist cruise normalerweise null.`;
+Beschreibt das Dokument keine Kreuzfahrt, ist cruise null. Bei einem Städtetrip oder einer Rundreise ist cruise normalerweise null.
+
+Allgemeine Unterlagen ohne eigene Buchung (z. B. Bord-ABC, Reederei-Informationen, oft für mehrere Schiffe): Übernimm nur, was für diese Reise gilt, als Zusatzinfos. Alles zu anderen Schiffen und Reisen lässt du weg. items bleibt leer.
+- Das Schiff der Reise steht im Kontext unter "Schiffe dieser Reise". Gib cruise mit genau diesem shipName zurück (days wie unten, sonst leer). Steht dort kein Schiff, aber der Reisename oder das Dokument nennt eindeutig eines, nimm dieses. Sonst ist cruise null und du erklärst es in warnings.
+- Hänge an cruise.infos: Notfall- und Hotline-Nummern genau dieses Schiffs (kind emergency oder phone, source document, label mit dem Zweck) und kurze Hinweise (kind text) zu Check-in, Check-out, Gepäck, Zahlungsmitteln und ärztlicher Betreuung.
+- Gilt eine Info nur für einen bestimmten Tag (z. B. "Notrufnummer bei verspäteter Anreise, nur am Anreisetag"), lege in days einen Tag an: date und kind aus den "Kreuzfahrt-Tagen" im Kontext, alle anderen Felder null, tender false, und hänge die Info an diesen Tag. Gibt es im Kontext noch keine Tage, hänge sie an cruise und nenne den Tag im label.
+- Erfinde keine Daten, Zeiten oder Kabinen. Nummern exakt abschreiben.`;
 
 export const RESEARCH_PROMPT = `Du recherchierst im Internet Lücken in Reiseunterlagen für einen Reiseplaner (Kreuzfahrt mit An- und Abreise, Städtetrip oder Rundreise mit Stationen). Du bekommst die bereits aus Dokumenten gelesenen Reisepunkte, nummeriert (item N, day N, cruise).
 
@@ -137,6 +143,7 @@ function contextText(input: ExtractInput): string {
   return [
     `Heutiges Datum: ${c.today}`,
     `Standard-Zeitzone des Nutzers: ${c.defaultTz}`,
+    `Schiffe dieser Reise: ${c.ships?.length ? c.ships.join(', ') : c.cruiseDays.length ? [...new Set(c.cruiseDays.map((d) => d.shipName))].join(', ') : '(noch keine Kreuzfahrt angelegt)'}`,
     `Reise: ${c.tripTitle}${c.tripKind ? ` (${KIND_LABEL[c.tripKind]})` : ''}`,
     `Bereits angelegte Kreuzfahrt-Tage dieser Reise (für cruiseDayId bei Landausflügen):\n${days}`,
     input.files.length > 1

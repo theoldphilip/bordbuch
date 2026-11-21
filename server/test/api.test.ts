@@ -77,7 +77,7 @@ describe('API', () => {
     assert.equal((await add({ type: 'hotel', title: 'Hotel Roma', startLocal: '2027-05-09T15:00', startTz: 'Europe/Rome', endLocal: '2027-05-10T10:00' })).status, 201);
     const excursion = await add({ type: 'excursion', title: 'Pompeji privat', startLocal: '2027-05-11T09:00', endLocal: '2027-05-11T17:00', cruiseDayId: naples.id, details: { bookedVia: 'private' } });
     assert.equal(excursion.status, 201);
-    assert.equal((await add({ type: 'flight', title: 'BCN → ZRH', startLocal: '2027-05-13T10:30', startTz: 'Europe/Madrid', endLocal: '2027-05-13T12:15', endTz: 'Europe/Zurich' })).status, 201);
+    assert.equal((await add({ type: 'flight', title: 'BCN → ZRH', startLocal: '2027-05-13T09:30', startTz: 'Europe/Madrid', endLocal: '2027-05-13T12:15', endTz: 'Europe/Zurich' })).status, 201);
     assert.equal((await add({ type: 'flight', title: 'kaputt', startLocal: 'morgen' })).status, 400);
 
     const tl = await ctx.call('GET', `/api/trips/${tripId}/timeline`, admin);
@@ -93,7 +93,7 @@ describe('API', () => {
 
     const codes = tl.body.warnings.map((w: any) => w.code);
     assert.ok(codes.includes('excursion_tight'), 'private excursion 30 min before all aboard is tight');
-    assert.ok(codes.includes('disembark_tight'), 'flight 1.5 h after disembarkation is tight');
+    assert.ok(codes.includes('disembark_tight'), 'flight 2 h after the earliest possible disembarkation (07:30) is tight');
     assert.ok(!codes.includes('embark_tight'), 'arrival the day before is fine');
   });
 

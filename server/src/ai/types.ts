@@ -11,6 +11,8 @@ export interface ExtractionContext {
   tripTitle: string;
   /** cruise, city (city trip / holiday) or roundtrip */
   tripKind?: 'cruise' | 'city' | 'roundtrip';
+  /** Ships of the cruises already in this trip (for general documents that cover several ships). */
+  ships?: string[];
   cruiseDays: { id: string; date: string; kind: CruiseDayKind; portName: string | null; country: string | null; shipName: string }[];
 }
 

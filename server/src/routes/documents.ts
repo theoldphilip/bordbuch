@@ -95,6 +95,7 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
       defaultTz: config.defaultTz,
       tripTitle: trip.title,
       tripKind: trip.kind,
+      ships: loadCruises(db, tripId).map((c) => c.shipName),
       cruiseDays: loadCruises(db, tripId).flatMap((c) =>
         c.days.map((d) => ({ id: d.id, date: d.date, kind: d.kind, portName: d.portName, country: d.country, shipName: c.shipName })),
       ),

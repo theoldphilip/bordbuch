@@ -272,6 +272,7 @@ docs/     API-Referenz (Grundlage für die iOS-App)
 - [ ] Bordzeit vs. Ortszeit (Schiffe stellen die Uhr nicht immer auf Ortszeit um)
 - [x] Erinnerungen nach Uhrzeit (Alle an Bord, Ausflug, Abflug, Abfahrt) per Web Push, siehe oben
 - [ ] Erinnerungen nach Standort (nur mit der iOS-App möglich)
+- [x] **Allgemeine Dokumente (Bord-ABC)**: die KI übernimmt nur Nummern und Hinweise des eigenen Schiffs als Zusatzinfos an Kreuzfahrt und Einschiffungstag
 - [x] **Zeitleiste zeigt „Jetzt“** (Vergangenes ausgegraut, rosa Markierung mit Uhrzeit auf der Linie, aktualisiert sich jede Minute)
 - [x] **Reisearten** (Kreuzfahrt, Städtetrip/Urlaub, Rundreise: Auswahl beim Anlegen oder automatisch nach den Dokumenten; Stationen mit Ort und von-bis, Prüfung auf fehlende Unterkunft, Verbindung und Überschneidung; Kreuzfahrt-Tab nur bei Kreuzfahrten)
 - [x] **Reise prüfen** (Knopf „🔍 Prüfen“ in der Reise: KI-Durchsicht der ganzen Reise auf Lücken und Widersprüche, nur lesend, mit Sprung zu den betroffenen Einträgen)
