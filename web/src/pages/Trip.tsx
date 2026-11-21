@@ -20,6 +20,7 @@ import {
 import type { Attachment, Cruise, CruiseDay, Item, ItemType, Role, Timeline, TimelineEntry, TimelinePhase, TripDetail, User } from '../types.ts';
 import { Empty, ErrorBox, Field, Modal, Spinner } from '../components/ui.tsx';
 import { ItemForm } from '../components/ItemForm.tsx';
+import { TripReviewDialog } from '../components/TripReviewDialog.tsx';
 import { DocReview } from '../components/DocReview.tsx';
 import { CruiseDayForm, CruiseForm } from '../components/CruiseForms.tsx';
 
@@ -31,6 +32,7 @@ type Dialog =
   | { kind: 'day'; cruise: Cruise; day?: CruiseDay }
   | { kind: 'trip' }
   | { kind: 'review'; attachmentId: string }
+  | { kind: 'tripreview' }
   | null;
 
 export function TripPage() {
@@ -43,12 +45,13 @@ export function TripPage() {
   const [queue, setQueue] = useState<string[]>([]);
   const [queueTotal, setQueueTotal] = useState(0);
   const [aiEnabled, setAiEnabled] = useState(false);
+  const [canReview, setCanReview] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const consumedNav = useRef(false);
 
   useEffect(() => {
-    api.get<{ enabled: boolean }>('/api/ai/status').then((s) => setAiEnabled(s.enabled)).catch(() => {});
+    api.get<{ enabled: boolean; review?: boolean }>('/api/ai/status').then((s) => { setAiEnabled(s.enabled); setCanReview(!!s.review); }).catch(() => {});
   }, []);
 
   /** Reviews documents one after another; leaving the dialog keeps the rest in the inbox. */
@@ -132,7 +135,10 @@ export function TripPage() {
           <h1>{detail.trip.title}</h1>
           <p>{fmtRange(detail.trip.startDate ?? allDates[0] ?? null, detail.trip.endDate ?? allDates.at(-1) ?? null)}</p>
         </div>
-        {canEdit && <button className="btn btn-on-color" onClick={() => setDialog({ kind: 'trip' })}>Bearbeiten</button>}
+        <div className="hero-actions">
+          {canReview && (detail.items.length > 0 || detail.cruises.length > 0) && <button className="btn btn-on-color" onClick={() => setDialog({ kind: 'tripreview' })}>🔍 Prüfen</button>}
+          {canEdit && <button className="btn btn-on-color" onClick={() => setDialog({ kind: 'trip' })}>Bearbeiten</button>}
+        </div>
       </div>
 
       <nav className="tabs" role="tablist">
@@ -193,6 +199,15 @@ export function TripPage() {
       )}
       {dialog?.kind === 'cruise' && <CruiseForm tripId={detail.trip.id} cruise={dialog.cruise} onClose={close} onSaved={saved} />}
       {dialog?.kind === 'day' && <CruiseDayForm cruise={dialog.cruise} day={dialog.day} onClose={close} onSaved={saved} />}
+      {dialog?.kind === 'tripreview' && (
+        <TripReviewDialog
+          detail={detail}
+          canEdit={canEdit}
+          onClose={close}
+          onOpenItem={(item) => setDialog({ kind: 'item', item })}
+          onOpenDay={(cruise, day) => setDialog({ kind: 'day', cruise, day })}
+        />
+      )}
       {dialog?.kind === 'trip' && <TripSettings detail={detail} onClose={close} onSaved={saved} />}
       {dialog?.kind === 'review' && <DocReview key={dialog.attachmentId} attachmentId={dialog.attachmentId} tripId={detail.trip.id} cruises={detail.cruises} position={{ index: queueTotal - queue.length + 1, total: queueTotal }} onClose={saved} onApplied={reviewDone} />}
     </div>

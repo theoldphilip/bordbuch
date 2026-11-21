@@ -15,6 +15,7 @@ import { registerCruiseRoutes } from './routes/cruises.ts';
 import { registerItemRoutes } from './routes/items.ts';
 import { registerAttachmentRoutes } from './routes/attachments.ts';
 import { registerDocumentRoutes } from './routes/documents.ts';
+import { registerReviewRoutes } from './routes/review.ts';
 import { registerPushRoutes } from './routes/push.ts';
 import { BUILT_AT, VERSION } from './version.ts';
 import { registerCertificateRoutes } from './routes/certificate.ts';
@@ -93,6 +94,7 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
   registerItemRoutes(app, ctx);
   registerAttachmentRoutes(app, ctx);
   registerDocumentRoutes(app, ctx);
+  registerReviewRoutes(app, ctx);
   registerPushRoutes(app, ctx);
   registerCertificateRoutes(app, ctx);
 

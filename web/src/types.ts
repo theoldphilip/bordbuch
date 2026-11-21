@@ -322,3 +322,23 @@ export interface UserSettings {
   pace: Pace;
   notifications: NotificationPrefs;
 }
+
+export interface ReviewFinding {
+  severity: 'error' | 'warning' | 'hint';
+  title: string;
+  text: string;
+  itemIds: string[];
+  dayIds: string[];
+  suggestion: string | null;
+}
+
+export interface TripReview {
+  status: 'pending' | 'done' | 'failed';
+  startedAt: string;
+  finishedAt?: string;
+  error?: string;
+  summary?: string;
+  findings: ReviewFinding[];
+  model?: string;
+  basedOn: string;
+}

@@ -141,6 +141,13 @@ const migrations: string[] = [
     PRIMARY KEY (user_id, key)
   );
   `,
+  `
+  -- Result of the AI review of a whole trip (one per trip, replaced by every run).
+  CREATE TABLE trip_reviews (
+    trip_id TEXT PRIMARY KEY REFERENCES trips(id) ON DELETE CASCADE,
+    data    TEXT NOT NULL
+  );
+  `,
 ];
 
 export function openDb(file: string): DB {

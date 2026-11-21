@@ -147,7 +147,7 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
   }
 
   // ----- status & key check -----
-  app.get('/api/ai/status', async () => ({ enabled: !!extractor, model: extractor?.model ?? null, research: typeof extractor?.research === 'function' }));
+  app.get('/api/ai/status', async () => ({ enabled: !!extractor, model: extractor?.model ?? null, research: typeof extractor?.research === 'function', review: typeof extractor?.review === 'function' }));
 
   app.post('/api/ai/check', async (req) => {
     requireAdmin(req);

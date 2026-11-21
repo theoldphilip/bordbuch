@@ -1,5 +1,6 @@
 import type { CruiseDayKind, Info, ItemType } from '../schemas.ts';
 import type { AiResult } from './schema.ts';
+import type { ReviewInput, ReviewModelOutput } from './review.ts';
 
 export class ExtractionError extends Error {}
 
@@ -112,6 +113,8 @@ export interface Extractor {
   extract(input: ExtractInput): Promise<AiResult>;
   /** Optional web research for gaps in an analysis (routes, times, phone numbers). Slow: runs in the background. */
   research?(input: ResearchInput): Promise<ResearchOutput>;
+  /** Optional review of the whole trip for gaps and contradictions (no web, no changes). */
+  review?(input: ReviewInput): Promise<ReviewModelOutput>;
   /** Cheap request to verify key, model and network. Throws ExtractionError with a readable message. */
   check(): Promise<void>;
 }

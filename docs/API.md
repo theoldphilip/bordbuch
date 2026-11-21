@@ -232,3 +232,14 @@ Warnungscodes:
 | `excursion_no_end` | info | keine Endzeit angegeben |
 | `excursion_unlinked` | info | Ausflug während der Kreuzfahrt ohne zugeordneten Hafentag |
 | `excursion_sea_day` | warning | Ausflug einem Seetag zugeordnet |
+
+### KI-Prüfung der ganzen Reise
+
+Nur lesend: die KI sieht alle Einträge und Kreuzfahrt-Tage zusammen und meldet Lücken und Widersprüche. Gesendet werden Titel, Zeiten, Orte, Anbieter und kurze Notizen, keine Buchungsnummern, Preise, Telefonnummern oder Dokumente. Läuft im Hintergrund.
+
+| Methode | Pfad | Rolle | Zweck |
+|---|---|---|---|
+| GET | `/trips/:id/review` | viewer | `{review: null \| {status: pending/done/failed, summary, findings[], error, finishedAt}, stale}`. `stale` ist wahr, wenn die Reise seit der Prüfung geändert wurde |
+| POST | `/trips/:id/review` | editor | Startet die Prüfung (202). Zum Abfragen `GET` wiederholen. 400 bei leerer Reise, 409 ohne API-Schlüssel oder wenn sie schon läuft |
+
+`findings[]`: `{severity: error/warning/hint, title, text, itemIds[], dayIds[], suggestion}`. `/ai/status` meldet zusätzlich `review: true/false`.

@@ -49,7 +49,7 @@ describe('document inbox', () => {
 
   test('status endpoint reports the model without exposing a key', async () => {
     const s = await ctx.call('GET', '/api/ai/status', admin);
-    assert.deepEqual(s.body, { enabled: true, model: 'fake-model', research: false });
+    assert.deepEqual(s.body, { enabled: true, model: 'fake-model', research: false, review: false });
     assert.equal((await ctx.call('POST', '/api/ai/check', viewer)).status, 403, 'admin only');
     assert.equal((await ctx.call('POST', '/api/ai/check', admin)).status, 200);
   });
@@ -316,7 +316,7 @@ describe('without API key', () => {
     try {
       const token = (await c.call('POST', '/api/setup', undefined, { username: 'philip', displayName: 'Philip', password: 'geheim123' })).body.token;
       const tripId = (await c.call('POST', '/api/trips', token, { title: 'T' })).body.trip.id;
-      assert.deepEqual((await c.call('GET', '/api/ai/status', token)).body, { enabled: false, model: null, research: false });
+      assert.deepEqual((await c.call('GET', '/api/ai/status', token)).body, { enabled: false, model: null, research: false, review: false });
       const up = await upload(c.app, token, `/api/trips/${tripId}/documents`, 'a.pdf', 'application/pdf', 'x');
       assert.equal(up.status, 201);
       assert.equal(up.body.aiEnabled, false);
