@@ -11,8 +11,8 @@ Abreise** und inzwischen auch **Städtetrips/Urlaub** und **Rundreisen mit Stati
 Synology** des Auftraggebers und ist nur über **WireGuard-VPN** erreichbar (nie aus dem Internet). Bedient wird es als Web-App/PWA
 auf dem iPhone (Home-Bildschirm). Später soll eine **native iOS-App (SwiftUI)** dieselbe API nutzen (siehe `docs/API.md`).
 
-- Auftraggeber und Tester: **Philip** (IT-Administrator, kein Entwickler, testet auf dem iPhone, schickt Screenshots, ist
-  gehbehindert und nutzt deshalb den „persönlichen Zeitbedarf“, siehe Abschnitt 6).
+- Auftraggeber und Tester: **Philip** (IT-Administrator, kein Entwickler, testet auf dem iPhone, schickt Screenshots, nutzt den
+  „persönlichen Zeitbedarf“, siehe Abschnitte 2 und 4).
 - Repository: `https://github.com/theoldphilip/bordbuch` (privat), Hauptzweig `main`. Du hast Push-Zugriff über den Remote `origin`.
 - Betrieb: Synology 172.16.10.1, Ordner `/volume1/docker/bordbuch`, Port 8080 (HTTP) und über den DSM-Reverse-Proxy
   `https://172.16.10.1:8444` (selbst erzeugtes Zertifikat „Bordbuch“, CN=Bordbuch, läuft laut DSM am 22.02.2029 ab). Port 8443
@@ -47,8 +47,8 @@ auf dem iPhone (Home-Bildschirm). Später soll eine **native iOS-App (SwiftUI)**
   Umschreiben der Historie abgelehnt, also nicht anfassen.
 - **Nicht ungefragt:** Installation auf Philips Geräten, Signing/Zertifikate/Profile, Dinge nach außen veröffentlichen, Löschen
   von Daten. Bei Unumkehrbarem fragen.
-- **Namensregel:** Die Zeitbedarf-Funktion heißt „Persönlicher Zeitbedarf“. Philips Name oder die Behinderung stehen nie in
-  Oberfläche, Datenbank oder KI-Anfragen. In der Datenbank steht nur der Faktor.
+- **Namensregel:** Die Funktion heißt „Persönlicher Zeitbedarf“. Philips Name und der Grund dafür stehen nie in Oberfläche, Datenbank,
+  Dokumenten, Commits oder KI-Anfragen. In der Datenbank steht nur der Faktor. Bleibe dabei, auch hier.
 
 ## 3. Aufbau in Kurzfassung
 
