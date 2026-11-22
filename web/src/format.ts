@@ -122,6 +122,20 @@ export const DAY_KINDS: { kind: CruiseDayKind; label: string; icon: string }[] =
 ];
 export const dayKindInfo = (k: CruiseDayKind) => DAY_KINDS.find((x) => x.kind === k)!;
 
+/** Where to be (terminal, desk, gate, belt, platform): shown prominently because it is what you look for on the day. */
+const PLACE_LABELS: Partial<Record<ItemType, [string, string][]>> = {
+  flight: [['terminal', 'Terminal'], ['checkinDesk', 'Schalter'], ['gate', 'Gate'], ['baggageBelt', 'Kofferband']],
+  train: [['platform', 'Gleis']],
+  car_rental: [['desk', 'Schalter']],
+};
+export function placeLine(item: Item): string {
+  const d = (item.details ?? {}) as Record<string, string | undefined>;
+  return (PLACE_LABELS[item.type] ?? [])
+    .filter(([key]) => d[key]?.trim())
+    .map(([key, label]) => `${label} ${d[key]!.trim()}`)
+    .join(' · ');
+}
+
 /** One-line summary of type-specific details for list views. */
 export function itemSubtitle(item: Item): string {
   const d = item.details ?? {};

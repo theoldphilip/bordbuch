@@ -24,8 +24,8 @@ Allgemeine Regeln:
 - warnings: Dinge, die der Nutzer prüfen sollte (unleserlich, widersprüchliche Angaben, fehlende Uhrzeit, mehrere mögliche Deutungen).
 
 Einträge (items), ein Eintrag pro Leistung:
-- flight: pro Flugsegment ein Eintrag. Hin- und Rückflug sind getrennte Einträge. title z. B. "Zürich → Rom". details: airline, flightNumber (z. B. "LX 1726"), from und to (IATA-Codes), terminal, gate, seat.
-- train / bus / ferry: pro Fahrt ein Eintrag. details: trainNumber, from, to, seat.
+- flight: pro Flugsegment ein Eintrag. Hin- und Rückflug sind getrennte Einträge. title z. B. "Zürich → Rom". details: airline, flightNumber (z. B. "LX 1726"), from und to (IATA-Codes), terminal, gate, checkinDesk (Check-in-Schalter, z. B. "31–40"), baggageBelt (Kofferband bei Ankunft), seat. Terminal, Gate, Schalter und Kofferband nur, wenn sie im Dokument stehen; nichts raten, sie sind oft noch nicht bekannt.
+- train / bus / ferry: pro Fahrt ein Eintrag. details: trainNumber, from, to, platform (Gleis, nur wenn angegeben), seat.
 - transfer: Taxi, Shuttle, Abholservice. details: mode (z. B. "Taxi", "Shuttle"), from, to, phone.
 - hotel: startLocal ist der Check-in (Datum, mit Uhrzeit wenn angegeben), endLocal der Check-out. location ist die Adresse. details: room, phone, breakfast.
 - parking: startLocal ist die Einfahrt/der Beginn, endLocal die Ausfahrt/das Ende. details: lot (Parkhaus/Bereich), plate (Kennzeichen), shuttle (Shuttle-Hinweis).

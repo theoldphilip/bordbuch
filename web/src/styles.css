@@ -480,3 +480,8 @@ a.btn { text-decoration: none; }
 /* Ansichtsmodus */
 .view-mode { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); font-size: 0.88rem; }
 .view-mode.locked { background: var(--info-bg); border-color: var(--info); }
+
+/* Wo ihr sein müsst: Gate, Schalter, Kofferband, Gleis; Kabine */
+.entry-main small.entry-where { color: var(--text); font-weight: 700; }
+.phase-cabin { margin-top: 2px; font-size: 0.95rem; }
+.phase-cabin strong { font-size: 1.05rem; }

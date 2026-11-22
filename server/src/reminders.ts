@@ -5,6 +5,7 @@
  */
 import type { Cruise, Item } from './model.ts';
 import type { UserSettings } from './schemas.ts';
+import { placeInfo } from './place.ts';
 import { formatDuration, needOf, toInstant, type Need, type Pace } from './timeline.ts';
 
 export interface Reminder {
@@ -92,7 +93,7 @@ export function buildReminders(input: {
         fireAt: eventAt - need.used,
         eventAt,
         title: `${isFlight ? '✈️' : '🚌'} ${item.title} in ${formatDuration(need.used)}`,
-        body: `${isFlight ? 'Abflug' : 'Abfahrt'} um ${time} (Ortszeit).${note(need)}`,
+        body: `${isFlight ? 'Abflug' : 'Abfahrt'} um ${time} (Ortszeit).${placeInfo(item, 'departure').length ? ` ${placeInfo(item, 'departure').join(', ')}.` : ''}${note(need)}`,
         tripId,
         url,
       });

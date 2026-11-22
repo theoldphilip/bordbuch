@@ -156,6 +156,13 @@ export function NotificationSettings() {
           {rule('Ausflug beginnt', n.excursion, n.excursionLead, 'excursion', 'excursionLead')}
           {rule('Abfahrt (Bahn, Bus, Fähre, Transfer)', n.transport, n.transportLead, 'transport', 'transportLead')}
           <div className="notify-rule">
+            <label className="check">
+              <input type="checkbox" checked={n.infoChange} onChange={(e) => patch({ infoChange: e.target.checked })} />
+              Gate, Schalter, Kofferband oder Gleis geändert
+            </label>
+            <small className="muted">Wenn jemand anderes aus der Reise eine dieser Angaben einträgt oder ändert, kurz vor oder nach dem Termin.</small>
+          </div>
+          <div className="notify-rule">
             <span className="field-label">Abflug</span>
             <select value={n.flightLead} onChange={(e) => patch({ flightLead: Number(e.target.value) })} aria-label="Vorlauf Abflug">
               {[...new Set([...LEADS, n.flightLead])].sort((a, b) => a - b).map((m) => <option key={m} value={m}>{m >= 60 && m % 60 === 0 ? `${m / 60} h` : `${m} min`} vorher</option>)}

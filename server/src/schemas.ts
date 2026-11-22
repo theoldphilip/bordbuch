@@ -88,11 +88,13 @@ export const notificationInput = z.object({
   transport: z.boolean().default(true),
   transportLead: lead(90),
   flightLead: lead(180),
+  /** Somebody else changed gate, desk, belt or platform of an entry that is about to happen. */
+  infoChange: z.boolean().default(true),
 });
 export const userSettingsInput = z.object({
   pace: paceInput.default({ enabled: false, factor: 1.5, extraMinutes: 0 }),
   notifications: notificationInput.default({
-    enabled: false, boarding: true, boardingLead: 60, excursion: true, excursionLead: 45, transport: true, transportLead: 90, flightLead: 180,
+    enabled: false, boarding: true, boardingLead: 60, excursion: true, excursionLead: 45, transport: true, transportLead: 90, flightLead: 180, infoChange: true,
   }),
 });
 export type UserSettings = z.infer<typeof userSettingsInput>;
@@ -202,7 +204,9 @@ export const itemInput = z
     cruiseDayId: z.string().nullish().transform((v) => v ?? null),
     /**
      * Type-specific fields, e.g.
-     *  flight:    { airline, flightNumber, from, to, terminal, gate, seat }
+     *  flight:    { airline, flightNumber, from, to, terminal, gate, checkinDesk, baggageBelt, seat }
+     *  train:     { trainNumber, from, to, platform, seat }
+     *  car_rental: { carClass, returnLocation, desk }
      *  excursion: { bookedVia: 'ship' | 'private', meetingPoint }
      *  hotel:     { room, address, phone }
      */

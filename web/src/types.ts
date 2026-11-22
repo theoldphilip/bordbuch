@@ -325,6 +325,8 @@ export interface NotificationPrefs {
   transport: boolean;
   transportLead: number;
   flightLead: number;
+  /** Somebody else changed gate, desk, belt or platform of an entry that is about to happen. */
+  infoChange: boolean;
 }
 
 export interface UserSettings {

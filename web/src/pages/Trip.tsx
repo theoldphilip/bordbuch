@@ -15,6 +15,7 @@ import {
   fmtSize,
   itemSubtitle,
   itemTypeInfo,
+  placeLine,
   localToInstant,
   todayIn,
   tripKindInfo,
@@ -399,6 +400,7 @@ function TimelineView({
         <PhaseSection
           key={`${phase.kind}-${i}`}
           phase={phase}
+          cabin={detail.cruises.find((c) => c.id === phase.cruiseId)?.cabin}
           now={now}
           nowKey={nowKey}
           tripKind={detail.trip.kind}
@@ -522,6 +524,7 @@ function NowMarker({ now, tz }: { now: number; tz: string }) {
 
 function PhaseSection({
   phase,
+  cabin,
   now,
   nowKey,
   tripKind,
@@ -537,6 +540,8 @@ function PhaseSection({
   onOpenDay,
 }: {
   phase: TimelinePhase;
+  /** Cabin of the cruise this phase shows, so it is at hand without searching. */
+  cabin?: string | null;
   /** Current time (ms) and the element before which the "now" marker goes. */
   now: number;
   nowKey?: string;
@@ -560,6 +565,7 @@ function PhaseSection({
         <div>
           <h2>{phase.title}</h2>
           <p>{fmtRange(phase.startDate, phase.endDate)}{phase.kind === 'cruise' ? ` · ${phase.days.length} Tage` : ''}</p>
+          {phase.kind === 'cruise' && cabin && <p className="phase-cabin">🛏️ Kabine <strong>{cabin}</strong></p>}
         </div>
         {canEdit && phase.kind !== 'cruise' && itemIds.length > 0 && (
           <button className="btn btn-ghost small clear-btn" onClick={() => onClear(itemIds, phase.title)} aria-label={`Abschnitt ${phase.title} leeren`}>Leeren</button>
@@ -672,6 +678,7 @@ function EntryRow({ entry, past, defaultTz, attachments, warnings, onClick }: { 
       <span className="entry-main">
         <strong>{isEnd ? `${endLabel[item.type] ?? 'Ende'}: ${item.title}` : item.title}</strong>
         {!isEnd && <small>{itemSubtitle(item)}</small>}
+        {!isEnd && placeLine(item) && <small className="entry-where">{placeLine(item)}</small>}
         {arrivesOtherDay && <small>Ankunft {fmtDate(item.endLocal, { weekday: 'short', day: 'numeric', month: 'short' })} {item.endLocal!.slice(11, 16)}</small>}
         {warnings.filter((w) => w.level !== 'info').map((w, i) => <small key={i} className={`inline-warn ${w.level}`}>{w.personal ? 'Für dich knapp: ' : ''}{w.message}</small>)}
       </span>
@@ -709,7 +716,8 @@ function CruiseTab({ detail, canEdit, aiImport, onEditCruise, onEditDay }: { det
           <header className="card-head">
             <div>
               <h2>🛳️ {c.shipName}</h2>
-              <p className="muted">{[c.cruiseLine, c.cabin && `Kabine ${c.cabin}`, c.bookingRef && `Buchung ${c.bookingRef}`].filter(Boolean).join(' · ')}</p>
+              {c.cabin && <p className="phase-cabin">🛏️ Kabine <strong>{c.cabin}</strong></p>}
+              <p className="muted">{[c.cruiseLine, c.bookingRef && `Buchung ${c.bookingRef}`].filter(Boolean).join(' · ')}</p>
             </div>
             {canEdit && <button className="btn" onClick={() => onEditCruise(c)}>Bearbeiten</button>}
           </header>

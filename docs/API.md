@@ -263,3 +263,9 @@ Hinweise des Puffer-Checks lassen sich quittieren („gesehen, ist in Ordnung“
 
 Ändert sich die Lage (andere Zeiten, anderer Eintrag), ändert sich der Text und damit der `key`: der Hinweis kommt unquittiert zurück.
 
+### Terminal, Gate, Schalter, Kofferband, Gleis
+
+Diese Angaben stehen in `details` des Eintrags: Flug `terminal`, `checkinDesk` (Check-in-Schalter), `gate`, `baggageBelt` (Kofferband bei Ankunft); Zug `platform` (Gleis); Mietwagen `desk` (Schalter). Sie sind oft erst kurz vorher bekannt und werden im Ablauf hervorgehoben, im Abflug-Erinnerung genannt (ohne Kofferband) und von der KI nur gelesen, wenn sie im Dokument stehen.
+
+Ändert ein Bearbeiter eine dieser Angaben über `PATCH /items/:id` und liegt der Termin höchstens 36 Stunden voraus (oder weniger als 8 Stunden zurück), bekommen die **anderen** Mitglieder der Reise eine Push-Nachricht („Gate B12 (vorher B14)“). Pro Person abschaltbar mit `notifications.infoChange` in `/me/settings` (Standard an).
+

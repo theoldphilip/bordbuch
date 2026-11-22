@@ -272,6 +272,8 @@ docs/     API-Referenz (Grundlage für die iOS-App)
 - [ ] Bordzeit vs. Ortszeit (Schiffe stellen die Uhr nicht immer auf Ortszeit um)
 - [x] Erinnerungen nach Uhrzeit (Alle an Bord, Ausflug, Abflug, Abfahrt) per Web Push, siehe oben
 - [ ] Erinnerungen nach Standort (nur mit der iOS-App möglich)
+- [x] **Gate, Check-in-Schalter, Kofferband, Gleis** (Felder am Eintrag, hervorgehoben im Ablauf, im Abflug-Push, Push an die anderen bei Änderung)
+- [x] **Kabine** gut sichtbar (im Ablauf an der Kreuzfahrt und im Reiter Kreuzfahrt)
 - [x] **Hinweise quittieren** (für alle Mitglieder, gruppiert unter „Quittiert“, kommt zurück, wenn sich die Lage ändert)
 - [x] **Ansichtsmodus** (ab dem ersten begonnenen Punkt sind Änderungen gesperrt, Einträge bleiben lesbar mit Anrufen; Verlassen mit Warnung, gilt bis die App geschlossen wird; Prüfen und Quittieren bleiben aktiv)
 - [x] **Währung**: keine Annahme „CHF“ mehr

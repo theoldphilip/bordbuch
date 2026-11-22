@@ -5,7 +5,11 @@ import { requireTripRole, requireUser } from '../auth.ts';
 import { tx, type DB } from '../db.ts';
 import { unlinkAttachmentFiles } from '../files.ts';
 import { itemFromRow, touchTrip } from '../model.ts';
+import { describeChanges, placeChanges, type PlaceChange } from '../place.ts';
+import type { PushSender } from '../push.ts';
 import { itemInput, type ItemInput } from '../schemas.ts';
+import { readSettings } from '../settings.ts';
+import { toInstant } from '../timeline.ts';
 import { HttpError, newId, nowIso } from '../util.ts';
 
 export function checkCruiseDay(db: DB, tripId: string, cruiseDayId: string | null) {
@@ -43,7 +47,40 @@ const columns = (i: ItemInput) =>
 
 const bulkDeleteInput = z.object({ ids: z.array(z.string()).min(1).max(500) });
 
-export function registerItemRoutes(app: FastifyInstance, { db, uploadDir }: Ctx) {
+/**
+ * Somebody entered or changed gate, desk, belt or platform of an entry that is about to happen (or just happened):
+ * tell the other members of the trip, so nobody waits at the wrong gate. Only for members who switched
+ * these messages on; the person who made the change is not notified about their own edit.
+ */
+async function announcePlaceChange(
+  { db, sender, defaultTz }: { db: DB; sender: PushSender; defaultTz: string },
+  item: ReturnType<typeof itemFromRow>,
+  changes: PlaceChange[],
+  by: { id: string; displayName: string },
+): Promise<number> {
+  const now = Date.now();
+  const start = toInstant(item.startLocal, item.startTz ?? defaultTz);
+  const end = toInstant(item.endLocal ?? item.startLocal, item.endTz ?? item.startTz ?? defaultTz);
+  if (start > now + 36 * 3_600_000 || end < now - 8 * 3_600_000) return 0;
+  const members = db.prepare('SELECT user_id FROM trip_members WHERE trip_id = ? AND user_id <> ?').all(item.tripId, by.id) as { user_id: string }[];
+  let sent = 0;
+  for (const { user_id: userId } of members) {
+    const prefs = readSettings(db, userId).notifications;
+    if (!prefs.enabled || !prefs.infoChange) continue;
+    const subs = db.prepare('SELECT * FROM push_subscriptions WHERE user_id = ?').all(userId) as Record<string, any>[];
+    for (const s of subs) {
+      const res = await sender.send(
+        { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth },
+        { title: `${item.type === 'flight' ? '✈️' : item.type === 'train' ? '🚆' : '📍'} ${item.title}`, body: `${describeChanges(changes)}. Eingetragen von ${by.displayName}.`, url: `/trips/${item.tripId}`, tag: `info:${item.id}` },
+      );
+      if (res.gone) db.prepare('DELETE FROM push_subscriptions WHERE id = ?').run(s.id);
+      else sent++;
+    }
+  }
+  return sent;
+}
+
+export function registerItemRoutes(app: FastifyInstance, { db, uploadDir, sender, config }: Ctx) {
   /** Deletes several entries at once (e.g. a whole phase). All or nothing. */
   app.post<{ Params: { tripId: string } }>('/api/trips/:tripId/items/delete', async (req, reply) => {
     const user = requireUser(req);
@@ -85,7 +122,8 @@ export function registerItemRoutes(app: FastifyInstance, { db, uploadDir }: Ctx)
     const user = requireUser(req);
     const row = itemRow(db, req.params.itemId);
     requireTripRole(db, row.trip_id, user.id, 'editor');
-    const input = itemInput.parse({ ...itemFromRow(row), ...(req.body as object) });
+    const before = itemFromRow(row);
+    const input = itemInput.parse({ ...before, ...(req.body as object) });
     checkCruiseDay(db, row.trip_id, input.cruiseDayId);
     tx(db, () => {
       db.prepare(
@@ -95,7 +133,13 @@ export function registerItemRoutes(app: FastifyInstance, { db, uploadDir }: Ctx)
       ).run(...columns(input), nowIso(), req.params.itemId);
       touchTrip(db, row.trip_id);
     });
-    return itemFromRow(itemRow(db, req.params.itemId));
+    const after = itemFromRow(itemRow(db, req.params.itemId));
+    const changes = placeChanges(before, after);
+    if (changes.length) {
+      // Announced in the background: a slow or failing push service must not slow down saving.
+      announcePlaceChange({ db, sender, defaultTz: config.defaultTz }, after, changes, user).catch((err) => app.log.warn({ err }, 'Push bei Änderung fehlgeschlagen'));
+    }
+    return after;
   });
 
   app.delete<{ Params: { itemId: string } }>('/api/items/:itemId', async (req, reply) => {
