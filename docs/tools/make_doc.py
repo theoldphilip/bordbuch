@@ -242,6 +242,15 @@ S += TBL([['Meldung', 'Stufe', 'Bedeutung'],
 S += H2('Selbst ändern und aufräumen')
 S += [P('Alles lässt sich jederzeit von Hand anlegen, ändern und löschen: Einträge, die Kreuzfahrt, einzelne Reisetage. Mit <b>Leeren</b> im Kopf von Anreise, Abreise oder Zwischenprogramm '
         'löschst du alle Einträge dieses Abschnitts auf einmal (mit Rückfrage; mehrtägige Einträge wie ein Parkplatz verschwinden auch im anderen Abschnitt).')]
+S += H2('Kosten und Zahlung')
+S += [P('Jeder Eintrag und die Kreuzfahrt haben <b>Kosten</b>, <b>Währung</b> und einen <b>Zahlungsstand</b>: <i>keine Angabe, offen, angezahlt</i> (mit dem bereits gezahlten Betrag) oder <i>bezahlt</i>. Freiwillig trägst du <b>Fällig am</b> ein, bei einer Anzahlung das Datum der Restzahlung. Die Kreuzfahrt-Kosten sind der Gesamtpreis der Buchung.')]
+S += B(['Die KI liest den Gesamtpreis der Kreuzfahrt aus der Buchungsbestätigung. Im Prüfdialog kannst du ihn korrigieren, bevor du übernimmst. Einen Preis, den du selbst eingetragen hast, überschreibt eine spätere Analyse nie.',
+        'Eine Währung wird nie angenommen. Ohne Währung steht der Betrag nur als Zahl da.',
+        'Der Reiter <b>Kosten</b> rechnet alles auf dem Server. Je Währung gibt es eine Karte mit <b>Gesamt, bezahlt und offen</b>; Währungen werden nie zusammengezählt oder umgerechnet.',
+        'Aufgeklappt siehst du die Summen je Art (Kreuzfahrt, Flug, Hotel …) mit den einzelnen Einträgen. Ein Tippen auf einen Eintrag öffnet ihn.',
+        '<b>Noch zu zahlen:</b> offene Beträge mit Fälligkeit, früheste zuerst. Überfällige stehen rot.',
+        '<b>Ohne Währung</b> und <b>Ohne Preis</b> zeigen, was noch fehlt. Ohne Preis erscheinen nur gebuchte Leistungen wie Flug, Hotel, Parkplatz oder die Kreuzfahrt, nicht Aktivitäten oder Notizen.',
+        'Ein Betrag mit Währung, aber ohne Zahlungsstand zählt als offen; die Karte weist darauf hin.'])
 
 # ---------------- 4 KI ----------------
 S += H1('Dokumente mit KI zuordnen')
@@ -337,6 +346,10 @@ S += [P('Kontrolle:')]
 S += CODE("sudo docker ps --filter name=bordbuch --format 'table {{.Names}}\\t{{.Status}}'\nsudo docker logs --tail 40 bordbuch")
 S += [P('<b>Version prüfen:</b> <i>Einstellungen → Über Reisebuch</i> zeigt die Version des Servers, die der App auf diesem Gerät, das Build-Datum und den Datenbank-Stand. Ist die App älter als der Server, steht dort ein Hinweis und ein „!“ in der Einstellungsliste; <b>App neu laden</b> leert den Zwischenspeicher und lädt neu. Auf der Syno zeigt <i>cat VERSION</i> im Projektordner den Stand des Quellcodes.')]
 S += [P('Danach Reisebuch neu laden, auf dem iPhone die App einmal schließen und neu öffnen. Heißt der Befehl bei deiner DSM-Version <i>docker-compose</i>, nimm die Schreibweise mit Bindestrich.')]
+S += H2('Update über das Skript')
+S += [P('Einfacher geht es mit dem Skript <b>/volume1/docker/bordbuch-update.sh</b>. Es führt <b>update</b> aus (Holen, Bauen, Start und Prüfung der Version), <b>status</b> zeigt Version, Container und Datenbank-Stand, <b>logs</b> die letzten Protokollzeilen. Der Aufruf per SSH ist nur für diese drei Befehle freigegeben:')]
+S += CODE('ssh rootadmin@172.16.10.1 update\nssh rootadmin@172.16.10.1 status')
+S += [P('Das Skript und die dafür nötige Regel in <i>/etc/sudoers.d/bordbuch-update</i> richtet man einmal ein. Ein größeres DSM-Update kann diese Regel entfernen; dann fragt das Skript nach einem Passwort und die Regel muss neu angelegt werden.')]
 S += H2('Konfiguration')
 S += [P('Geheimes und Einstellungen stehen in der Datei <b>/volume1/docker/bordbuch/.env</b> (nicht in Git, nicht im Image).')]
 S += TBL([['Variable', 'Standard', 'Bedeutung'],
@@ -393,7 +406,7 @@ S += TBL([['Symptom', 'Wahrscheinliche Ursache', 'Lösung'],
 
 # ---------------- 9 Stand ----------------
 S += H1('Stand und Ausblick')
-S += [P('Aktuelle App-Version: <b>%s</b>, Datenbank-Stand 8.' % VERSION + ' Sie steht in den Einstellungen unter „Über Reisebuch“ und auf der Anmeldeseite.')]
+S += [P('Aktuelle App-Version: <b>%s</b>, Datenbank-Stand 9.' % VERSION + ' Sie steht in den Einstellungen unter „Über Reisebuch“ und auf der Anmeldeseite.')]
 S += [Paragraph('<b>Seit der ersten Fassung (0.1.0) neu</b>', body)]
 S += TBL([['Version', 'Neu'],
           ['0.2.0', 'Anzeige der App-Version, „App neu laden“'],
@@ -406,15 +419,17 @@ S += TBL([['Version', 'Neu'],
           ['0.6.3', 'Ausschiffung: Rechnung ab frühestem Von-Bord-Gehen (06:00) bei eigener Abreise; Bord-ABC liefert die Infos des eigenen Schiffs'],
           ['0.6.4', 'Währung: keine Annahme „CHF“ mehr, Betrag ohne Währung wird als solcher gezeigt'],
           ['0.7.0', 'Hinweise quittieren; Ansichtsmodus während der Reise'],
-          ['0.8.0', 'Gate, Check-in-Schalter, Kofferband, Gleis; Push bei Änderung; Kabine gut sichtbar']], [3.2, 12.8])
+          ['0.8.0', 'Gate, Check-in-Schalter, Kofferband, Gleis; Push bei Änderung; Kabine gut sichtbar'],
+          ['0.8.1', 'Update des Servers über das Skript bordbuch-update.sh (nur Befehle update, status, logs)'],
+          ['0.9.0', 'Kostenauswertung: Reiter Kosten mit Summen je Währung und Art, bezahlt und offen, Fälligkeiten; Preis und Zahlungsstand an der Kreuzfahrt und an jedem Eintrag']], [3.2, 12.8])
 S += [CondPageBreak(6 * cm), Paragraph('<b>Geplant</b>', body)]
 S += TBL([['Geplant', 'Hinweis'],
           ['iOS-App (SwiftUI)', 'Widgets, Live-Aktivität, Erinnerungen nach Standort im Hintergrund; Bau auf dem Mac, API ist in docs/API.md beschrieben'],
           ['Automatisch übernehmen, wenn die KI sicher ist', 'Heute immer mit Prüfung'],
           ['Dokument an mehrere Einträge hängen', 'Heute am ersten Eintrag'],
           ['Bordzeit gegenüber Ortszeit', 'Schiffe stellen die Uhr nicht immer um'],
-          ['Kostenauswertung', 'Summen je Reise, Währung und Art; vorgemerkt für die nächsten Tage'],
-          ['Packliste und Kostenübersicht pro Person', '—']], [8.0, 8.0])
+          ['Kosten pro Person', 'Umrechnung in eine Währung ist bewusst nicht vorgesehen'],
+          ['Packliste', '—']], [8.0, 8.0])
 
 doc.multiBuild(S)
 print('ok', OUT)
