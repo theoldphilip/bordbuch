@@ -19,7 +19,7 @@ const extractor: Extractor = {
     await new Promise((r) => setTimeout(r, 400));
     if (filename.startsWith('kreuzfahrt'))
       return { ...base, suggestedTripTitle: 'Mittelmeer mit MS Aurora, Mai 2027', documentKind: 'Kreuzfahrt-Buchung', summary: 'MS Aurora, 10. bis 13. Mai', items: [],
-        cruise: { shipName: 'MS Aurora', cruiseLine: 'Beispiel-Reederei', cabin: '8142', bookingRef: 'AUR-4711', notes: null, infos: [], days: [
+        cruise: { shipName: 'MS Aurora', cruiseLine: 'Beispiel-Reederei', cabin: '8142', bookingRef: 'AUR-4711', cost: 3480, currency: 'EUR', paymentStatus: 'deposit', paidAmount: 500, dueDate: '2027-03-01', notes: null, infos: [], days: [
           day({ date: '2027-05-10', kind: 'embarkation', portName: 'Civitavecchia', country: 'Italien', arrival: '12:00', allAboard: '17:30', departure: '18:00' }),
           day({ date: '2027-05-11', kind: 'port', portName: 'Neapel', country: 'Italien', arrival: '07:00', allAboard: '16:30', departure: '17:00' }),
           day({ date: '2027-05-12', kind: 'sea' }),
@@ -54,7 +54,17 @@ const extractor: Extractor = {
     ] };
   },
   async check() {},
-};
+  // Reisetag-Abfrage: feste Funde für Flüge (Gate/Schalter) und Züge (Gleis), nach kurzer Wartezeit.
+  async lookupPlace({ item }: any) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const src = { title: 'Abflüge (Testseite)', url: 'https://flughafen.example/abfluege' };
+    if (item.type === 'train') return { summary: 'Gleis gefunden.', searches: 1, queries: ['EC 15 Zürich Gleis'], findings: [{ key: 'platform', value: '7', source: { title: 'Fahrplan (Testseite)', url: 'https://bahn.example/ec15' }, note: 'kann sich ändern' }] };
+    return { summary: 'Gate und Schalter gefunden, Kofferband noch nicht bekannt.', searches: 2, queries: ['LX 1726 Zürich Abflug Gate'], findings: [
+      { key: 'gate', value: 'B12', source: src, note: 'Stand 07:42, kann sich ändern' },
+      { key: 'checkinDesk', value: '31–40', source: src, note: null },
+    ] };
+  },
+} as Extractor;
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bb-fake-'));
 const app = await buildApp({ dataDir, webDir: fileURLToPath(new URL('../../web/dist', import.meta.url)), defaultTz: 'Europe/Zurich', maxUploadMb: 25, anthropicApiKey: null, aiModel: 'fake' }, { extractor });
 const port = Number(process.env.PORT ?? 8091);

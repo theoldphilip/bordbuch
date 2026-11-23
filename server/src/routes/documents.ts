@@ -20,6 +20,7 @@ import { attachmentFromRow, itemFromRow, loadCruises, loadItems, loadTrip, touch
 import { cruiseCreateInput, cruiseDayInput, cruiseInput, infoList, itemInput, mergeInfos } from '../schemas.ts';
 import { HttpError, newId, nowIso } from '../util.ts';
 import { receiveUpload } from './attachments.ts';
+import { normalizePayment } from '../costs.ts';
 import { insertCruise, insertDay, updateCruise } from './cruises.ts';
 import { checkCruiseDay } from './items.ts';
 
@@ -149,7 +150,7 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
   }
 
   // ----- status & key check -----
-  app.get('/api/ai/status', async () => ({ enabled: !!extractor, model: extractor?.model ?? null, research: typeof extractor?.research === 'function', review: typeof extractor?.review === 'function' }));
+  app.get('/api/ai/status', async () => ({ enabled: !!extractor, model: extractor?.model ?? null, research: typeof extractor?.research === 'function', review: typeof extractor?.review === 'function', placeLookup: typeof extractor?.lookupPlace === 'function' }));
 
   app.post('/api/ai/check', async (req) => {
     requireAdmin(req);
@@ -346,12 +347,16 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
           bookingRef: (c.data.bookingRef as string | null) ?? existing.bookingRef,
           notes: existing.notes ?? (c.data.notes as string | null) ?? null,
           infos: mergeInfos(existing.infos, infoList.parse(c.data.infos ?? [])),
-          // A price from the document fills a gap; a price the user already entered stays. Payment state is never touched.
+          // Price and payment state from the document only fill gaps; what the user already entered stays.
           cost: existing.cost ?? (c.data.cost as number | null) ?? null,
           currency: existing.cost != null ? existing.currency : ((c.data.currency as string | null) ?? existing.currency),
-          paymentStatus: existing.paymentStatus,
-          paidAmount: existing.paidAmount,
-          dueDate: existing.dueDate,
+          ...(existing.paymentStatus
+            ? { paymentStatus: existing.paymentStatus, paidAmount: existing.paidAmount, dueDate: existing.dueDate }
+            : {
+                paymentStatus: (c.data.paymentStatus as string | null) ?? null,
+                paidAmount: (c.data.paidAmount as number | null) ?? null,
+                dueDate: (c.data.dueDate as string | null) ?? existing.dueDate,
+              }),
         });
         updateCruise(db, existing.id, patch);
         const days = z.array(cruiseDayInput).max(200).parse(c.data.days ?? []);
@@ -378,17 +383,18 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
       for (const entry of input.items) {
         if (entry.action === 'skip') continue;
         if (entry.action === 'create') {
-          const data = itemInput.parse(entry.data);
+          const data = normalizePayment(itemInput.parse(entry.data));
           checkCruiseDay(db, tripId, data.cruiseDayId);
           const id = newId();
           const now = nowIso();
           db.prepare(
             `INSERT INTO items (id, trip_id, type, title, start_local, start_tz, end_local, end_tz, location, confirmation, provider,
-                                cost, currency, notes, details, cruise_day_id, infos, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                cost, currency, payment_status, paid_amount, due_date, notes, details, cruise_day_id, infos, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           ).run(
             id, tripId, data.type, data.title, data.startLocal, data.startTz, data.endLocal, data.endTz, data.location,
-            data.confirmation, data.provider, data.cost, data.currency, data.notes, JSON.stringify(data.details), data.cruiseDayId, JSON.stringify(data.infos), now, now,
+            data.confirmation, data.provider, data.cost, data.currency, data.paymentStatus, data.paidAmount, data.dueDate,
+            data.notes, JSON.stringify(data.details), data.cruiseDayId, JSON.stringify(data.infos), now, now,
           );
           created.push(id);
         } else {
@@ -399,14 +405,16 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
             type: existing.type, title: existing.title, startLocal: '', startTz: null, endLocal: null, endTz: null, location: null,
             confirmation: null, provider: null, cost: null, currency: null, notes: null, cruiseDayId: null, details: {}, infos: [],
           };
-          const merged = itemInput.parse(mergeItem(existing, { ...base, ...(entry.data as Partial<ItemData>) }));
+          const merged = normalizePayment(itemInput.parse(mergeItem(existing, { ...base, ...(entry.data as Partial<ItemData>) })));
           checkCruiseDay(db, tripId, merged.cruiseDayId);
           db.prepare(
             `UPDATE items SET title = ?, start_local = ?, start_tz = ?, end_local = ?, end_tz = ?, location = ?, confirmation = ?,
-                    provider = ?, cost = ?, currency = ?, notes = ?, details = ?, cruise_day_id = ?, infos = ?, updated_at = ? WHERE id = ?`,
+                    provider = ?, cost = ?, currency = ?, payment_status = ?, paid_amount = ?, due_date = ?, notes = ?, details = ?,
+                    cruise_day_id = ?, infos = ?, updated_at = ? WHERE id = ?`,
           ).run(
             merged.title, merged.startLocal, merged.startTz, merged.endLocal, merged.endTz, merged.location, merged.confirmation,
-            merged.provider, merged.cost, merged.currency, merged.notes, JSON.stringify(merged.details), merged.cruiseDayId, JSON.stringify(merged.infos), nowIso(), existing.id,
+            merged.provider, merged.cost, merged.currency, merged.paymentStatus, merged.paidAmount, merged.dueDate,
+            merged.notes, JSON.stringify(merged.details), merged.cruiseDayId, JSON.stringify(merged.infos), nowIso(), existing.id,
           );
           updated.push(existing.id);
         }

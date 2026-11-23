@@ -24,7 +24,11 @@ Self-hosted als ein Docker-Container (z. B. auf einer Synology), erreichbar per 
   Dokument daran. Du bestätigst vorher jeden Vorschlag. Siehe [KI-Einrichtung](#dokumente-automatisch-zuordnen-ki).
 - **Dokumente** (Bordkarten, Tickets, Vouchers) pro Reise oder pro Eintrag.
 - **Kosten:** Reiter mit Summen je Währung (nie umgerechnet) und Art, bezahlt und offen, fälligen Restzahlungen und einer Liste
-  gebuchter Leistungen ohne Preis. Preis, Zahlungsstand (offen, angezahlt, bezahlt) und Fälligkeit gibt es an jedem Eintrag und an der Kreuzfahrt.
+  gebuchter Leistungen ohne Preis. Preis, Zahlungsstand (offen, angezahlt, bezahlt) und Fälligkeit gibt es an jedem Eintrag und an der Kreuzfahrt;
+  die KI liest sie aus der Buchung, den Zahlungsstand nur, wenn er ausdrücklich dasteht.
+- **Reisetag-Abfrage:** Im geöffneten Flug, Zug oder Mietwagen sucht „Am Reisetag … abfragen“ gezielt auf Live-Seiten von Flughafen, Airline oder
+  Bahn nach Terminal, Schalter, Gate, Kofferband oder Gleis für genau diesen Termin. Jeder Fund mit Quelle, gespeichert wird erst mit „Übernehmen“,
+  auch im Ansichtsmodus.
 - **Teilen** mit Familienmitgliedern (Besitzer / Bearbeiten / Nur ansehen).
 - **PWA:** Lässt sich auf den iPhone-Homescreen legen. Zuletzt geladene Reisen sind auch offline lesbar.
 

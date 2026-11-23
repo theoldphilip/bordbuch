@@ -217,7 +217,7 @@ S += [P('Jeder Tag der Route ist eine Einschiffung, ein Hafentag, ein Seetag ode
         'die Angabe Tenderhafen und die Zeitzone des Hafens. Beim Anlegen genügt Start- und Enddatum, die Tage dazwischen entstehen als Seetage.')]
 S += [P('<b>Jetzt-Markierung:</b> Während der Reise sind vergangene Einträge im Ablauf ausgegraut, und auf der Linie links zeigt eine rosa Markierung „Jetzt“ mit Uhrzeit, wo ihr gerade seid. Sie wandert jede Minute weiter. Vor und nach der Reise gibt es keine Markierung.')]
 S += [P('<b>Ansichtsmodus:</b> Sobald der erste Punkt der Reise begonnen hat, sind für Bearbeiter alle Änderungen gesperrt, damit nichts aus Versehen verstellt wird (Schloss am Knopf „Bearbeiten“ und am „+“). Einträge und Hafentage lassen sich weiter öffnen, mit allen Nummern und Anrufen-Knopf. Wer etwas ändern will, tippt auf „Verlassen“ oder „Ändern …“, bekommt eine Warnung und verlässt den Ansichtsmodus bewusst. Er gilt bis zum Schließen der App, danach ist wieder alles geschützt. <b>Prüfen</b> und <b>Quittieren</b> funktionieren immer.')]
-S += [P('<b>Gate, Schalter, Kofferband, Gleis:</b> Beim Flug gibt es die Felder Terminal, <b>Check-in-Schalter</b>, <b>Gate</b> und <b>Kofferband</b> (bei Ankunft), beim Zug das <b>Gleis</b>, beim Mietwagen den <b>Schalter</b>. Was bekannt ist, steht fett am Eintrag im Ablauf, zum Beispiel „Terminal 1 · Schalter 31–40 · Gate A12 · Kofferband 4“. Das Gate ist oft erst kurz vorher bekannt, dann trägst du es einfach nach. Die KI liest diese Angaben nur, wenn sie im Dokument stehen. <b>Kabine:</b> Die Kabinennummer steht im Ablauf direkt unter dem Titel der Kreuzfahrt und im Reiter „Kreuzfahrt“.')]
+S += [P('<b>Gate, Schalter, Kofferband, Gleis:</b> Beim Flug gibt es die Felder Terminal, <b>Check-in-Schalter</b>, <b>Gate</b> und <b>Kofferband</b> (bei Ankunft), beim Zug das <b>Gleis</b>, beim Mietwagen den <b>Schalter</b>. Was bekannt ist, steht fett am Eintrag im Ablauf, zum Beispiel „Terminal 1 · Schalter 31–40 · Gate A12 · Kofferband 4“. Das Gate ist oft erst kurz vorher bekannt, dann trägst du es einfach nach. Die KI liest diese Angaben nur, wenn sie im Dokument stehen. <b>Am Reisetag abfragen:</b> Öffnest du einen Flug, einen Zug oder einen Mietwagen, steht oben der Kasten „Am Reisetag“. Ein Tipp auf <i>Terminal, Schalter, Gate, Kofferband abfragen</i> (beim Zug <i>Gleis abfragen</i>) lässt die KI gezielt auf Live-Seiten von Flughafen, Airline oder Bahn nach genau diesem Termin suchen, nicht allgemein im Internet. Jeder Fund steht mit Quelle und dem bisher eingetragenen Wert da; was du ankreuzt, speichert <b>Übernehmen</b>, auch im Ansichtsmodus, und die anderen bekommen die Push-Nachricht. Findet sie nichts, ist der Wert meist noch nicht veröffentlicht: Anzeigetafel oder App der Airline helfen dann. <b>Kabine:</b> Die Kabinennummer steht im Ablauf direkt unter dem Titel der Kreuzfahrt und im Reiter „Kreuzfahrt“.')]
 S += H2('Zusatzinfos an jedem Reisepunkt')
 S += [P('Einträge, Hafentage und die Kreuzfahrt haben eine Liste mit Zusatzinfos: <b>Telefon, Notruf, E-Mail, Link, Hinweis</b>. Nummern haben einen Anrufen-Knopf. '
         'Im Ablauf zeigt ein Symbol (☎ oder SOS) am Eintrag, dass Infos vorhanden sind.')]
@@ -244,7 +244,7 @@ S += [P('Alles lässt sich jederzeit von Hand anlegen, ändern und löschen: Ein
         'löschst du alle Einträge dieses Abschnitts auf einmal (mit Rückfrage; mehrtägige Einträge wie ein Parkplatz verschwinden auch im anderen Abschnitt).')]
 S += H2('Kosten und Zahlung')
 S += [P('Jeder Eintrag und die Kreuzfahrt haben <b>Kosten</b>, <b>Währung</b> und einen <b>Zahlungsstand</b>: <i>keine Angabe, offen, angezahlt</i> (mit dem bereits gezahlten Betrag) oder <i>bezahlt</i>. Freiwillig trägst du <b>Fällig am</b> ein, bei einer Anzahlung das Datum der Restzahlung. Die Kreuzfahrt-Kosten sind der Gesamtpreis der Buchung.')]
-S += B(['Die KI liest den Gesamtpreis der Kreuzfahrt aus der Buchungsbestätigung. Im Prüfdialog kannst du ihn korrigieren, bevor du übernimmst. Einen Preis, den du selbst eingetragen hast, überschreibt eine spätere Analyse nie.',
+S += B(['Die KI liest Preise und den Gesamtpreis der Kreuzfahrt aus der Buchungsbestätigung, dazu den Zahlungsstand (Anzahlung, Restzahlung bis …), aber nur, wenn er ausdrücklich im Dokument steht. Im Prüfdialog steht dann zum Beispiel „Zahlung laut Dokument: angezahlt EUR 500.00, Rest fällig 1. März 2027“. Einen Preis oder Zahlungsstand, den du selbst eingetragen hast, überschreibt eine spätere Analyse nie.',
         'Eine Währung wird nie angenommen. Ohne Währung steht der Betrag nur als Zahl da.',
         'Der Reiter <b>Kosten</b> rechnet alles auf dem Server. Je Währung gibt es eine Karte mit <b>Gesamt, bezahlt und offen</b>; Währungen werden nie zusammengezählt oder umgerechnet.',
         'Aufgeklappt siehst du die Summen je Art (Kreuzfahrt, Flug, Hotel …) mit den einzelnen Einträgen. Ein Tippen auf einen Eintrag öffnet ihn.',
@@ -402,6 +402,7 @@ S += TBL([['Symptom', 'Wahrscheinliche Ursache', 'Lösung'],
           ['Zu lange Namen verbreitern die Seite', 'Ältere Version vor 0.3.1', 'Auf 0.3.1 oder neuer aktualisieren'],
           ['Alles gesperrt, „Bearbeiten“ mit Schloss', 'Ansichtsmodus: die Reise läuft', 'Auf „Verlassen“ tippen und die Warnung bestätigen'],
           ['Betrag ohne Währung', 'Im Dokument stand keine Währung', 'Beim Eintrag die Währung (z. B. EUR) setzen'],
+          ['Reisetag-Abfrage findet nichts', 'Gate oder Gleis noch nicht veröffentlicht, Live-Seite nicht lesbar', 'Später erneut abfragen; Anzeigetafel oder App der Airline bzw. Bahn'],
           ['Passwort vergessen', '—', 'Admin: Einstellungen → Familie → Passwort']], [4.4, 5.0, 6.6])
 
 # ---------------- 9 Stand ----------------
@@ -421,7 +422,8 @@ S += TBL([['Version', 'Neu'],
           ['0.7.0', 'Hinweise quittieren; Ansichtsmodus während der Reise'],
           ['0.8.0', 'Gate, Check-in-Schalter, Kofferband, Gleis; Push bei Änderung; Kabine gut sichtbar'],
           ['0.8.1', 'Update des Servers über das Skript bordbuch-update.sh (nur Befehle update, status, logs)'],
-          ['0.9.0', 'Kostenauswertung: Reiter Kosten mit Summen je Währung und Art, bezahlt und offen, Fälligkeiten; Preis und Zahlungsstand an der Kreuzfahrt und an jedem Eintrag']], [3.2, 12.8])
+          ['0.9.0', 'Kostenauswertung: Reiter Kosten mit Summen je Währung und Art, bezahlt und offen, Fälligkeiten; Preis und Zahlungsstand an der Kreuzfahrt und an jedem Eintrag'],
+          ['0.10.0', 'KI liest Zahlungsstand (Anzahlung, Fälligkeit) aus Dokumenten; Reisetag-Abfrage für Terminal, Schalter, Gate, Kofferband und Gleis']], [3.2, 12.8])
 S += [CondPageBreak(6 * cm), Paragraph('<b>Geplant</b>', body)]
 S += TBL([['Geplant', 'Hinweis'],
           ['iOS-App (SwiftUI)', 'Widgets, Live-Aktivität, Erinnerungen nach Standort im Hintergrund; Bau auf dem Mac, API ist in docs/API.md beschrieben'],

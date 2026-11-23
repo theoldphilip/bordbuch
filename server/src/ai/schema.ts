@@ -4,9 +4,10 @@
  * nullable, and "details" is a list of key/value pairs.
  */
 import { z } from 'zod';
-import { CRUISE_DAY_KINDS, INFO_KINDS, ITEM_TYPES } from '../schemas.ts';
+import { CRUISE_DAY_KINDS, INFO_KINDS, ITEM_TYPES, PAYMENT_STATUSES } from '../schemas.ts';
 
 const nullableText = z.string().nullable();
+const aiPaymentStatus = z.enum(PAYMENT_STATUSES).nullable();
 
 export const aiInfoSchema = z.object({
   label: z.string(),
@@ -27,6 +28,9 @@ export const aiItemSchema = z.object({
   provider: nullableText,
   cost: z.number().nullable(),
   currency: nullableText,
+  paymentStatus: aiPaymentStatus,
+  paidAmount: z.number().nullable(),
+  dueDate: nullableText,
   notes: nullableText,
   cruiseDayId: nullableText,
   details: z.array(z.object({ key: z.string(), value: z.string() })),
@@ -55,6 +59,9 @@ export const aiCruiseSchema = z.object({
   bookingRef: nullableText,
   cost: z.number().nullable(),
   currency: nullableText,
+  paymentStatus: aiPaymentStatus,
+  paidAmount: z.number().nullable(),
+  dueDate: nullableText,
   notes: nullableText,
   infos: z.array(aiInfoSchema),
   days: z.array(aiCruiseDaySchema),

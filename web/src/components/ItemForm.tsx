@@ -5,6 +5,7 @@ import type { Cruise, Item, ItemType, TripKind } from '../types.ts';
 import { ErrorBox, Field, Modal, TimezoneInput } from './ui.tsx';
 import { InfoEditor } from './InfoEditor.tsx';
 import { lastCurrency, useMoneyFields } from './MoneyFields.tsx';
+import { LOOKUP_LABEL, PlaceLookupPanel } from './PlaceLookupPanel.tsx';
 
 type DetailField = { key: string; label: string; placeholder?: string };
 const DETAIL_FIELDS: Partial<Record<ItemType, DetailField[]>> = {
@@ -57,11 +58,13 @@ interface Props {
   onUnlock?: () => void;
   /** When set, the form hands the payload back instead of saving it (used to edit AI proposals). */
   onSubmit?: (payload: Record<string, unknown>) => void | Promise<void>;
+  /** Offer the day-of-travel lookup of gate, desk, belt or platform (editors with AI). Works in view mode too. */
+  placeLookup?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function ItemForm({ tripId, cruises, item, initialType, initialDate, initialCruiseDayId, tripKind, readOnly, onUnlock, onSubmit, onClose, onSaved }: Props) {
+export function ItemForm({ tripId, cruises, item, initialType, initialDate, initialCruiseDayId, tripKind, readOnly, onUnlock, onSubmit, placeLookup, onClose, onSaved }: Props) {
   const cruiseTrip = tripKind === undefined || tripKind === 'cruise' || cruises.length > 0;
   const [type, setType] = useState<ItemType>(item?.type ?? initialType ?? 'flight');
   const [title, setTitle] = useState(item?.title ?? '');
@@ -181,6 +184,7 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
         )
       }
     >
+      {item && placeLookup && !onSubmit && LOOKUP_LABEL[item.type] && <PlaceLookupPanel item={item} onApplied={onSaved} />}
       <fieldset disabled={readOnly} className="form">
         {!item && (
           <div className="type-picker wide" role="radiogroup" aria-label="Art">

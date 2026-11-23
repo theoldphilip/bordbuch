@@ -4,6 +4,7 @@ import { classifyFile, imageMediaType, MAX_IMAGE_BYTES, MAX_PDF_BYTES, MAX_TEXT_
 import { reviewSchema } from './review.ts';
 import { aiResultSchema, type AiResult } from './schema.ts';
 import { analysisOutline, cleanResearch, researchSchema } from './research.ts';
+import { lookupPlace } from './placeLookup.ts';
 import { ExtractionError, type ExtractInput, type Extractor, type InputFile, type ResearchSource } from './types.ts';
 
 export const SYSTEM_PROMPT = `Du liest Reiseunterlagen (Buchungsbestätigungen, E-Tickets, Bordkarten, Hotel- und Parkplatzbuchungen, Mietwagen, Transfer-Vouchers, Kreuzfahrt-Reisepläne, Rundreise-Programme, Rechnungen, E-Mails) für einen Reiseplaner und gibst die Daten strukturiert zurück. Die Reise kann eine Kreuzfahrt, ein Städtetrip/Urlaub oder eine Rundreise mit mehreren Orten sein.
@@ -17,6 +18,7 @@ Allgemeine Regeln:
 - Zeitzonen sind IANA-Namen (z. B. Europe/Zurich). Leite sie aus dem Ort ab (bei Flügen für Abflug und Ankunft getrennt: startTz am Abflughafen, endTz am Zielflughafen). Bist du unsicher, setze null.
 - confirmation ist die Buchungs-/Bestätigungsnummer (bei Flügen die Buchungsreferenz/PNR), provider der Anbieter (Airline, Hotel, Reederei, Parkhaus, Transferfirma).
 - cost nur, wenn für genau diesen Eintrag ein Preis dasteht, sonst null. Teile Gesamtpreise nicht auf. currency als 3-stelliger Code, aus dem Dokument abgeleitet (€ oder "Euro" = EUR, £ = GBP, $ = USD, "Fr." oder "CHF" = CHF). Steht keine Währung im Dokument, ist currency null. Rate sie nicht aus dem Land.
+- Zahlungsstand (bei Einträgen und bei der Kreuzfahrt), nur wenn cost gesetzt ist und das Dokument es ausdrücklich sagt, sonst null: paymentStatus "paid", wenn der Betrag vollständig bezahlt ist ("bezahlt", "Zahlung erhalten", "beglichen", "Betrag abgebucht"); "deposit", wenn eine Anzahlung geleistet wurde, dann paidAmount = die bereits gezahlte Summe (nicht der Restbetrag); "open", wenn noch nichts bezahlt ist ("zahlbar bis", "offener Betrag"). dueDate (JJJJ-MM-TT) ist das Datum, bis zu dem der offene Betrag oder die Restzahlung fällig ist. Eine Rechnung oder Buchungsbestätigung allein bedeutet nicht "bezahlt". Rechne keine Beträge aus und rate kein Datum.
 - notes: nützliche Hinweise aus dem Dokument (Gepäck, Check-in-Zeiten, Treffpunkt, Stornobedingungen, Passagiernamen), kurz.
 - confidence: high = alle wichtigen Angaben stehen eindeutig im Dokument, medium = etwas musste gefolgert werden, low = unsicher oder unleserlich.
 - Ist das Dokument keine Reiseunterlage oder enthält es keine verwertbaren Reisedaten, gib items als leere Liste zurück und erkläre es in summary.
@@ -114,7 +116,7 @@ export const webFetchTool = (model: string) => ({
 });
 
 /** URLs and titles of every search result in the response, so suggestions can only cite pages that really came back. */
-function collectSources(content: unknown[], into: Map<string, ResearchSource>, trace: { queries: string[]; fetched: string[] }): void {
+export function collectSources(content: unknown[], into: Map<string, ResearchSource>, trace: { queries: string[]; fetched: string[] }): void {
   const add = (url: unknown, title: unknown) => {
     if (typeof url === 'string' && /^https?:\/\//.test(url) && !into.has(url)) into.set(url, { title: String(title ?? url).slice(0, 200), url });
   };
@@ -278,6 +280,10 @@ export function createAnthropicExtractor(opts: { apiKey: string; model: string; 
       const parsed = response.parsed_output;
       if (response.stop_reason === 'refusal' || !parsed) throw new ExtractionError('Die Recherche-Ergebnisse konnten nicht gelesen werden. Bitte erneut versuchen.');
       return cleanResearch(parsed, [...found.values()], analysis, searches, { ...trace, notes });
+    },
+
+    lookupPlace(input) {
+      return lookupPlace({ client, model, useFallback, webSearchTool, webFetchTool, collectSources, refusal: (m) => new ExtractionError(m) }, input);
     },
 
     async review({ outline, today, tripTitle, kind }) {

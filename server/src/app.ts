@@ -19,6 +19,7 @@ import { registerReviewRoutes } from './routes/review.ts';
 import { registerPushRoutes } from './routes/push.ts';
 import { BUILT_AT, VERSION } from './version.ts';
 import { registerCertificateRoutes } from './routes/certificate.ts';
+import { registerPlaceLookupRoutes } from './routes/placeLookup.ts';
 import { createWebPushSender, loadVapid, type PushSender } from './push.ts';
 import { runReminderTick } from './reminderRunner.ts';
 import { createAnthropicExtractor } from './ai/anthropic.ts';
@@ -97,6 +98,7 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
   registerReviewRoutes(app, ctx);
   registerPushRoutes(app, ctx);
   registerCertificateRoutes(app, ctx);
+  registerPlaceLookupRoutes(app, ctx);
 
   // Web app (PWA) with SPA fallback.
   const webDir = config.webDir;

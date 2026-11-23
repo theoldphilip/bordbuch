@@ -272,6 +272,18 @@ Diese Angaben stehen in `details` des Eintrags: Flug `terminal`, `checkinDesk` (
 
 Ändert ein Bearbeiter eine dieser Angaben über `PATCH /items/:id` und liegt der Termin höchstens 36 Stunden voraus (oder weniger als 8 Stunden zurück), bekommen die **anderen** Mitglieder der Reise eine Push-Nachricht („Gate B12 (vorher B14)“). Pro Person abschaltbar mit `notifications.infoChange` in `/me/settings` (Standard an).
 
+**Reisetag-Abfrage** (KI mit Websuche, optional; `GET /ai/status` meldet `placeLookup: true`):
+
+| Methode | Pfad | Rolle | Beschreibung |
+|---|---|---|---|
+| POST | `/items/:id/place-lookup` | editor | Startet die Suche für diesen Flug, Zug oder Mietwagen. 202 mit `{lookup}` (Status `pending`). 400 bei anderen Eintragsarten, 409 ohne KI oder wenn schon eine Suche läuft |
+| GET | `/items/:id/place-lookup` | viewer | `{lookup: null \| {status: pending\|done\|failed, startedAt, finishedAt?, error?, summary?, searches?, queries?, findings[]}}` |
+
+`findings[]`: `{key, label, value, current, source: {title, url}, note}`. `key` ist eines der Felder oben, `current` der aktuell eingetragene Wert.
+Die Suche sieht nur Flug- bzw. Zugnummer, Airline, Von/Nach, Datum und die bisherigen Ortsangaben, keine Buchungsnummer und keinen Sitzplatz. Sie
+nimmt nur Werte von Seiten für genau diesen Termin, jeder Fund hat eine Quelle aus der Suche. Gespeichert wird nichts: Der Client übernimmt
+die gewählten Werte mit `PATCH /items/:id` (`details`), das löst wie oben den Push an die anderen aus. Das Ergebnis liegt nur im Speicher des Servers.
+
 ### Kosten
 
 Preis und Zahlung gibt es an Einträgen und an der Kreuzfahrt (Gesamtpreis der Buchung), mit denselben Feldern:
@@ -284,8 +296,9 @@ Preis und Zahlung gibt es an Einträgen und an der Kreuzfahrt (Gesamtpreis der B
 | `paidAmount` | bereits angezahlt; nur bei `deposit`, sonst speichert der Server `null` |
 | `dueDate` | `JJJJ-MM-TT`, bis wann der (Rest-)Betrag zu zahlen ist, oder `null` |
 
-Die KI liest den Preis einer Kreuzfahrt aus der Buchungsbestätigung (`cruise.cost`, `cruise.currency` im Vorschlag). Beim Aktualisieren einer
-vorhandenen Kreuzfahrt füllt sie nur einen fehlenden Preis; einen eingetragenen Preis und den Zahlungsstand ändert sie nie.
+Die KI liest Preis und Zahlungsstand aus Buchungsbestätigungen (`cost`, `currency`, `paymentStatus`, `paidAmount`, `dueDate` an Einträgen und an
+`cruise` im Vorschlag), den Zahlungsstand nur, wenn das Dokument ihn ausdrücklich nennt. Beim Aktualisieren füllt ein Dokument nur Lücken:
+einen eingetragenen Preis und einen eingetragenen Zahlungsstand ändert es nie.
 
 `GET /trips/:id/costs` liefert die Übersicht, auf dem Server gerechnet:
 ```json

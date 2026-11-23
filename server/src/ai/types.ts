@@ -1,6 +1,7 @@
-import type { CruiseDayKind, Info, ItemType } from '../schemas.ts';
+import type { CruiseDayKind, Info, ItemType, PaymentStatus } from '../schemas.ts';
 import type { AiResult } from './schema.ts';
 import type { ReviewInput, ReviewModelOutput } from './review.ts';
+import type { PlaceLookupInput, PlaceLookupOutput } from './placeLookup.ts';
 
 export class ExtractionError extends Error {}
 
@@ -119,6 +120,8 @@ export interface Extractor {
   research?(input: ResearchInput): Promise<ResearchOutput>;
   /** Optional review of the whole trip for gaps and contradictions (no web, no changes). */
   review?(input: ReviewInput): Promise<ReviewModelOutput>;
+  /** Optional day-of-travel lookup of terminal, desk, gate, belt or platform for one entry (web, nothing is saved). */
+  lookupPlace?(input: PlaceLookupInput): Promise<PlaceLookupOutput>;
   /** Cheap request to verify key, model and network. Throws ExtractionError with a readable message. */
   check(): Promise<void>;
 }
@@ -136,6 +139,10 @@ export interface ItemData {
   provider: string | null;
   cost: number | null;
   currency: string | null;
+  /** Payment state from the document. Missing in analyses stored before 0.10.0. */
+  paymentStatus?: PaymentStatus | null;
+  paidAmount?: number | null;
+  dueDate?: string | null;
   notes: string | null;
   cruiseDayId: string | null;
   details: Record<string, string>;
@@ -164,6 +171,9 @@ export interface CruiseData {
   /** Total price of the cruise. Missing in analyses stored before 0.9.0. */
   cost?: number | null;
   currency?: string | null;
+  paymentStatus?: PaymentStatus | null;
+  paidAmount?: number | null;
+  dueDate?: string | null;
   notes: string | null;
   infos: Info[];
   days: CruiseDayData[];

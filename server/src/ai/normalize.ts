@@ -1,4 +1,4 @@
-import type { Info } from '../schemas.ts';
+import { PAYMENT_STATUSES, type Info, type PaymentStatus } from '../schemas.ts';
 import { isValidTimeZone } from '../util.ts';
 import type { AiResult } from './schema.ts';
 import type { CruiseDayData, ExtractionContext, ItemData, NormalizedExtraction } from './types.ts';
@@ -30,8 +30,24 @@ const infos = (list: AiResult['items'][number]['infos']): Info[] =>
     .filter((i) => i.label && i.value)
     .slice(0, 30);
 
-const money = (v: number | null): number | null => (v !== null && Number.isFinite(v) ? v : null);
-const currency = (v: string | null): string | null => clean(v)?.toUpperCase().slice(0, 3) ?? null;
+const money = (v: number | null | undefined): number | null => (v !== null && v !== undefined && Number.isFinite(v) ? v : null);
+const currency = (v: string | null | undefined): string | null => clean(v)?.toUpperCase().slice(0, 3) ?? null;
+
+/**
+ * Payment state read from the document. Only with a price; a deposit amount only with state 'deposit' and never
+ * above the price; a due date only as a real date. Missing fields (older model output) count as not stated.
+ */
+function payment(p: { cost?: number | null; paymentStatus?: string | null; paidAmount?: number | null; dueDate?: string | null }) {
+  const cost = money(p.cost);
+  const status = cost !== null && (PAYMENT_STATUSES as readonly string[]).includes(p.paymentStatus ?? '') ? (p.paymentStatus as PaymentStatus) : null;
+  const paid = status === 'deposit' ? money(p.paidAmount) : null;
+  const due = normalizeLocal(p.dueDate)?.slice(0, 10) ?? null;
+  return {
+    paymentStatus: status,
+    paidAmount: paid !== null && paid >= 0 && cost !== null && paid <= cost ? paid : null,
+    dueDate: cost !== null && status !== 'paid' && due && /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : null,
+  };
+}
 
 const tz = (v: string | null): string | null => {
   const t = clean(v);
@@ -53,6 +69,7 @@ export function normalizeExtraction(ai: AiResult, ctx: ExtractionContext, model:
     provider: clean(i.provider),
     cost: money(i.cost),
     currency: currency(i.currency),
+    ...payment(i),
     notes: clean(i.notes),
     cruiseDayId: i.cruiseDayId && dayIds.has(i.cruiseDayId) ? i.cruiseDayId : null,
     infos: infos(i.infos),
@@ -68,6 +85,7 @@ export function normalizeExtraction(ai: AiResult, ctx: ExtractionContext, model:
         bookingRef: clean(ai.cruise.bookingRef),
         cost: money(ai.cruise.cost),
         currency: currency(ai.cruise.currency),
+        ...payment(ai.cruise),
         notes: clean(ai.cruise.notes),
         infos: infos(ai.cruise.infos),
         days: ai.cruise.days.map(

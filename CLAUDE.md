@@ -1,6 +1,6 @@
 # CLAUDE.md – Übergabe und Arbeitsbriefing für Reisebuch (Repository „bordbuch“)
 
-Stand: 23.11.2026, App-Version 0.9.0, Datenbank-Stand 9, 130 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
+Stand: 23.11.2026, App-Version 0.10.0, Datenbank-Stand 9, 141 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
 einer früheren Claude-Code-Sitzung (Cloud, Web). Wer sie liest, setzt die Arbeit dort fort, wo sie aufgehört hat. Lies sie ganz,
 bevor du etwas änderst, und prüfe Aussagen über Code im Repo nach, statt dich auf diese Datei zu verlassen (Code gewinnt).
 
@@ -124,12 +124,18 @@ ohne API.md und beide Clients mitzuziehen. `GET /api/version` und `/api/health` 
 - **Jetzt-Markierung/Ausgrauen** (`Trip.tsx`, `useNow`): Berechnung im Browser mit Zeitzonen der Einträge.
 - **Gate/Schalter/Kofferband/Gleis:** in `details` (`terminal`, `checkinDesk`, `gate`, `baggageBelt`, `platform`, `desk`); fett im Ablauf; Abflug-
   Erinnerung nennt sie; **Push an die anderen Mitglieder** bei Änderung (36 h voraus bis 8 h zurück), je Person abschaltbar (`infoChange`).
+- **Reisetag-Abfrage** (`server/src/ai/placeLookup.ts`, `routes/placeLookup.ts`, Web `PlaceLookupPanel.tsx` im Eintragsdialog): sucht für EINEN Flug,
+  Zug oder Mietwagen gezielt auf Live-Seiten (Flughafen, Airline, Bahn) nach den Ortsfeldern, wenige Suchen (web_search max 5, web_fetch max 3),
+  Funde nur mit Quelle aus der Suche, kein Durchforsten allgemeiner Seiten. An die KI gehen nur Flug-/Zugnummer, Airline, Von/Nach, Datum und
+  bisherige Ortsfelder. Ergebnis nur im Speicher; gespeichert wird per `PATCH` erst mit „Übernehmen“ (löst den Push aus). Für Bearbeiter, auch im
+  Ansichtsmodus (wie Quittieren). Philip will das ausdrücklich so: am Reisetag gezielt abfragen, nicht das Internet durchforsten.
 - **Währung:** keine Annahme „CHF“. Ohne Währung zeigt die App nur den Betrag; neue Einträge starten mit der zuletzt benutzten Währung.
   Die KI setzt `currency` nur aus dem Dokument (€ → EUR …), sonst null.
 - **Kosten** (`server/src/costs.ts`, Reiter „Kosten“ in `web/src/components/CostsTab.tsx`, `GET /api/trips/:id/costs`): Summen je Währung, nie
   umgerechnet, gruppiert nach Art; bezahlt/offen aus `paymentStatus` (`open`/`deposit`/`paid`/null = keine Angabe, zählt als offen),
   `paidAmount` (nur bei `deposit`, sonst speichert der Server null) und `dueDate`. Die Kreuzfahrt hat einen eigenen Gesamtpreis (`cruises.cost`),
-  den die KI aus der Buchung liest; beim Aktualisieren aus einem Dokument wird nur ein fehlender Preis gefüllt, Zahlungsstand nie. „Ohne Preis“
+  den die KI aus der Buchung liest, ebenso den Zahlungsstand (nur wenn ausdrücklich genannt, Anzahlung höchstens der Preis). Beim Aktualisieren
+  aus einem Dokument werden Preis und Zahlungsstand nur gefüllt, wenn noch nichts eingetragen ist (`mergeItem`, Kreuzfahrt in `documents.ts`). „Ohne Preis“
   listet nur gebuchte Leistungen (`PRICED_TYPES`). Preisfelder im Web gemeinsam in `MoneyFields.tsx` (Einträge und Kreuzfahrt).
 - **Zeitbedarf:** Faktor und Zusatzminuten je Benutzer; alle Mindestzeiten werden damit gerechnet, Meldungen zeigen **immer beide Zeiten**
   („30 min normal, 45 min persönlich“). Erinnerungen werden um den Zeitbedarf früher gesendet.
@@ -146,7 +152,8 @@ ohne API.md und beide Clients mitzuziehen. `GET /api/version` und `/api/health` 
 Einstellungen mit Unterseiten, Einladung per Teilen-Menü) · 0.2 Versionsanzeige · 0.3 Recherche, Layout-Fix lange Namen · 0.4 Reiseverlauf,
 Link, Diagnose · 0.5 Reise prüfen · 0.6 Reisearten, Stationen, Umbenennung Reisebuch, Jetzt-Markierung, Ausschiffung ab 06:00, Bord-ABC,
 Währung · 0.7 Quittieren, Ansichtsmodus · 0.8 Gate/Schalter/Kofferband/Gleis, Push bei Änderung, Kabine sichtbar · 0.8.1 Update auf der
-Synology durch Claude · 0.9 Kostenauswertung (Reiter „Kosten“, Preis an der Kreuzfahrt, Zahlungsstand und Fälligkeit). Details in der
+Synology durch Claude · 0.9 Kostenauswertung (Reiter „Kosten“, Preis an der Kreuzfahrt, Zahlungsstand und Fälligkeit) · 0.10 KI liest
+Zahlungsstand aus Dokumenten, Reisetag-Abfrage für Gate/Schalter/Kofferband/Gleis. Details in der
 Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
 
 ## 6. Offene Punkte (Reihenfolge nach Philips Wünschen)
@@ -194,12 +201,14 @@ aufmerksam nachfragen und Philips Rückmeldung (Screenshots) ernst nehmen:
 - Qualität von „Reise prüfen“, Bord-ABC-Filter, Gate/Schalter-Auslesen, Stationen aus Rundreise-Programmen, Währungserkennung,
 - echter Web-Push auf dem iPhone (inkl. Push bei Gate-Änderung), Zertifikatsvertrauen unter iOS,
 - Verhalten über mehrere Tage/Zeitzonen (Jetzt-Markierung, Ansichtsmodus),
-- ob die KI den Gesamtpreis einer Kreuzfahrt aus echten Buchungsbestätigungen richtig liest (nicht Teilpreise oder Anzahlung).
+- ob die KI den Gesamtpreis einer Kreuzfahrt und den Zahlungsstand (Anzahlung, Fälligkeit) aus echten Buchungsbestätigungen richtig liest,
+- ob die Reisetag-Abfrage echte Live-Seiten findet und lesen kann (Abflugtafeln sind oft per JavaScript geladen; dann findet sie nichts),
+  und wie lange sie mit echtem Modell dauert.
 Bekannte Eigenheiten: Der Ansichtsmodus ist nur Oberfläche; Notrufnummern aus KI-Wissen sind unzuverlässig und gekennzeichnet; Erinnerungen werden
 nach 5 Minuten Verspätung nicht mehr gesendet.
 
 ## 10. Erste Schritte in einer neuen Sitzung
 
 1. `git pull`, diese Datei und `README.md` lesen, `git log --oneline -10` ansehen.
-2. `npm run install:all`, `cd server && npm test` (sollte 130 grün sein), `cd web && npm run build`.
-3. Philip begrüßen, kurz den Stand nennen (0.9.0, Kostenauswertung fertig) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.
+2. `npm run install:all`, `cd server && npm test` (sollte 141 grün sein), `cd web && npm run build`.
+3. Philip begrüßen, kurz den Stand nennen (0.10.0, Kosten und Reisetag-Abfrage fertig) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.

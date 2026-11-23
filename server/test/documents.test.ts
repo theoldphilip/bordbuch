@@ -6,7 +6,8 @@ import type { AiResult } from '../src/ai/schema.ts';
 
 const item = (p: Partial<AiResult['items'][number]> = {}): AiResult['items'][number] => ({
   type: 'hotel', title: 'Hotel Artemide', startLocal: '2027-05-08T14:00', startTz: 'Europe/Rome', endLocal: '2027-05-10T10:00', endTz: null,
-  location: 'Via Nazionale 22, Rom', confirmation: 'AB12345', provider: 'Artemide', cost: 410, currency: 'EUR', notes: null, cruiseDayId: null,
+  location: 'Via Nazionale 22, Rom', confirmation: 'AB12345', provider: 'Artemide', cost: 410, currency: 'EUR',
+  paymentStatus: null, paidAmount: null, dueDate: null, notes: null, cruiseDayId: null,
   details: [{ key: 'room', value: '12' }], infos: [], confidence: 'high', ...p,
 });
 const result = (p: Partial<AiResult> = {}): AiResult => ({ suggestedTripTitle: 'Mittelmeer mit MS Aurora', documentKind: 'Hotelbuchung', summary: 'Hotel in Rom', items: [item()], cruise: null, warnings: [], ...p });
@@ -49,7 +50,7 @@ describe('document inbox', () => {
 
   test('status endpoint reports the model without exposing a key', async () => {
     const s = await ctx.call('GET', '/api/ai/status', admin);
-    assert.deepEqual(s.body, { enabled: true, model: 'fake-model', research: false, review: false });
+    assert.deepEqual(s.body, { enabled: true, model: 'fake-model', research: false, review: false, placeLookup: false });
     assert.equal((await ctx.call('POST', '/api/ai/check', viewer)).status, 403, 'admin only');
     assert.equal((await ctx.call('POST', '/api/ai/check', admin)).status, 200);
   });
@@ -107,7 +108,8 @@ describe('document inbox', () => {
         documentKind: 'Kreuzfahrt',
         items: [],
         cruise: {
-          shipName: 'MS Aurora', cruiseLine: 'Beispiel', cabin: '8142', bookingRef: 'AUR-4711', cost: 3480, currency: 'EUR', notes: null, infos: [],
+          shipName: 'MS Aurora', cruiseLine: 'Beispiel', cabin: '8142', bookingRef: 'AUR-4711', cost: 3480, currency: 'EUR',
+          paymentStatus: 'deposit', paidAmount: 500, dueDate: '2027-03-01', notes: null, infos: [],
           days: [
             { date: '2027-05-10', kind: 'embarkation', portName: 'Civitavecchia', country: 'Italien', timezone: 'Europe/Rome', arrival: '12:00', departure: '18:00', allAboard: '17:30', tender: false, notes: null, infos: [] },
             { date: '2027-05-11', kind: 'port', portName: 'Neapel', country: 'Italien', timezone: 'Europe/Rome', arrival: '07:00', departure: '17:00', allAboard: '16:30', tender: false, notes: null, infos: [] },
@@ -123,7 +125,11 @@ describe('document inbox', () => {
     assert.equal(applied.status, 200);
     const cruise = (await detail()).cruises[0];
     assert.equal(cruise.days.length, 2);
-    assert.deepEqual([cruise.cost, cruise.currency, cruise.paymentStatus], [3480, 'EUR', null], 'price from the document, payment state stays open to the user');
+    assert.deepEqual(
+      [cruise.cost, cruise.currency, cruise.paymentStatus, cruise.paidAmount, cruise.dueDate],
+      [3480, 'EUR', 'deposit', 500, '2027-03-01'],
+      'price, deposit and due date from the document',
+    );
 
     // The AI gets the new days as context and links the excursion to the Naples day.
     replies.set('ausflug.pdf', (c) => {
@@ -165,7 +171,7 @@ describe('document inbox', () => {
     assert.equal((await ctx.call('GET', `/api/trips/${t2}`, admin)).body.items[0].cruiseDayId, null);
 
     replies.set('dann-schiff.pdf', () =>
-      result({ items: [], cruise: { shipName: 'MS Nordlicht', cruiseLine: null, cabin: null, bookingRef: null, cost: null, currency: null, notes: null, infos: [], days: [
+      result({ items: [], cruise: { shipName: 'MS Nordlicht', cruiseLine: null, cabin: null, bookingRef: null, cost: null, currency: null, paymentStatus: null, paidAmount: null, dueDate: null, notes: null, infos: [], days: [
         { date: '2027-06-01', kind: 'embarkation', portName: 'Kiel', country: null, timezone: 'Europe/Berlin', arrival: null, departure: '17:00', allAboard: '16:30', tender: false, notes: null, infos: [] },
         { date: '2027-06-02', kind: 'port', portName: 'Oslo', country: 'Norwegen', timezone: 'Europe/Oslo', arrival: '08:00', departure: '18:00', allAboard: '17:30', tender: false, notes: null, infos: [] },
       ] } }),
@@ -347,7 +353,8 @@ describe('document inbox', () => {
     replies.set('bord-abc.pdf', () => result({
       documentKind: 'Bord-ABC', summary: 'Allgemeine Bordinformationen', items: [], warnings: [],
       cruise: {
-        shipName: 'Mein Schiff Relax', cruiseLine: null, cabin: null, bookingRef: null, cost: null, currency: null, notes: null,
+        shipName: 'Mein Schiff Relax', cruiseLine: null, cabin: null, bookingRef: null, cost: null, currency: null,
+        paymentStatus: null, paidAmount: null, dueDate: null, notes: null,
         infos: [info('Notfalltelefon Mein Schiff Relax', '+49 40 87 40 80 28')],
         days: [{ ...emptyDay, date: '2026-12-04', kind: 'embarkation', infos: [{ ...info('Verspätete Anreise (nur am Anreisetag)', '+49 40 600 01-7108'), kind: 'emergency' as const }] }],
       },
@@ -375,7 +382,7 @@ describe('without API key', () => {
     try {
       const token = (await c.call('POST', '/api/setup', undefined, { username: 'philip', displayName: 'Philip', password: 'geheim123' })).body.token;
       const tripId = (await c.call('POST', '/api/trips', token, { title: 'T' })).body.trip.id;
-      assert.deepEqual((await c.call('GET', '/api/ai/status', token)).body, { enabled: false, model: null, research: false, review: false });
+      assert.deepEqual((await c.call('GET', '/api/ai/status', token)).body, { enabled: false, model: null, research: false, review: false, placeLookup: false });
       const up = await upload(c.app, token, `/api/trips/${tripId}/documents`, 'a.pdf', 'application/pdf', 'x');
       assert.equal(up.status, 201);
       assert.equal(up.body.aiEnabled, false);

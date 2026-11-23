@@ -17,8 +17,8 @@ const ctx: ExtractionContext = {
 
 const aiItem = (p: Partial<AiResult['items'][number]> = {}): AiResult['items'][number] => ({
   type: 'hotel', title: 'Hotel Artemide', startLocal: '2027-05-08T14:00', startTz: 'Europe/Rome', endLocal: '2027-05-10T10:00', endTz: null,
-  location: null, confirmation: 'AB12345', provider: null, cost: null, currency: null, notes: null, cruiseDayId: null,
-  details: [], infos: [], confidence: 'high', ...p,
+  location: null, confirmation: 'AB12345', provider: null, cost: null, currency: null, paymentStatus: null, paidAmount: null, dueDate: null,
+  notes: null, cruiseDayId: null, details: [], infos: [], confidence: 'high', ...p,
 });
 const aiResult = (p: Partial<AiResult> = {}): AiResult => ({ suggestedTripTitle: null, documentKind: 'Hotelbuchung', summary: 'ok', items: [aiItem()], cruise: null, warnings: [], ...p });
 
@@ -50,6 +50,27 @@ describe('normalize', () => {
     assert.deepEqual(out.items[0]!.details, { room: '12' });
     assert.equal(out.items[1]!.cruiseDayId, 'day-1');
     assert.equal(out.items[1]!.currency, 'CHF');
+  });
+
+  test('payment state from the document only with a price, sane deposit and a real date', () => {
+    const out = normalizeExtraction(
+      aiResult({
+        items: [
+          aiItem({ cost: 3480, currency: 'EUR', paymentStatus: 'deposit', paidAmount: 500, dueDate: '2027-03-01' }),
+          aiItem({ cost: null, paymentStatus: 'paid' }),
+          aiItem({ cost: 100, paymentStatus: 'deposit', paidAmount: 250, dueDate: 'Anfang März' }),
+          aiItem({ cost: 100, paymentStatus: 'paid', paidAmount: 100, dueDate: '2027-03-01' }),
+          aiItem({ cost: 100, paymentStatus: 'open', paidAmount: 40, dueDate: '2027-04-01T00:00' }),
+        ],
+      }),
+      ctx, 'm',
+    );
+    const pay = out.items.map((i) => [i.paymentStatus, i.paidAmount, i.dueDate]);
+    assert.deepEqual(pay[0], ['deposit', 500, '2027-03-01']);
+    assert.deepEqual(pay[1], [null, null, null], 'no price, no payment state');
+    assert.deepEqual(pay[2], ['deposit', null, null], 'deposit above the price and an unreadable date are dropped');
+    assert.deepEqual(pay[3], ['paid', null, null], 'paid needs no deposit and no due date');
+    assert.deepEqual(pay[4], ['open', null, '2027-04-01'], 'a deposit amount only counts with state deposit');
   });
 });
 
@@ -87,6 +108,19 @@ describe('matching', () => {
     assert.equal(merged.title, 'Mein Hotel');
     assert.equal(merged.notes, 'eigene Notiz');
     assert.deepEqual(merged.details, { room: '5', phone: '123' });
+  });
+
+  test('payment state from a document fills a gap but never overrides what the user entered', () => {
+    const p = data({ type: 'hotel', startLocal: '2027-05-08', cost: 400, currency: 'EUR', paymentStatus: 'deposit', paidAmount: 100, dueDate: '2027-04-01' });
+    const empty = item({ id: 'h', type: 'hotel', startLocal: '2027-05-08', cost: 400, currency: 'EUR' });
+    const filled = mergeItem(empty, p);
+    assert.deepEqual([filled.paymentStatus, filled.paidAmount, filled.dueDate], ['deposit', 100, '2027-04-01']);
+    assert.ok(diffItem(empty, p).includes('Zahlung: angezahlt 100, fällig 2027-04-01'));
+
+    const mine = item({ id: 'h', type: 'hotel', startLocal: '2027-05-08', cost: 400, currency: 'EUR', paymentStatus: 'paid' });
+    const kept = mergeItem(mine, p);
+    assert.deepEqual([kept.paymentStatus, kept.paidAmount, kept.dueDate], ['paid', null, null]);
+    assert.ok(!diffItem(mine, p).some((c) => c.startsWith('Zahlung')), 'no change is announced for a state that stays');
   });
 
   test('cruise: booking reference or ship name', () => {

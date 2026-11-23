@@ -102,6 +102,10 @@ export function diffItem(existing: Item, p: ItemData): string[] {
     const prev = existing.details[k];
     if (prev !== v) changes.push(`${k}: ${show(prev)} → ${show(v)}`);
   }
+  if (p.paymentStatus && !existing.paymentStatus) {
+    const label = { open: 'offen', deposit: `angezahlt${p.paidAmount != null ? ` ${p.paidAmount}` : ''}`, paid: 'bezahlt' }[p.paymentStatus];
+    changes.push(`Zahlung: ${label}${p.dueDate ? `, fällig ${p.dueDate}` : ''}`);
+  }
   if (p.notes && !existing.notes) changes.push('Notizen ergänzt');
   const newInfos = mergeInfos(existing.infos, p.infos).length - existing.infos.length;
   if (newInfos > 0) changes.push(`${newInfos} Zusatzinfo${newInfos > 1 ? 's' : ''} ergänzt`);
@@ -122,6 +126,10 @@ export function mergeItem(existing: Item, p: ItemData) {
     provider: p.provider ?? existing.provider,
     cost: p.cost ?? existing.cost,
     currency: p.currency ?? existing.currency,
+    // The payment state is only filled in when nobody has stated one yet; what the user entered always wins.
+    paymentStatus: existing.paymentStatus ?? p.paymentStatus ?? null,
+    paidAmount: existing.paymentStatus ? existing.paidAmount : (p.paidAmount ?? null),
+    dueDate: existing.paymentStatus ? existing.dueDate : (p.dueDate ?? existing.dueDate),
     notes: existing.notes ?? p.notes,
     cruiseDayId: p.cruiseDayId ?? existing.cruiseDayId,
     details: { ...existing.details, ...p.details },

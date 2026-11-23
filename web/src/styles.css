@@ -512,3 +512,11 @@ a.btn { text-decoration: none; }
 .badge.pay-paid { background: var(--ok-bg); }
 .badge.pay-deposit, .badge.pay-open { background: var(--warning-bg); }
 .badge.pay-none { color: var(--muted); }
+
+/* Reisetag-Abfrage: Gate, Schalter, Kofferband, Gleis */
+.place-lookup { display: grid; gap: 8px; min-width: 0; padding: 12px; margin-bottom: 12px; border-radius: 12px; background: var(--info-bg); border: 1px solid var(--info); overflow-wrap: anywhere; }
+.place-lookup-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.place-findings { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.place-finding { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; cursor: pointer; }
+.place-finding input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; }
+.place-finding small { display: block; }

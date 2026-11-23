@@ -52,6 +52,7 @@ export function TripPage() {
   const [queueTotal, setQueueTotal] = useState(0);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [canReview, setCanReview] = useState(false);
+  const [canLookup, setCanLookup] = useState(false);
   // View mode ("Ansichtsmodus"): once the trip has begun, editors cannot change anything by accident.
   // Leaving it is remembered for this session only, so the next start is protected again.
   const now = useNow();
@@ -78,7 +79,7 @@ export function TripPage() {
   const consumedNav = useRef(false);
 
   useEffect(() => {
-    api.get<{ enabled: boolean; review?: boolean }>('/api/ai/status').then((s) => { setAiEnabled(s.enabled); setCanReview(!!s.review); }).catch(() => {});
+    api.get<{ enabled: boolean; review?: boolean; placeLookup?: boolean }>('/api/ai/status').then((s) => { setAiEnabled(s.enabled); setCanReview(!!s.review); setCanLookup(!!s.placeLookup); }).catch(() => {});
   }, []);
 
   /** Reviews documents one after another; leaving the dialog keeps the rest in the inbox. */
@@ -260,6 +261,7 @@ export function TripPage() {
           tripKind={detail.trip.kind}
           readOnly={!canEdit}
           onUnlock={locked ? () => { setDialog(null); askUnlock(); } : undefined}
+          placeLookup={isEditor && canLookup}
           onClose={close}
           onSaved={saved}
         />

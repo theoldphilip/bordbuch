@@ -210,6 +210,9 @@ export interface ItemData {
   provider: string | null;
   cost: number | null;
   currency: string | null;
+  paymentStatus?: PaymentStatus | null;
+  paidAmount?: number | null;
+  dueDate?: string | null;
   notes: string | null;
   cruiseDayId: string | null;
   details: Record<string, string>;
@@ -245,6 +248,9 @@ export interface CruiseData {
   bookingRef: string | null;
   cost?: number | null;
   currency?: string | null;
+  paymentStatus?: PaymentStatus | null;
+  paidAmount?: number | null;
+  dueDate?: string | null;
   notes: string | null;
   infos: Info[];
   days: CruiseDayData[];
@@ -321,6 +327,28 @@ export interface AnalysisView {
   analyzedAt: string;
   items: ItemProposal[];
   cruise: CruiseProposal | null;
+}
+
+// ---------- day-of-travel lookup (server/src/routes/placeLookup.ts) ----------
+export interface PlaceLookupFinding {
+  key: string;
+  label: string;
+  value: string;
+  /** What is entered now, for comparison. */
+  current: string | null;
+  source: { title: string; url: string };
+  note: string | null;
+}
+
+export interface PlaceLookup {
+  status: 'pending' | 'done' | 'failed';
+  startedAt: string;
+  finishedAt?: string;
+  error?: string;
+  summary?: string;
+  searches?: number;
+  queries?: string[];
+  findings: PlaceLookupFinding[];
 }
 
 // ---------- cost overview (server/src/costs.ts) ----------

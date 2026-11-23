@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, errorMessage } from '../api.ts';
-import { fmtDate, fmtMoney, itemSubtitle, itemTypeInfo } from '../format.ts';
-import type { AnalysisView, Cruise, CruiseData, CruiseDay, Item, ItemData, ItemProposal, TripKind } from '../types.ts';
+import { fmtDate, fmtMoney, itemSubtitle, itemTypeInfo, paymentLabel } from '../format.ts';
+import type { AnalysisView, Cruise, CruiseData, CruiseDay, Item, ItemData, ItemProposal, PaymentStatus, TripKind } from '../types.ts';
 import { CruiseDayForm } from './CruiseForms.tsx';
 import { ItemForm } from './ItemForm.tsx';
 import { ErrorBox, Modal, Spinner } from './ui.tsx';
@@ -25,6 +25,13 @@ function when(d: ItemData): string {
   if (!d.endLocal) return start;
   const sameDay = d.endLocal.slice(0, 10) === d.startLocal.slice(0, 10);
   return `${start} → ${sameDay ? time(d.endLocal).trim() || '' : `${day(d.endLocal)}${time(d.endLocal)}`}`;
+}
+
+/** "angezahlt EUR 500.00, Rest fällig 1. März 2027" as read from the document, or null. */
+function paymentText(d: { paymentStatus?: PaymentStatus | null; paidAmount?: number | null; dueDate?: string | null; currency?: string | null }): string | null {
+  if (!d.paymentStatus) return null;
+  const head = d.paymentStatus === 'deposit' && d.paidAmount != null ? `angezahlt ${fmtMoney(d.paidAmount, d.currency ?? null)}` : paymentLabel(d.paymentStatus);
+  return d.dueDate && d.paymentStatus !== 'paid' ? `${head}, ${d.paymentStatus === 'deposit' ? 'Rest ' : ''}fällig ${fmtDate(d.dueDate)}` : head;
 }
 
 const CONFIDENCE = { high: ['sicher', 'conf-high'], medium: ['prüfen', 'conf-medium'], low: ['unsicher', 'conf-low'] } as const;
@@ -202,6 +209,7 @@ export function DocReview({ attachmentId, tripId, tripKind, cruises, position, o
                 <label className="field"><span className="field-label">Preis</span><input inputMode="decimal" value={cruiseCost} onChange={(e) => setCruiseCost(e.target.value)} /></label>
                 <label className="field"><span className="field-label">Währung</span><input value={cruiseData.currency ?? ''} maxLength={3} onChange={(e) => setCruiseData({ ...cruiseData, currency: e.target.value.toUpperCase() || null })} /></label>
               </div>
+              {cruiseCost.trim() && paymentText(cruiseData) && <p className="muted">Zahlung laut Dokument: {paymentText(cruiseData)}</p>}
               <InfoSummary infos={cruiseData.infos ?? []} />
               <p className="muted small-print">Tippe auf einen Tag, um ihn zu korrigieren, oder entferne ihn mit ✕.{cruiseData.days.some((d) => d.infos?.length) ? ' Zusatzinfos zu den Tagen siehst du im Tag.' : ''}</p>
               {cruiseData.days.length > 0 && cruiseData.days.every((d) => d.kind === 'embarkation' || d.kind === 'disembarkation') && (
@@ -246,7 +254,7 @@ export function DocReview({ attachmentId, tripId, tripKind, cruises, position, o
                 <p>{when(r.data)}</p>
                 {sub && <p className="muted">{sub}</p>}
                 <p className="muted">
-                  {[r.data.confirmation && `Buchung ${r.data.confirmation}`, r.data.cost != null && fmtMoney(r.data.cost, r.data.currency)].filter(Boolean).join(' · ')}
+                  {[r.data.confirmation && `Buchung ${r.data.confirmation}`, r.data.cost != null && fmtMoney(r.data.cost, r.data.currency), paymentText(r.data)].filter(Boolean).join(' · ')}
                 </p>
                 {r.data.cruiseDayId && <p className="muted">⚓ Einem Hafentag zugeordnet</p>}
                 {r.data.notes && <p className="muted notes-preview">📝 {r.data.notes}</p>}
