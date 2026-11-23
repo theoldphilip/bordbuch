@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Ctx } from '../app.ts';
 import { requireTripRole, requireUser } from '../auth.ts';
+import { computeCosts } from '../costs.ts';
 import { tx } from '../db.ts';
 import { unlinkAttachmentFiles } from '../files.ts';
 import { loadCruises, loadItems, loadMembers, loadTrip, loadTripDetail, touchTrip, tripFromRow } from '../model.ts';
@@ -62,6 +63,13 @@ export function registerTripRoutes(app: FastifyInstance, { db, config, uploadDir
     const user = requireUser(req);
     const role = requireTripRole(db, req.params.tripId, user.id, 'viewer');
     return loadTripDetail(db, req.params.tripId, role);
+  });
+
+  /** Cost overview (sums per currency and kind, paid/open, due dates, gaps). Read-only, for every member. */
+  app.get<P>('/api/trips/:tripId/costs', async (req) => {
+    const user = requireUser(req);
+    requireTripRole(db, req.params.tripId, user.id, 'viewer');
+    return computeCosts(loadItems(db, req.params.tripId), loadCruises(db, req.params.tripId));
   });
 
   app.patch<P>('/api/trips/:tripId', async (req) => {

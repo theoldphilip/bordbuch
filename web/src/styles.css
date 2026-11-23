@@ -485,3 +485,30 @@ a.btn { text-decoration: none; }
 .entry-main small.entry-where { color: var(--text); font-weight: 700; }
 .phase-cabin { margin-top: 2px; font-size: 0.95rem; }
 .phase-cabin strong { font-size: 1.05rem; }
+
+/* Kosten */
+.costs .card { display: grid; gap: 8px; min-width: 0; }
+.cost-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.cost-total { font-size: 1.35rem; white-space: nowrap; }
+.cost-split { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.92rem; color: var(--muted); }
+.cost-split strong { color: var(--text); }
+.cost-split .cost-open strong { color: var(--warning); }
+.cost-groups { display: grid; gap: 4px; }
+.cost-group { border-top: 1px solid var(--border); }
+.cost-group > summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; cursor: pointer; list-style: none; }
+.cost-group > summary::-webkit-details-marker { display: none; }
+.cost-group > summary::after { content: '›'; color: var(--muted); transition: transform 0.15s; }
+.cost-group[open] > summary::after { transform: rotate(90deg); }
+.cost-label { min-width: 0; overflow-wrap: anywhere; }
+.cost-amount { margin-left: auto; white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cost-list { list-style: none; margin: 0; padding: 0 0 6px; display: grid; gap: 2px; }
+.cost-row { appearance: none; width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: baseline; text-align: left; font: inherit; color: inherit; background: transparent; border: 0; border-radius: 8px; padding: 6px 4px; cursor: pointer; }
+.cost-row:hover { background: var(--surface-2); }
+.cost-title { min-width: 0; overflow-wrap: anywhere; }
+.cost-date { font-size: 0.82rem; white-space: nowrap; }
+.cost-row-due { grid-template-columns: minmax(0, 1fr) auto; }
+.cost-due { display: block; font-size: 0.82rem; color: var(--muted); }
+.cost-due.overdue { color: var(--error); font-weight: 700; }
+.badge.pay-paid { background: var(--ok-bg); }
+.badge.pay-deposit, .badge.pay-open { background: var(--warning-bg); }
+.badge.pay-none { color: var(--muted); }

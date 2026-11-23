@@ -1,6 +1,6 @@
 # CLAUDE.md – Übergabe und Arbeitsbriefing für Reisebuch (Repository „bordbuch“)
 
-Stand: 23.11.2026, App-Version 0.8.1, Datenbank-Stand 8, 120 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
+Stand: 23.11.2026, App-Version 0.9.0, Datenbank-Stand 9, 130 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
 einer früheren Claude-Code-Sitzung (Cloud, Web). Wer sie liest, setzt die Arbeit dort fort, wo sie aufgehört hat. Lies sie ganz,
 bevor du etwas änderst, und prüfe Aussagen über Code im Repo nach, statt dich auf diese Datei zu verlassen (Code gewinnt).
 
@@ -126,6 +126,11 @@ ohne API.md und beide Clients mitzuziehen. `GET /api/version` und `/api/health` 
   Erinnerung nennt sie; **Push an die anderen Mitglieder** bei Änderung (36 h voraus bis 8 h zurück), je Person abschaltbar (`infoChange`).
 - **Währung:** keine Annahme „CHF“. Ohne Währung zeigt die App nur den Betrag; neue Einträge starten mit der zuletzt benutzten Währung.
   Die KI setzt `currency` nur aus dem Dokument (€ → EUR …), sonst null.
+- **Kosten** (`server/src/costs.ts`, Reiter „Kosten“ in `web/src/components/CostsTab.tsx`, `GET /api/trips/:id/costs`): Summen je Währung, nie
+  umgerechnet, gruppiert nach Art; bezahlt/offen aus `paymentStatus` (`open`/`deposit`/`paid`/null = keine Angabe, zählt als offen),
+  `paidAmount` (nur bei `deposit`, sonst speichert der Server null) und `dueDate`. Die Kreuzfahrt hat einen eigenen Gesamtpreis (`cruises.cost`),
+  den die KI aus der Buchung liest; beim Aktualisieren aus einem Dokument wird nur ein fehlender Preis gefüllt, Zahlungsstand nie. „Ohne Preis“
+  listet nur gebuchte Leistungen (`PRICED_TYPES`). Preisfelder im Web gemeinsam in `MoneyFields.tsx` (Einträge und Kreuzfahrt).
 - **Zeitbedarf:** Faktor und Zusatzminuten je Benutzer; alle Mindestzeiten werden damit gerechnet, Meldungen zeigen **immer beide Zeiten**
   („30 min normal, 45 min persönlich“). Erinnerungen werden um den Zeitbedarf früher gesendet.
 - **Push/HTTPS:** iOS erlaubt Web-Push nur ab 16.4, aus der Home-Bildschirm-App, über HTTPS mit vertrautem Zertifikat. Das Zertifikat lädt
@@ -140,14 +145,13 @@ ohne API.md und beide Clients mitzuziehen. `GET /api/version` und `/api/health` 
 0.1 Grundlage (Reisen, Kreuzfahrt, Einträge, Puffer-Check, Familie/Rollen, PWA, Push, HTTPS-Setup, KI-Dokumente, Zusatzinfos, Zeitbedarf,
 Einstellungen mit Unterseiten, Einladung per Teilen-Menü) · 0.2 Versionsanzeige · 0.3 Recherche, Layout-Fix lange Namen · 0.4 Reiseverlauf,
 Link, Diagnose · 0.5 Reise prüfen · 0.6 Reisearten, Stationen, Umbenennung Reisebuch, Jetzt-Markierung, Ausschiffung ab 06:00, Bord-ABC,
-Währung · 0.7 Quittieren, Ansichtsmodus · 0.8 Gate/Schalter/Kofferband/Gleis, Push bei Änderung, Kabine sichtbar. Details in der
+Währung · 0.7 Quittieren, Ansichtsmodus · 0.8 Gate/Schalter/Kofferband/Gleis, Push bei Änderung, Kabine sichtbar · 0.8.1 Update auf der
+Synology durch Claude · 0.9 Kostenauswertung (Reiter „Kosten“, Preis an der Kreuzfahrt, Zahlungsstand und Fälligkeit). Details in der
 Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
 
 ## 6. Offene Punkte (Reihenfolge nach Philips Wünschen)
 
-1. **Kostenauswertung** (Philip hat sie für „die nächsten Tage“ gewünscht): Summen je Reise, Währung und Eintragsart, Währungen getrennt,
-   Einträge ohne Währung gesondert; Basis sind `cost`/`currency` an den Einträgen (heute nur eine einfache Summe im Reiter „Teilen“).
-   Später „pro Person“. Vorschlag: eigener Reiter oder Bereich „Kosten“ mit Tabelle, vor dem Bau kurz Umfang mit Philip klären.
+1. **Kosten pro Person** (später, von Philip erwähnt). Umrechnung in eine Währung bewusst nicht gebaut (bräuchte Wechselkurse).
 2. **Notizen-Seite** (Vorschlag aus dem Chat, nicht bestellt): Reiter mit freiem Text/Checkliste, auch Platz für Packliste. Notizen gibt es heute
    an Reise („Bearbeiten“), Eintrag, Reisetag und als Eintragstyp „Notiz“.
 3. **Native iOS-App (SwiftUI)** gegen dieselbe API, geplant in Etappen: (1) Lesen/Unterwegs inkl. Offline, (2) APNs-Push + Standort-Erinnerungen
@@ -189,12 +193,13 @@ aufmerksam nachfragen und Philips Rückmeldung (Screenshots) ernst nehmen:
 - Websuche/`web_fetch` der Recherche (Server-Tools `web_search_20260209`/`web_fetch_20260209`, Auswertung, Quellenprüfung),
 - Qualität von „Reise prüfen“, Bord-ABC-Filter, Gate/Schalter-Auslesen, Stationen aus Rundreise-Programmen, Währungserkennung,
 - echter Web-Push auf dem iPhone (inkl. Push bei Gate-Änderung), Zertifikatsvertrauen unter iOS,
-- Verhalten über mehrere Tage/Zeitzonen (Jetzt-Markierung, Ansichtsmodus).
+- Verhalten über mehrere Tage/Zeitzonen (Jetzt-Markierung, Ansichtsmodus),
+- ob die KI den Gesamtpreis einer Kreuzfahrt aus echten Buchungsbestätigungen richtig liest (nicht Teilpreise oder Anzahlung).
 Bekannte Eigenheiten: Der Ansichtsmodus ist nur Oberfläche; Notrufnummern aus KI-Wissen sind unzuverlässig und gekennzeichnet; Erinnerungen werden
 nach 5 Minuten Verspätung nicht mehr gesendet.
 
 ## 10. Erste Schritte in einer neuen Sitzung
 
 1. `git pull`, diese Datei und `README.md` lesen, `git log --oneline -10` ansehen.
-2. `npm run install:all`, `cd server && npm test` (sollte 120 grün sein), `cd web && npm run build`.
-3. Philip begrüßen, kurz den Stand nennen (0.8.1, offen: Kostenauswertung) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.
+2. `npm run install:all`, `cd server && npm test` (sollte 130 grün sein), `cd web && npm run build`.
+3. Philip begrüßen, kurz den Stand nennen (0.9.0, Kostenauswertung fertig) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.

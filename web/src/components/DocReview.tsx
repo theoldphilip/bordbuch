@@ -34,6 +34,8 @@ export function DocReview({ attachmentId, tripId, tripKind, cruises, position, o
   const [rows, setRows] = useState<Row[]>([]);
   const [cruiseAction, setCruiseAction] = useState<'apply' | 'skip'>('apply');
   const [cruiseData, setCruiseData] = useState<CruiseData | null>(null);
+  // Price of the cruise as typed (kept as text so "1250," is not lost while typing).
+  const [cruiseCost, setCruiseCost] = useState('');
   const [editingDay, setEditingDay] = useState<number | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +56,7 @@ export function DocReview({ attachmentId, tripId, tripKind, cruises, position, o
       );
       setCruiseAction(v.cruise && !v.cruise.problems.length ? 'apply' : 'skip');
       setCruiseData(v.cruise?.data ?? null);
+      setCruiseCost(v.cruise?.data.cost != null ? String(v.cruise.data.cost) : '');
       setEditingDay(null);
     } catch (err) {
       setError(errorMessage(err));
@@ -72,12 +75,15 @@ export function DocReview({ attachmentId, tripId, tripKind, cruises, position, o
 
   const apply = async () => {
     if (!view) return;
+    const costText = cruiseCost.trim().replace(/['\s]/g, '').replace(',', '.');
+    const cost = costText ? Number(costText) : null;
+    if (cost !== null && !Number.isFinite(cost)) return setError('Preis der Kreuzfahrt: bitte eine Zahl eingeben, z. B. 3480,50.');
     setBusy(true);
     setError(null);
     try {
       await api.post(`/api/attachments/${attachmentId}/apply`, {
         items: rows.map((r) => ({ action: r.action, itemId: r.action === 'update' ? r.proposal.match?.itemId : undefined, data: r.data })),
-        cruise: view.cruise && cruiseData ? { action: cruiseAction === 'skip' ? 'skip' : view.cruise.match ? 'update' : 'create', cruiseId: view.cruise.match?.cruiseId, data: cruiseData } : null,
+        cruise: view.cruise && cruiseData ? { action: cruiseAction === 'skip' ? 'skip' : view.cruise.match ? 'update' : 'create', cruiseId: view.cruise.match?.cruiseId, data: { ...cruiseData, cost, currency: cost !== null ? cruiseData.currency || null : null } } : null,
       });
       onApplied();
     } catch (err) {
@@ -112,7 +118,7 @@ export function DocReview({ attachmentId, tripId, tripKind, cruises, position, o
   };
 
   if (editingDay !== null && cruiseData?.days[editingDay]) {
-    const draftCruise: Cruise = { id: '', tripId, shipName: cruiseData.shipName, cruiseLine: null, cabin: null, bookingRef: null, notes: null, infos: [], days: cruiseData.days.map((d) => ({ ...d, id: '', cruiseId: '' }) as CruiseDay) };
+    const draftCruise: Cruise = { id: '', tripId, shipName: cruiseData.shipName, cruiseLine: null, cabin: null, bookingRef: null, notes: null, infos: [], cost: null, currency: null, paymentStatus: null, paidAmount: null, dueDate: null, days: cruiseData.days.map((d) => ({ ...d, id: '', cruiseId: '' }) as CruiseDay) };
     return (
       <CruiseDayForm
         cruise={draftCruise}
@@ -193,6 +199,8 @@ export function DocReview({ attachmentId, tripId, tripKind, cruises, position, o
                 <label className="field wide"><span className="field-label">Schiff</span><input value={cruiseData.shipName} onChange={(e) => setCruiseData({ ...cruiseData, shipName: e.target.value })} /></label>
                 <label className="field"><span className="field-label">Kabine</span><input value={cruiseData.cabin ?? ''} onChange={(e) => setCruiseData({ ...cruiseData, cabin: e.target.value || null })} /></label>
                 <label className="field"><span className="field-label">Buchungsnummer</span><input value={cruiseData.bookingRef ?? ''} onChange={(e) => setCruiseData({ ...cruiseData, bookingRef: e.target.value || null })} /></label>
+                <label className="field"><span className="field-label">Preis</span><input inputMode="decimal" value={cruiseCost} onChange={(e) => setCruiseCost(e.target.value)} /></label>
+                <label className="field"><span className="field-label">Währung</span><input value={cruiseData.currency ?? ''} maxLength={3} onChange={(e) => setCruiseData({ ...cruiseData, currency: e.target.value.toUpperCase() || null })} /></label>
               </div>
               <InfoSummary infos={cruiseData.infos ?? []} />
               <p className="muted small-print">Tippe auf einen Tag, um ihn zu korrigieren, oder entferne ihn mit ✕.{cruiseData.days.some((d) => d.infos?.length) ? ' Zusatzinfos zu den Tagen siehst du im Tag.' : ''}</p>

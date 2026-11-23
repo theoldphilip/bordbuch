@@ -163,6 +163,18 @@ const migrations: string[] = [
     PRIMARY KEY (trip_id, key)
   );
   `,
+  `
+  -- Cost overview: the cruise gets its own price, and entries and cruises a payment state
+  -- (open / deposit / paid, NULL = not stated), the deposit paid so far and when the rest is due.
+  ALTER TABLE cruises ADD COLUMN cost REAL;
+  ALTER TABLE cruises ADD COLUMN currency TEXT;
+  ALTER TABLE cruises ADD COLUMN payment_status TEXT CHECK (payment_status IN ('open', 'deposit', 'paid'));
+  ALTER TABLE cruises ADD COLUMN paid_amount REAL;
+  ALTER TABLE cruises ADD COLUMN due_date TEXT;
+  ALTER TABLE items ADD COLUMN payment_status TEXT CHECK (payment_status IN ('open', 'deposit', 'paid'));
+  ALTER TABLE items ADD COLUMN paid_amount REAL;
+  ALTER TABLE items ADD COLUMN due_date TEXT;
+  `,
 ];
 
 export function openDb(file: string): DB {

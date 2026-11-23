@@ -53,6 +53,8 @@ export const aiCruiseSchema = z.object({
   cruiseLine: nullableText,
   cabin: nullableText,
   bookingRef: nullableText,
+  cost: z.number().nullable(),
+  currency: nullableText,
   notes: nullableText,
   infos: z.array(aiInfoSchema),
   days: z.array(aiCruiseDaySchema),

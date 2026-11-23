@@ -149,6 +149,29 @@ export const memberInput = z.object({
   role: z.enum(['owner', 'editor', 'viewer']),
 });
 
+// ---------- money and payment (items and cruises) ----------
+export const PAYMENT_STATUSES = ['open', 'deposit', 'paid'] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+const currencyCode = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z]{3}$/, 'Währung als 3-stelliger Code, z. B. CHF')
+  .nullish()
+  .transform((v) => (v ? v.toUpperCase() : null));
+
+/**
+ * Price and payment state. paymentStatus null = not stated. paidAmount is the deposit and only counts when the
+ * status is 'deposit'. dueDate is when the (remaining) amount has to be paid.
+ */
+const moneyFields = {
+  cost: z.number().finite().nullish().transform((v) => v ?? null),
+  currency: currencyCode,
+  paymentStatus: z.enum(PAYMENT_STATUSES).nullish().transform((v) => v ?? null),
+  paidAmount: z.number().finite().min(0, 'Anzahlung darf nicht negativ sein').nullish().transform((v) => v ?? null),
+  dueDate: dateOnly.nullish().transform((v) => v ?? null),
+};
+
 // ---------- cruises ----------
 const optTime = timeOfDay.nullish().transform((v) => v ?? null);
 
@@ -174,6 +197,7 @@ export const cruiseInput = z.object({
   bookingRef: optText(80),
   notes: optText(10000),
   infos: infoList,
+  ...moneyFields,
 });
 export type CruiseInput = z.infer<typeof cruiseInput>;
 
@@ -193,13 +217,7 @@ export const itemInput = z
     location: optText(300),
     confirmation: optText(120),
     provider: optText(120),
-    cost: z.number().finite().nullish().transform((v) => v ?? null),
-    currency: z
-      .string()
-      .trim()
-      .regex(/^[A-Za-z]{3}$/, 'Währung als 3-stelliger Code, z. B. CHF')
-      .nullish()
-      .transform((v) => (v ? v.toUpperCase() : null)),
+    ...moneyFields,
     notes: optText(10000),
     cruiseDayId: z.string().nullish().transform((v) => v ?? null),
     /**

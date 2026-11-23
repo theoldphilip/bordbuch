@@ -1,4 +1,4 @@
-import type { CruiseDayKind, Item, ItemType, TripKind } from './types.ts';
+import type { CostKind, CruiseDayKind, Item, ItemType, PaymentStatus, TripKind } from './types.ts';
 
 const locale = 'de-CH';
 
@@ -87,6 +87,20 @@ export const TRIP_KINDS: { kind: TripKind; label: string; icon: string; hint: st
   { kind: 'city', label: 'Städtetrip / Urlaub', icon: '🏙️', hint: 'Flug, Hotel, Mietwagen und Aktivitäten an einem Ort' },
   { kind: 'roundtrip', label: 'Rundreise', icon: '🗺️', hint: 'Mehrere Stationen nacheinander' },
 ];
+export const PAYMENT_STATUSES: { status: PaymentStatus; label: string }[] = [
+  { status: 'open', label: 'offen' },
+  { status: 'deposit', label: 'angezahlt' },
+  { status: 'paid', label: 'bezahlt' },
+];
+export const paymentLabel = (s: PaymentStatus | null) => PAYMENT_STATUSES.find((x) => x.status === s)?.label ?? 'keine Angabe';
+
+/** Label and icon of a cost line: an entry type or the cruise itself. */
+export function costKindInfo(k: CostKind, count = 1): { label: string; icon: string } {
+  if (k === 'cruise') return { label: count === 1 ? 'Kreuzfahrt' : 'Kreuzfahrten', icon: '🛳️' };
+  const t = itemTypeInfo(k);
+  return { label: t.label, icon: t.icon };
+}
+
 export const tripKindInfo = (k: TripKind | undefined) => TRIP_KINDS.find((x) => x.kind === k) ?? TRIP_KINDS[0]!;
 
 export const itemTypeInfo = (t: ItemType) => ITEM_TYPES.find((x) => x.type === t)!;

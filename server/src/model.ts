@@ -1,5 +1,5 @@
 import type { DB } from './db.ts';
-import type { CruiseDayKind, Info, ItemType, TripKind } from './schemas.ts';
+import type { CruiseDayKind, Info, ItemType, PaymentStatus, TripKind } from './schemas.ts';
 import type { Role } from './auth.ts';
 import { HttpError, nowIso } from './util.ts';
 
@@ -49,6 +49,13 @@ export interface Cruise {
   bookingRef: string | null;
   notes: string | null;
   infos: Info[];
+  cost: number | null;
+  currency: string | null;
+  /** open, deposit (paidAmount paid so far) or paid; null = not stated. */
+  paymentStatus: PaymentStatus | null;
+  paidAmount: number | null;
+  /** When the (remaining) amount is due, JJJJ-MM-TT. */
+  dueDate: string | null;
   days: CruiseDay[];
 }
 
@@ -66,6 +73,9 @@ export interface Item {
   provider: string | null;
   cost: number | null;
   currency: string | null;
+  paymentStatus: PaymentStatus | null;
+  paidAmount: number | null;
+  dueDate: string | null;
   notes: string | null;
   cruiseDayId: string | null;
   details: Record<string, unknown>;
@@ -150,6 +160,9 @@ export const itemFromRow = (r: Row): Item => ({
   provider: r.provider,
   cost: r.cost,
   currency: r.currency,
+  paymentStatus: r.payment_status ?? null,
+  paidAmount: r.paid_amount ?? null,
+  dueDate: r.due_date ?? null,
   notes: r.notes,
   cruiseDayId: r.cruise_day_id,
   details: JSON.parse(r.details || '{}'),
@@ -187,6 +200,11 @@ export function loadCruises(db: DB, tripId: string): Cruise[] {
     bookingRef: c.booking_ref,
     notes: c.notes,
     infos: parseInfos(c.infos),
+    cost: c.cost ?? null,
+    currency: c.currency ?? null,
+    paymentStatus: c.payment_status ?? null,
+    paidAmount: c.paid_amount ?? null,
+    dueDate: c.due_date ?? null,
     days: (dayStmt.all(c.id) as Row[]).map(cruiseDayFromRow),
   }));
   // Chronological order of cruises (back-to-back cruises on one trip).

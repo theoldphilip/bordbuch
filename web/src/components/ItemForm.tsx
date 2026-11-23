@@ -4,6 +4,7 @@ import { DAY_KINDS, ITEM_TYPES, endLabel, fmtDayHeader, startLabel } from '../fo
 import type { Cruise, Item, ItemType, TripKind } from '../types.ts';
 import { ErrorBox, Field, Modal, TimezoneInput } from './ui.tsx';
 import { InfoEditor } from './InfoEditor.tsx';
+import { lastCurrency, useMoneyFields } from './MoneyFields.tsx';
 
 type DetailField = { key: string; label: string; placeholder?: string };
 const DETAIL_FIELDS: Partial<Record<ItemType, DetailField[]>> = {
@@ -38,22 +39,6 @@ const DETAIL_FIELDS: Partial<Record<ItemType, DetailField[]>> = {
 
 const LINKABLE: ItemType[] = ['excursion', 'activity', 'restaurant', 'note', 'transfer'];
 const HAS_END: ItemType[] = ['flight', 'train', 'bus', 'ferry', 'transfer', 'car_rental', 'parking', 'hotel', 'stop', 'excursion', 'activity', 'restaurant'];
-
-const CURRENCY_KEY = 'reisebuch.currency';
-const lastCurrency = (): string => {
-  try {
-    return localStorage.getItem(CURRENCY_KEY) || 'CHF';
-  } catch {
-    return 'CHF';
-  }
-};
-const rememberCurrency = (c: string) => {
-  try {
-    if (/^[A-Z]{3}$/.test(c)) localStorage.setItem(CURRENCY_KEY, c);
-  } catch {
-    /* storage can be unavailable */
-  }
-};
 
 const split = (local: string | null) => ({ date: local?.slice(0, 10) ?? '', time: local && local.length > 10 ? local.slice(11, 16) : '' });
 const join = (date: string, time: string) => (date ? (time ? `${date}T${time}` : date) : null);
@@ -91,9 +76,8 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
   const [location, setLocation] = useState(item?.location ?? '');
   const [provider, setProvider] = useState(item?.provider ?? '');
   const [confirmation, setConfirmation] = useState(item?.confirmation ?? '');
-  const [cost, setCost] = useState(item?.cost != null ? String(item.cost) : '');
   // An existing entry keeps what it has (possibly nothing); a new one starts with the currency used last on this device.
-  const [currency, setCurrency] = useState(item ? (item.currency ?? '') : lastCurrency());
+  const money = useMoneyFields(item, lastCurrency());
   const [notes, setNotes] = useState(item?.notes ?? '');
   const [cruiseDayId, setCruiseDayId] = useState(item?.cruiseDayId ?? initialCruiseDayId ?? '');
   const [infos, setInfos] = useState(item?.infos ?? []);
@@ -122,7 +106,8 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
     setError(null);
     if (!title.trim()) return setError('Bitte einen Titel eingeben.');
     if (!startDate) return setError('Bitte ein Datum angeben.');
-    if (cost && currency.trim()) rememberCurrency(currency.trim().toUpperCase());
+    const m = type === 'note' ? { value: { cost: null, currency: null, paymentStatus: null, paidAmount: null, dueDate: null } } : money.build();
+    if ('error' in m) return setError(m.error);
     const payload = {
       type,
       title: title.trim(),
@@ -133,8 +118,7 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
       location: location || null,
       provider: provider || null,
       confirmation: confirmation || null,
-      cost: cost ? Number(cost.replace(',', '.')) : null,
-      currency: cost ? currency.trim().toUpperCase() || null : null,
+      ...m.value,
       notes: notes || null,
       cruiseDayId: canLink && cruiseDayId ? cruiseDayId : null,
       details: Object.fromEntries(Object.entries(details).filter(([, v]) => v)),
@@ -283,12 +267,7 @@ export function ItemForm({ tripId, cruises, item, initialType, initialDate, init
             <Field label="Buchungsnummer">
               <input value={confirmation} onChange={(ev) => setConfirmation(ev.target.value)} />
             </Field>
-            <Field label="Kosten">
-              <input inputMode="decimal" value={cost} onChange={(ev) => setCost(ev.target.value)} />
-            </Field>
-            <Field label="Währung">
-              <input value={currency} maxLength={3} onChange={(ev) => setCurrency(ev.target.value.toUpperCase())} />
-            </Field>
+            {money.fields}
           </>
         )}
         {!infosOnTop && infoSection}

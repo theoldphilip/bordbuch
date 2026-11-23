@@ -41,7 +41,7 @@ Zusatzinfos (infos) gehören an den Reisepunkt, zu dem sie passen (Eintrag, Hafe
 - Keine Infos für flight, train, bus, ferry, transfer und note, außer sie stehen im Dokument.
 - Wiederhole dieselbe Info nicht an mehreren Punkten, wenn sie nur an einen gehört.
 
-Kreuzfahrt (cruise): Nur wenn das Dokument die Kreuzfahrt selbst beschreibt (Buchungsbestätigung, Routenplan, Reiseplan). Dann shipName, cruiseLine, cabin, bookingRef und alle Tage der Route in days:
+Kreuzfahrt (cruise): Nur wenn das Dokument die Kreuzfahrt selbst beschreibt (Buchungsbestätigung, Routenplan, Reiseplan). Dann shipName, cruiseLine, cabin, bookingRef und alle Tage der Route in days. cost ist der Gesamtpreis der Kreuzfahrt-Buchung, nur wenn er im Dokument steht (sonst null), currency wie bei den Einträgen. Preise für Flüge, Hotels oder Ausflüge, die als eigene Einträge vorkommen, gehören nicht in cost der Kreuzfahrt:
 - kind: embarkation (Einschiffungstag), port (Hafentag), sea (Seetag), disembarkation (Ausschiffungstag).
 - arrival/departure als HH:MM in Hafenzeit, allAboard ("Alle an Bord") nur wenn angegeben, tender true nur wenn das Dokument Tenderhafen/Ausbooten nennt. timezone des Hafens als IANA-Name oder null.
 - Bei embarkation ist arrival der Beginn des Check-ins, bei disembarkation ist departure die Zeit, bis zu der man von Bord muss.

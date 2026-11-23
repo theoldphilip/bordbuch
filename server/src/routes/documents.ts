@@ -20,7 +20,7 @@ import { attachmentFromRow, itemFromRow, loadCruises, loadItems, loadTrip, touch
 import { cruiseCreateInput, cruiseDayInput, cruiseInput, infoList, itemInput, mergeInfos } from '../schemas.ts';
 import { HttpError, newId, nowIso } from '../util.ts';
 import { receiveUpload } from './attachments.ts';
-import { insertDay } from './cruises.ts';
+import { insertCruise, insertDay, updateCruise } from './cruises.ts';
 import { checkCruiseDay } from './items.ts';
 
 const applyInput = z.object({
@@ -332,11 +332,7 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
       if (c && c.action === 'create') {
         const data = cruiseCreateInput.parse(c.data);
         cruiseId = newId();
-        const now = nowIso();
-        db.prepare(
-          `INSERT INTO cruises (id, trip_id, ship_name, cruise_line, cabin, booking_ref, notes, infos, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ).run(cruiseId, tripId, data.shipName, data.cruiseLine, data.cabin, data.bookingRef, data.notes, JSON.stringify(data.infos), now, now);
+        insertCruise(db, cruiseId, tripId, data);
         for (const d of data.days) insertDay(db, cruiseId, d);
         db.prepare("UPDATE trips SET kind = 'cruise' WHERE id = ?").run(tripId);
       } else if (c && c.action === 'update') {
@@ -350,10 +346,14 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
           bookingRef: (c.data.bookingRef as string | null) ?? existing.bookingRef,
           notes: existing.notes ?? (c.data.notes as string | null) ?? null,
           infos: mergeInfos(existing.infos, infoList.parse(c.data.infos ?? [])),
+          // A price from the document fills a gap; a price the user already entered stays. Payment state is never touched.
+          cost: existing.cost ?? (c.data.cost as number | null) ?? null,
+          currency: existing.cost != null ? existing.currency : ((c.data.currency as string | null) ?? existing.currency),
+          paymentStatus: existing.paymentStatus,
+          paidAmount: existing.paidAmount,
+          dueDate: existing.dueDate,
         });
-        db.prepare('UPDATE cruises SET cruise_line = ?, cabin = ?, booking_ref = ?, notes = ?, infos = ?, updated_at = ? WHERE id = ?').run(
-          patch.cruiseLine, patch.cabin, patch.bookingRef, patch.notes, JSON.stringify(patch.infos), nowIso(), existing.id,
-        );
+        updateCruise(db, existing.id, patch);
         const days = z.array(cruiseDayInput).max(200).parse(c.data.days ?? []);
         for (const d of days) {
           const same = findDay(existing, d);

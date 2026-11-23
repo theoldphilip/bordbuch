@@ -10,7 +10,6 @@ import {
   endLabel,
   fmtDate,
   fmtDayHeader,
-  fmtMoney,
   fmtRange,
   fmtSize,
   itemSubtitle,
@@ -29,8 +28,9 @@ import { useNow } from '../hooks/useNow.ts';
 import { TripReviewDialog } from '../components/TripReviewDialog.tsx';
 import { DocReview } from '../components/DocReview.tsx';
 import { CruiseDayForm, CruiseForm } from '../components/CruiseForms.tsx';
+import { CostsTab } from '../components/CostsTab.tsx';
 
-type Tab = 'timeline' | 'cruise' | 'docs' | 'share';
+type Tab = 'timeline' | 'cruise' | 'costs' | 'docs' | 'share';
 
 type Dialog =
   | { kind: 'item'; item?: Item; type?: ItemType; date?: string; cruiseDayId?: string }
@@ -192,6 +192,7 @@ export function TripPage() {
           [
             ['timeline', 'Ablauf'],
             ...((detail.trip.kind === 'cruise' || detail.cruises.length > 0 ? [['cruise', 'Kreuzfahrt']] : []) as [Tab, string][]),
+            ['costs', 'Kosten'],
             ['docs', `Dokumente${detail.attachments.length ? ` (${detail.attachments.length})` : ''}${canEdit && detail.attachments.some((a) => a.analysisStatus === 'done') ? ' 📥' : ''}`],
             ['share', 'Teilen'],
           ] as [Tab, string][]
@@ -240,6 +241,7 @@ export function TripPage() {
       {tab === 'cruise' && (
         <CruiseTab detail={detail} canEdit={canEdit} aiImport={aiImport} onEditCruise={(cruise) => setDialog({ kind: 'cruise', cruise })} onEditDay={(cruise, day) => setDialog({ kind: 'day', cruise, day })} />
       )}
+      {tab === 'costs' && <CostsTab detail={detail} onOpenItem={(item) => setDialog({ kind: 'item', item })} onOpenCruise={(cruise) => (canEdit ? setDialog({ kind: 'cruise', cruise }) : setTab('cruise'))} />}
       {tab === 'docs' && <DocsTab detail={detail} canEdit={canEdit} onChanged={load} onReview={(id) => openReview([id])} onReviewMany={openReview} />}
       {tab === 'share' && <ShareTab detail={detail} onChanged={load} />}
 
@@ -913,11 +915,6 @@ function ShareTab({ detail, onChanged }: { detail: TripDetail; onChanged: () => 
     }
   };
 
-  const total = detail.items.reduce<Record<string, number>>((acc, i) => {
-    if (i.cost != null) acc[i.currency ?? ''] = (acc[i.currency ?? ''] ?? 0) + i.cost;
-    return acc;
-  }, {});
-
   return (
     <div className="stack">
       <section className="card">
@@ -959,12 +956,6 @@ function ShareTab({ detail, onChanged }: { detail: TripDetail; onChanged: () => 
         )}
         <ErrorBox error={error} />
       </section>
-      {Object.keys(total).length > 0 && (
-        <section className="card">
-          <h3>Kosten (erfasst)</h3>
-          <ul className="plain">{Object.entries(total).map(([cur, sum]) => <li key={cur}><strong>{fmtMoney(sum, cur || null)}</strong></li>)}</ul>
-        </section>
-      )}
     </div>
   );
 }

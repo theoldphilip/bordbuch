@@ -67,7 +67,20 @@ export interface CruiseDay {
   infos: Info[];
 }
 
-export interface Cruise {
+/** open, deposit (paidAmount paid so far) or paid; null = not stated. */
+export type PaymentStatus = 'open' | 'deposit' | 'paid';
+
+/** Price and payment, the same on entries and cruises. */
+export interface Money {
+  cost: number | null;
+  currency: string | null;
+  paymentStatus: PaymentStatus | null;
+  paidAmount: number | null;
+  /** When the (remaining) amount is due, JJJJ-MM-TT. */
+  dueDate: string | null;
+}
+
+export interface Cruise extends Money {
   id: string;
   tripId: string;
   shipName: string;
@@ -94,7 +107,7 @@ export type ItemType =
   | 'stop'
   | 'note';
 
-export interface Item {
+export interface Item extends Money {
   id: string;
   tripId: string;
   type: ItemType;
@@ -106,8 +119,6 @@ export interface Item {
   location: string | null;
   confirmation: string | null;
   provider: string | null;
-  cost: number | null;
-  currency: string | null;
   notes: string | null;
   cruiseDayId: string | null;
   details: Record<string, string | undefined>;
@@ -232,6 +243,8 @@ export interface CruiseData {
   cruiseLine: string | null;
   cabin: string | null;
   bookingRef: string | null;
+  cost?: number | null;
+  currency?: string | null;
   notes: string | null;
   infos: Info[];
   days: CruiseDayData[];
@@ -308,6 +321,49 @@ export interface AnalysisView {
   analyzedAt: string;
   items: ItemProposal[];
   cruise: CruiseProposal | null;
+}
+
+// ---------- cost overview (server/src/costs.ts) ----------
+export type CostKind = ItemType | 'cruise';
+
+export interface CostEntry {
+  id: string;
+  source: 'item' | 'cruise';
+  kind: CostKind;
+  title: string;
+  date: string | null;
+  cost: number;
+  currency: string | null;
+  paymentStatus: PaymentStatus | null;
+  paid: number;
+  open: number;
+  dueDate: string | null;
+}
+
+export interface CostGroup {
+  kind: CostKind;
+  count: number;
+  total: number;
+  paid: number;
+  open: number;
+  entryIds: string[];
+}
+
+export interface CurrencyTotal {
+  currency: string;
+  total: number;
+  paid: number;
+  open: number;
+  unstated: number;
+  groups: CostGroup[];
+}
+
+export interface TripCosts {
+  currencies: CurrencyTotal[];
+  withoutCurrency: CostEntry[];
+  missingPrice: { kind: CostKind; count: number; entryIds: string[] }[];
+  due: CostEntry[];
+  entries: CostEntry[];
 }
 
 export interface Pace {

@@ -3,7 +3,8 @@ import type { Ctx } from '../app.ts';
 import { requireTripRole, requireUser } from '../auth.ts';
 import { tx, type DB } from '../db.ts';
 import { cruiseDayFromRow, loadCruises, touchTrip } from '../model.ts';
-import { cruiseCreateInput, cruiseDayInput, cruiseInput, type CruiseDayInput } from '../schemas.ts';
+import { normalizePayment } from '../costs.ts';
+import { cruiseCreateInput, cruiseDayInput, cruiseInput, type CruiseDayInput, type CruiseInput } from '../schemas.ts';
 import { HttpError, newId, nowIso } from '../util.ts';
 
 export function insertDay(db: DB, cruiseId: string, d: CruiseDayInput): string {
@@ -13,6 +14,30 @@ export function insertDay(db: DB, cruiseId: string, d: CruiseDayInput): string {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(id, cruiseId, d.date, d.kind, d.portName, d.country, d.timezone, d.arrival, d.departure, d.allAboard, d.tender ? 1 : 0, d.notes, JSON.stringify(d.infos));
   return id;
+}
+
+export function insertCruise(db: DB, id: string, tripId: string, raw: CruiseInput): void {
+  const c = normalizePayment(raw);
+  const now = nowIso();
+  db.prepare(
+    `INSERT INTO cruises (id, trip_id, ship_name, cruise_line, cabin, booking_ref, notes, infos, cost, currency,
+                          payment_status, paid_amount, due_date, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id, tripId, c.shipName, c.cruiseLine, c.cabin, c.bookingRef, c.notes, JSON.stringify(c.infos), c.cost, c.currency,
+    c.paymentStatus, c.paidAmount, c.dueDate, now, now,
+  );
+}
+
+export function updateCruise(db: DB, id: string, raw: CruiseInput): void {
+  const c = normalizePayment(raw);
+  db.prepare(
+    `UPDATE cruises SET ship_name = ?, cruise_line = ?, cabin = ?, booking_ref = ?, notes = ?, infos = ?, cost = ?, currency = ?,
+            payment_status = ?, paid_amount = ?, due_date = ?, updated_at = ? WHERE id = ?`,
+  ).run(
+    c.shipName, c.cruiseLine, c.cabin, c.bookingRef, c.notes, JSON.stringify(c.infos), c.cost, c.currency,
+    c.paymentStatus, c.paidAmount, c.dueDate, nowIso(), id,
+  );
 }
 
 function cruiseTrip(db: DB, cruiseId: string): string {
@@ -38,12 +63,8 @@ export function registerCruiseRoutes(app: FastifyInstance, { db }: Ctx) {
     requireTripRole(db, tripId, user.id, 'editor');
     const input = cruiseCreateInput.parse(req.body);
     const id = newId();
-    const now = nowIso();
     tx(db, () => {
-      db.prepare(
-        `INSERT INTO cruises (id, trip_id, ship_name, cruise_line, cabin, booking_ref, notes, infos, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(id, tripId, input.shipName, input.cruiseLine, input.cabin, input.bookingRef, input.notes, JSON.stringify(input.infos), now, now);
+      insertCruise(db, id, tripId, input);
       for (const d of input.days) insertDay(db, id, d);
       db.prepare("UPDATE trips SET kind = 'cruise' WHERE id = ?").run(tripId);
       touchTrip(db, tripId);
@@ -58,9 +79,7 @@ export function registerCruiseRoutes(app: FastifyInstance, { db }: Ctx) {
     const current = findCruise(db, tripId, req.params.cruiseId);
     const input = cruiseInput.parse({ ...current, ...(req.body as object) });
     tx(db, () => {
-      db.prepare(
-        'UPDATE cruises SET ship_name = ?, cruise_line = ?, cabin = ?, booking_ref = ?, notes = ?, infos = ?, updated_at = ? WHERE id = ?',
-      ).run(input.shipName, input.cruiseLine, input.cabin, input.bookingRef, input.notes, JSON.stringify(input.infos), nowIso(), req.params.cruiseId);
+      updateCruise(db, req.params.cruiseId, input);
       touchTrip(db, tripId);
     });
     return findCruise(db, tripId, req.params.cruiseId);

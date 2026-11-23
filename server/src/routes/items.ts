@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Ctx } from '../app.ts';
 import { requireTripRole, requireUser } from '../auth.ts';
 import { tx, type DB } from '../db.ts';
+import { normalizePayment } from '../costs.ts';
 import { unlinkAttachmentFiles } from '../files.ts';
 import { itemFromRow, touchTrip } from '../model.ts';
 import { describeChanges, placeChanges, type PlaceChange } from '../place.ts';
@@ -26,8 +27,9 @@ function itemRow(db: DB, id: string) {
   return row;
 }
 
-const columns = (i: ItemInput) =>
-  [
+const columns = (raw: ItemInput) => {
+  const i = normalizePayment(raw);
+  return [
     i.type,
     i.title,
     i.startLocal,
@@ -39,11 +41,15 @@ const columns = (i: ItemInput) =>
     i.provider,
     i.cost,
     i.currency,
+    i.paymentStatus,
+    i.paidAmount,
+    i.dueDate,
     i.notes,
     JSON.stringify(i.details),
     i.cruiseDayId,
     JSON.stringify(i.infos),
   ] as const;
+};
 
 const bulkDeleteInput = z.object({ ids: z.array(z.string()).min(1).max(500) });
 
@@ -110,8 +116,9 @@ export function registerItemRoutes(app: FastifyInstance, { db, uploadDir, sender
     tx(db, () => {
       db.prepare(
         `INSERT INTO items (type, title, start_local, start_tz, end_local, end_tz, location, confirmation, provider,
-                            cost, currency, notes, details, cruise_day_id, infos, id, trip_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                            cost, currency, payment_status, paid_amount, due_date, notes, details, cruise_day_id, infos,
+                            id, trip_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(...columns(input), id, tripId, now, now);
       touchTrip(db, tripId);
     });
@@ -128,7 +135,8 @@ export function registerItemRoutes(app: FastifyInstance, { db, uploadDir, sender
     tx(db, () => {
       db.prepare(
         `UPDATE items SET type = ?, title = ?, start_local = ?, start_tz = ?, end_local = ?, end_tz = ?, location = ?,
-                confirmation = ?, provider = ?, cost = ?, currency = ?, notes = ?, details = ?, cruise_day_id = ?, infos = ?,
+                confirmation = ?, provider = ?, cost = ?, currency = ?, payment_status = ?, paid_amount = ?, due_date = ?,
+                notes = ?, details = ?, cruise_day_id = ?, infos = ?,
                 updated_at = ? WHERE id = ?`,
       ).run(...columns(input), nowIso(), req.params.itemId);
       touchTrip(db, row.trip_id);

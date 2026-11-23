@@ -107,7 +107,7 @@ describe('document inbox', () => {
         documentKind: 'Kreuzfahrt',
         items: [],
         cruise: {
-          shipName: 'MS Aurora', cruiseLine: 'Beispiel', cabin: '8142', bookingRef: 'AUR-4711', notes: null, infos: [],
+          shipName: 'MS Aurora', cruiseLine: 'Beispiel', cabin: '8142', bookingRef: 'AUR-4711', cost: 3480, currency: 'EUR', notes: null, infos: [],
           days: [
             { date: '2027-05-10', kind: 'embarkation', portName: 'Civitavecchia', country: 'Italien', timezone: 'Europe/Rome', arrival: '12:00', departure: '18:00', allAboard: '17:30', tender: false, notes: null, infos: [] },
             { date: '2027-05-11', kind: 'port', portName: 'Neapel', country: 'Italien', timezone: 'Europe/Rome', arrival: '07:00', departure: '17:00', allAboard: '16:30', tender: false, notes: null, infos: [] },
@@ -123,6 +123,7 @@ describe('document inbox', () => {
     assert.equal(applied.status, 200);
     const cruise = (await detail()).cruises[0];
     assert.equal(cruise.days.length, 2);
+    assert.deepEqual([cruise.cost, cruise.currency, cruise.paymentStatus], [3480, 'EUR', null], 'price from the document, payment state stays open to the user');
 
     // The AI gets the new days as context and links the excursion to the Naples day.
     replies.set('ausflug.pdf', (c) => {
@@ -137,6 +138,9 @@ describe('document inbox', () => {
     const created = (await detail()).items.find((i: any) => i.title === 'Pompeji');
     assert.equal(created.cruiseDayId, cruise.days[1].id);
 
+    // A price and payment state the user entered survive when the same document is applied again.
+    await ctx.call('PATCH', `/api/cruises/${cruise.id}`, admin, { cost: 3500, paymentStatus: 'paid' });
+
     // The same cruise document again merges into the existing cruise instead of duplicating it.
     const again = await send('kreuzfahrt.pdf');
     const againA = (await ctx.call('GET', `/api/attachments/${again.body.attachment.id}/analysis`, admin)).body;
@@ -147,6 +151,7 @@ describe('document inbox', () => {
     const after = (await detail()).cruises;
     assert.equal(after.length, 1);
     assert.equal(after[0].days.length, 2);
+    assert.deepEqual([after[0].cost, after[0].paymentStatus], [3500, 'paid'], 'own price and payment are kept');
   });
 
   test('an excursion applied before the cruise is linked to its port day once the cruise exists', async () => {
@@ -160,7 +165,7 @@ describe('document inbox', () => {
     assert.equal((await ctx.call('GET', `/api/trips/${t2}`, admin)).body.items[0].cruiseDayId, null);
 
     replies.set('dann-schiff.pdf', () =>
-      result({ items: [], cruise: { shipName: 'MS Nordlicht', cruiseLine: null, cabin: null, bookingRef: null, notes: null, infos: [], days: [
+      result({ items: [], cruise: { shipName: 'MS Nordlicht', cruiseLine: null, cabin: null, bookingRef: null, cost: null, currency: null, notes: null, infos: [], days: [
         { date: '2027-06-01', kind: 'embarkation', portName: 'Kiel', country: null, timezone: 'Europe/Berlin', arrival: null, departure: '17:00', allAboard: '16:30', tender: false, notes: null, infos: [] },
         { date: '2027-06-02', kind: 'port', portName: 'Oslo', country: 'Norwegen', timezone: 'Europe/Oslo', arrival: '08:00', departure: '18:00', allAboard: '17:30', tender: false, notes: null, infos: [] },
       ] } }),
@@ -342,7 +347,7 @@ describe('document inbox', () => {
     replies.set('bord-abc.pdf', () => result({
       documentKind: 'Bord-ABC', summary: 'Allgemeine Bordinformationen', items: [], warnings: [],
       cruise: {
-        shipName: 'Mein Schiff Relax', cruiseLine: null, cabin: null, bookingRef: null, notes: null,
+        shipName: 'Mein Schiff Relax', cruiseLine: null, cabin: null, bookingRef: null, cost: null, currency: null, notes: null,
         infos: [info('Notfalltelefon Mein Schiff Relax', '+49 40 87 40 80 28')],
         days: [{ ...emptyDay, date: '2026-12-04', kind: 'embarkation', infos: [{ ...info('Verspätete Anreise (nur am Anreisetag)', '+49 40 600 01-7108'), kind: 'emergency' as const }] }],
       },

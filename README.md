@@ -23,6 +23,8 @@ Self-hosted als ein Docker-Container (z. B. auf einer Synology), erreichbar per 
   erkennt Flug, Hotel, Parkplatz, Transfer, Ausflug oder die Kreuzfahrt-Route, legt die Einträge an (oder ergänzt vorhandene) und hängt das
   Dokument daran. Du bestätigst vorher jeden Vorschlag. Siehe [KI-Einrichtung](#dokumente-automatisch-zuordnen-ki).
 - **Dokumente** (Bordkarten, Tickets, Vouchers) pro Reise oder pro Eintrag.
+- **Kosten:** Reiter mit Summen je Währung (nie umgerechnet) und Art, bezahlt und offen, fälligen Restzahlungen und einer Liste
+  gebuchter Leistungen ohne Preis. Preis, Zahlungsstand (offen, angezahlt, bezahlt) und Fälligkeit gibt es an jedem Eintrag und an der Kreuzfahrt.
 - **Teilen** mit Familienmitgliedern (Besitzer / Bearbeiten / Nur ansehen).
 - **PWA:** Lässt sich auf den iPhone-Homescreen legen. Zuletzt geladene Reisen sind auch offline lesbar.
 
@@ -283,5 +285,5 @@ docs/     API-Referenz (Grundlage für die iOS-App)
 - [x] **Reise prüfen** (Knopf „🔍 Prüfen“ in der Reise: KI-Durchsicht der ganzen Reise auf Lücken und Widersprüche, nur lesend, mit Sprung zu den betroffenen Einträgen)
 - [x] **Web-Recherche** (optional im Prüfdialog: Reiseverlauf der Kreuzfahrt, Routen, Fahrzeiten, Check-in-Zeiten, Telefonnummern; optional mit Link zur Reise; Funde mit Quelle zuerst zur Auswahl, Anzeige, was gesucht wurde, nichts wird automatisch übernommen)
 - [x] **Version der App in den Einstellungen anzeigen** (Versionsnummer und Stand, damit man nach einem Update sieht, was läuft)
-- [ ] **Kostenauswertung** (vom Nutzer für die nächsten Tage gewünscht: Summen je Reise, Währung und Art, Währungen sauber getrennt; die Preise stehen schon an den Einträgen)
+- [x] **Kostenauswertung** (Reiter „Kosten“: Summen je Währung und Art, Währungen sauber getrennt, bezahlt und offen, fällige Restzahlungen, Beträge ohne Währung und gebuchte Leistungen ohne Preis; Preis und Zahlungsstand auch an der Kreuzfahrt)
 - [ ] Packliste & Kostenübersicht pro Person

@@ -24,7 +24,7 @@ const aiResult = (p: Partial<AiResult> = {}): AiResult => ({ suggestedTripTitle:
 
 const item = (p: Partial<Item> & Pick<Item, 'id' | 'type' | 'startLocal'>): Item => ({
   tripId: 't', title: p.id, startTz: null, endLocal: null, endTz: null, location: null, confirmation: null, provider: null,
-  cost: null, currency: null, notes: null, cruiseDayId: null, details: {}, infos: [], createdAt: '', updatedAt: '', ...p,
+  cost: null, currency: null, paymentStatus: null, paidAmount: null, dueDate: null, notes: null, cruiseDayId: null, details: {}, infos: [], createdAt: '', updatedAt: '', ...p,
 });
 const data = (p: Partial<ItemData> & Pick<ItemData, 'type' | 'startLocal'>): ItemData => ({
   title: 'x', startTz: null, endLocal: null, endTz: null, location: null, confirmation: null, provider: null, cost: null,
@@ -90,7 +90,7 @@ describe('matching', () => {
   });
 
   test('cruise: booking reference or ship name', () => {
-    const cruises: Cruise[] = [{ id: 'c', tripId: 't', shipName: 'MS Aurora', cruiseLine: null, cabin: null, bookingRef: 'AUR-4711', notes: null, infos: [], days: [] }];
+    const cruises: Cruise[] = [{ id: 'c', tripId: 't', shipName: 'MS Aurora', cruiseLine: null, cabin: null, bookingRef: 'AUR-4711', notes: null, infos: [], cost: null, currency: null, paymentStatus: null, paidAmount: null, dueDate: null, days: [] }];
     const p = { shipName: 'Andere', cruiseLine: null, cabin: null, bookingRef: 'aur4711', notes: null, infos: [], days: [] };
     assert.equal(matchCruise(cruises, p)?.cruise.id, 'c');
     assert.equal(matchCruise(cruises, { ...p, bookingRef: null, shipName: 'ms aurora' })?.cruise.id, 'c');

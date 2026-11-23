@@ -4,6 +4,7 @@ import { DAY_KINDS, addDays } from '../format.ts';
 import type { Cruise, CruiseDay, CruiseDayKind } from '../types.ts';
 import { ErrorBox, Field, Modal, TimezoneInput } from './ui.tsx';
 import { InfoEditor } from './InfoEditor.tsx';
+import { lastCurrency, useMoneyFields } from './MoneyFields.tsx';
 
 export function CruiseForm({ tripId, cruise, onClose, onSaved }: { tripId: string; cruise?: Cruise; onClose: () => void; onSaved: () => void }) {
   const [shipName, setShipName] = useState(cruise?.shipName ?? '');
@@ -12,6 +13,7 @@ export function CruiseForm({ tripId, cruise, onClose, onSaved }: { tripId: strin
   const [bookingRef, setBookingRef] = useState(cruise?.bookingRef ?? '');
   const [notes, setNotes] = useState(cruise?.notes ?? '');
   const [infos, setInfos] = useState(cruise?.infos ?? []);
+  const money = useMoneyFields(cruise, lastCurrency());
   // Route generator (new cruises only)
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -27,7 +29,9 @@ export function CruiseForm({ tripId, cruise, onClose, onSaved }: { tripId: strin
   const save = async () => {
     setError(null);
     if (!shipName.trim()) return setError('Bitte den Schiffsnamen angeben.');
-    const base = { shipName, cruiseLine: cruiseLine || null, cabin: cabin || null, bookingRef: bookingRef || null, notes: notes || null, infos: infos.filter((i) => i.label.trim() && i.value.trim()) };
+    const m = money.build();
+    if ('error' in m) return setError(m.error);
+    const base = { shipName, cruiseLine: cruiseLine || null, cabin: cabin || null, bookingRef: bookingRef || null, notes: notes || null, infos: infos.filter((i) => i.label.trim() && i.value.trim()), ...m.value };
     setBusy(true);
     try {
       if (cruise) {
@@ -80,6 +84,8 @@ export function CruiseForm({ tripId, cruise, onClose, onSaved }: { tripId: strin
         <Field label="Reederei"><input value={cruiseLine} onChange={(e) => setCruiseLine(e.target.value)} /></Field>
         <Field label="Kabine"><input value={cabin} onChange={(e) => setCabin(e.target.value)} placeholder="8142, Balkon" /></Field>
         <Field label="Buchungsnummer" wide><input value={bookingRef} onChange={(e) => setBookingRef(e.target.value)} /></Field>
+        <h3 className="form-section wide">Preis <small>Gesamtpreis der Kreuzfahrt-Buchung</small></h3>
+        {money.fields}
         {!cruise && (
           <>
             <h3 className="form-section wide">Route anlegen <small>(optional – Häfen kannst du danach pro Tag ergänzen)</small></h3>

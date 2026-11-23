@@ -86,6 +86,7 @@ in der Zukunft. Der Vorlauf ist der eingestellte, verlängert um den persönlich
 | PATCH | `/trips/:id` | editor | Teil-Update |
 | DELETE | `/trips/:id` | owner | inkl. Dokumente |
 | GET | `/trips/:id/timeline` | viewer | Phasen + Puffer-Warnungen (siehe unten) |
+| GET | `/trips/:id/costs` | viewer | Kostenübersicht (siehe „Kosten“ unten) |
 | PUT | `/trips/:id/members/:userId` | owner | `{role: owner\|editor\|viewer}`, fügt hinzu oder ändert |
 | DELETE | `/trips/:id/members/:userId` | owner / selbst | entfernen bzw. Reise verlassen |
 
@@ -96,7 +97,7 @@ laden nur geänderte Reisen neu.
 ### Kreuzfahrten
 | Methode | Pfad | Beschreibung |
 |---|---|---|
-| POST | `/trips/:id/cruises` | `{shipName, cruiseLine?, cabin?, bookingRef?, notes?, days?: CruiseDay[]}` |
+| POST | `/trips/:id/cruises` | `{shipName, cruiseLine?, cabin?, bookingRef?, notes?, cost?, currency?, paymentStatus?, paidAmount?, dueDate?, days?: CruiseDay[]}` (Preis und Zahlung wie bei Einträgen, siehe „Kosten“) |
 | PATCH | `/cruises/:id` | Teil-Update der Schiffsdaten |
 | DELETE | `/cruises/:id` | inkl. Tage; Einträge bleiben erhalten, die Verknüpfung wird entfernt |
 | POST | `/cruises/:id/days` | Tag hinzufügen |
@@ -122,7 +123,9 @@ Bei `disembarkation` bedeutet `departure` „von Bord bis“.
   "startLocal": "2027-05-08T09:40", "startTz": "Europe/Zurich",
   "endLocal": "2027-05-08T11:15",   "endTz": "Europe/Rome",
   "location": null, "confirmation": "K7XQ2P", "provider": "SWISS",
-  "cost": 189.0, "currency": "CHF", "notes": null,
+  "cost": 189.0, "currency": "CHF",
+  "paymentStatus": "deposit", "paidAmount": 50.0, "dueDate": "2027-04-01",
+  "notes": null,
   "cruiseDayId": null,
   "details": { "flightNumber": "LX 1726", "from": "ZRH", "to": "FCO", "seat": "12A" }
 }
@@ -268,4 +271,35 @@ Hinweise des Puffer-Checks lassen sich quittieren („gesehen, ist in Ordnung“
 Diese Angaben stehen in `details` des Eintrags: Flug `terminal`, `checkinDesk` (Check-in-Schalter), `gate`, `baggageBelt` (Kofferband bei Ankunft); Zug `platform` (Gleis); Mietwagen `desk` (Schalter). Sie sind oft erst kurz vorher bekannt und werden im Ablauf hervorgehoben, im Abflug-Erinnerung genannt (ohne Kofferband) und von der KI nur gelesen, wenn sie im Dokument stehen.
 
 Ändert ein Bearbeiter eine dieser Angaben über `PATCH /items/:id` und liegt der Termin höchstens 36 Stunden voraus (oder weniger als 8 Stunden zurück), bekommen die **anderen** Mitglieder der Reise eine Push-Nachricht („Gate B12 (vorher B14)“). Pro Person abschaltbar mit `notifications.infoChange` in `/me/settings` (Standard an).
+
+### Kosten
+
+Preis und Zahlung gibt es an Einträgen und an der Kreuzfahrt (Gesamtpreis der Buchung), mit denselben Feldern:
+
+| Feld | Bedeutung |
+|---|---|
+| `cost` | Betrag oder `null` |
+| `currency` | 3-stelliger Code (`EUR`, `CHF` …) oder `null`. Es wird nie eine Währung angenommen |
+| `paymentStatus` | `open`, `deposit` (angezahlt), `paid` oder `null` (keine Angabe, zählt als offen) |
+| `paidAmount` | bereits angezahlt; nur bei `deposit`, sonst speichert der Server `null` |
+| `dueDate` | `JJJJ-MM-TT`, bis wann der (Rest-)Betrag zu zahlen ist, oder `null` |
+
+Die KI liest den Preis einer Kreuzfahrt aus der Buchungsbestätigung (`cruise.cost`, `cruise.currency` im Vorschlag). Beim Aktualisieren einer
+vorhandenen Kreuzfahrt füllt sie nur einen fehlenden Preis; einen eingetragenen Preis und den Zahlungsstand ändert sie nie.
+
+`GET /trips/:id/costs` liefert die Übersicht, auf dem Server gerechnet:
+```json
+{
+  "currencies": [{ "currency": "EUR", "total": 3900, "paid": 920, "open": 2980, "unstated": 0,
+                   "groups": [{ "kind": "cruise", "count": 1, "total": 3480, "paid": 500, "open": 2980, "entryIds": ["…"] }] }],
+  "withoutCurrency": [CostEntry],
+  "missingPrice": [{ "kind": "flight", "count": 2, "entryIds": ["…"] }],
+  "due": [CostEntry],
+  "entries": [CostEntry]
+}
+```
+`CostEntry`: `{id, source: item|cruise, kind, title, date, cost, currency, paymentStatus, paid, open, dueDate}`. `kind` ist der Eintragstyp oder
+`cruise`. Währungen werden nie zusammengezählt oder umgerechnet; die größte Summe steht zuerst. Beträge ohne Währung stehen nur in
+`withoutCurrency`. `missingPrice` nennt gebuchte Leistungen ohne Preis (Kreuzfahrt, Flug, Zug, Bus, Fähre, Transfer, Mietwagen, Parkplatz,
+Übernachtung, Landausflug), nicht Aktivitäten, Restaurants, Stationen und Notizen. `due` enthält offene Beträge mit Fälligkeit, früheste zuerst.
 

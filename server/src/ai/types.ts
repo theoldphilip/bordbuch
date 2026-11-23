@@ -161,6 +161,9 @@ export interface CruiseData {
   cruiseLine: string | null;
   cabin: string | null;
   bookingRef: string | null;
+  /** Total price of the cruise. Missing in analyses stored before 0.9.0. */
+  cost?: number | null;
+  currency?: string | null;
   notes: string | null;
   infos: Info[];
   days: CruiseDayData[];

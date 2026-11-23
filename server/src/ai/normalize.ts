@@ -30,6 +30,9 @@ const infos = (list: AiResult['items'][number]['infos']): Info[] =>
     .filter((i) => i.label && i.value)
     .slice(0, 30);
 
+const money = (v: number | null): number | null => (v !== null && Number.isFinite(v) ? v : null);
+const currency = (v: string | null): string | null => clean(v)?.toUpperCase().slice(0, 3) ?? null;
+
 const tz = (v: string | null): string | null => {
   const t = clean(v);
   return t && isValidTimeZone(t) ? t : null;
@@ -48,8 +51,8 @@ export function normalizeExtraction(ai: AiResult, ctx: ExtractionContext, model:
     location: clean(i.location),
     confirmation: clean(i.confirmation),
     provider: clean(i.provider),
-    cost: i.cost !== null && Number.isFinite(i.cost) ? i.cost : null,
-    currency: clean(i.currency)?.toUpperCase().slice(0, 3) ?? null,
+    cost: money(i.cost),
+    currency: currency(i.currency),
     notes: clean(i.notes),
     cruiseDayId: i.cruiseDayId && dayIds.has(i.cruiseDayId) ? i.cruiseDayId : null,
     infos: infos(i.infos),
@@ -63,6 +66,8 @@ export function normalizeExtraction(ai: AiResult, ctx: ExtractionContext, model:
         cruiseLine: clean(ai.cruise.cruiseLine),
         cabin: clean(ai.cruise.cabin),
         bookingRef: clean(ai.cruise.bookingRef),
+        cost: money(ai.cruise.cost),
+        currency: currency(ai.cruise.currency),
         notes: clean(ai.cruise.notes),
         infos: infos(ai.cruise.infos),
         days: ai.cruise.days.map(
