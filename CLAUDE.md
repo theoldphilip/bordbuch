@@ -1,6 +1,6 @@
 # CLAUDE.md – Übergabe und Arbeitsbriefing für Reisebuch (Repository „bordbuch“)
 
-Stand: 22.11.2026, App-Version 0.8.0, Datenbank-Stand 8, 120 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
+Stand: 23.11.2026, App-Version 0.8.1, Datenbank-Stand 8, 120 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
 einer früheren Claude-Code-Sitzung (Cloud, Web). Wer sie liest, setzt die Arbeit dort fort, wo sie aufgehört hat. Lies sie ganz,
 bevor du etwas änderst, und prüfe Aussagen über Code im Repo nach, statt dich auf diese Datei zu verlassen (Code gewinnt).
 
@@ -18,7 +18,13 @@ auf dem iPhone (Home-Bildschirm). Später soll eine **native iOS-App (SwiftUI)**
   `https://172.16.10.1:8444` (selbst erzeugtes Zertifikat „Bordbuch“, CN=Bordbuch, läuft laut DSM am 22.02.2029 ab). Port 8443
   belegt Vaultwarden. Der KI-Schlüssel steht nur in `/volume1/docker/bordbuch/.env` auf der Synology, **nie** im Repo oder in der
   Sandbox: deshalb ist in der Cloud-Sandbox **kein echter KI-Aufruf möglich** (siehe Abschnitt 9).
-- **Update auf der Synology macht Philip selbst** per SSH. Nenne ihm nach jeder Änderung diesen Befehl in einem eigenen Codeblock:
+- **Update auf der Synology:** Claude spielt es **nur auf Philips ausdrücklichen Wunsch** ein, nie automatisch nach einem Commit.
+  Zugang (eingerichtet 23.11.2026, nur in der HolyClaude-Umgebung): SSH als `rootadmin@172.16.10.1` mit eigenem Schlüssel
+  `~/.claude/ssh-bordbuch/id_ed25519` und `UserKnownHostsFile=~/.claude/ssh-bordbuch/known_hosts`. Der Schlüssel ist per
+  `command=…,restrict` auf das Root-Skript `/volume1/docker/bordbuch-update.sh` festgelegt (sudo-Regel `/etc/sudoers.d/bordbuch-update`)
+  und kennt nur `update` (git pull --ff-only, `docker compose up -d --build`, danach `/api/version`), `status` und `logs`. Nach dem
+  Update Version und `builtAt` in der Antwort prüfen und Philip nennen. Ein DSM-Update kann die sudo-Regel entfernen; dann fragt sudo
+  nach einem Passwort und Philip muss sie neu anlegen. Ohne diesen Zugang macht Philip das Update selbst:
   `cd /volume1/docker/bordbuch && sudo git pull && sudo docker compose up -d --build`. Danach zeigt Einstellungen → „Über Reisebuch“
   Version und Datenbank-Stand; ist die App auf dem iPhone älter, hilft dort „App neu laden“.
 
@@ -191,4 +197,4 @@ nach 5 Minuten Verspätung nicht mehr gesendet.
 
 1. `git pull`, diese Datei und `README.md` lesen, `git log --oneline -10` ansehen.
 2. `npm run install:all`, `cd server && npm test` (sollte 120 grün sein), `cd web && npm run build`.
-3. Philip begrüßen, kurz den Stand nennen (0.8.0, offen: Kostenauswertung) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.
+3. Philip begrüßen, kurz den Stand nennen (0.8.1, offen: Kostenauswertung) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.
