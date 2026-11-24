@@ -244,7 +244,7 @@ S += [P('Alles lässt sich jederzeit von Hand anlegen, ändern und löschen: Ein
         'löschst du alle Einträge dieses Abschnitts auf einmal (mit Rückfrage; mehrtägige Einträge wie ein Parkplatz verschwinden auch im anderen Abschnitt).')]
 S += H2('Kosten und Zahlung')
 S += [P('Jeder Eintrag und die Kreuzfahrt haben <b>Kosten</b>, <b>Währung</b> und einen <b>Zahlungsstand</b>: <i>keine Angabe, offen, angezahlt</i> (mit dem bereits gezahlten Betrag) oder <i>bezahlt</i>. Freiwillig trägst du <b>Fällig am</b> ein, bei einer Anzahlung das Datum der Restzahlung. Die Kreuzfahrt-Kosten sind der Gesamtpreis der Buchung.')]
-S += B(['Die KI liest Preise und den Gesamtpreis der Kreuzfahrt aus der Buchungsbestätigung, dazu den Zahlungsstand (Anzahlung, Restzahlung bis …), aber nur, wenn er ausdrücklich im Dokument steht. Im Prüfdialog steht dann zum Beispiel „Zahlung laut Dokument: angezahlt EUR 500.00, Rest fällig 1. März 2027“. Einen Preis oder Zahlungsstand, den du selbst eingetragen hast, überschreibt eine spätere Analyse nie.',
+S += B(['Die KI liest Preise und den Gesamtpreis der Kreuzfahrt aus der Buchungsbestätigung. Bei Einträgen (Flug, Hotel, Parkplatz …) liest sie auch den Zahlungsstand (Anzahlung, Restzahlung bis …), aber nur, wenn er ausdrücklich im Dokument steht; er erscheint im Prüfdialog beim Vorschlag, zum Beispiel „angezahlt EUR 100.00, Rest fällig 1. April 2027“. Den Zahlungsstand der Kreuzfahrt trägst du selbst ein. Einen Preis oder Zahlungsstand, den du selbst eingetragen hast, überschreibt eine spätere Analyse nie.',
         'Eine Währung wird nie angenommen. Ohne Währung steht der Betrag nur als Zahl da.',
         'Der Reiter <b>Kosten</b> rechnet alles auf dem Server. Je Währung gibt es eine Karte mit <b>Gesamt, bezahlt und offen</b>; Währungen werden nie zusammengezählt oder umgerechnet.',
         'Aufgeklappt siehst du die Summen je Art (Kreuzfahrt, Flug, Hotel …) mit den einzelnen Einträgen. Ein Tippen auf einen Eintrag öffnet ihn.',
@@ -423,7 +423,8 @@ S += TBL([['Version', 'Neu'],
           ['0.8.0', 'Gate, Check-in-Schalter, Kofferband, Gleis; Push bei Änderung; Kabine gut sichtbar'],
           ['0.8.1', 'Update des Servers über das Skript bordbuch-update.sh (nur Befehle update, status, logs)'],
           ['0.9.0', 'Kostenauswertung: Reiter Kosten mit Summen je Währung und Art, bezahlt und offen, Fälligkeiten; Preis und Zahlungsstand an der Kreuzfahrt und an jedem Eintrag'],
-          ['0.10.0', 'KI liest Zahlungsstand (Anzahlung, Fälligkeit) aus Dokumenten; Reisetag-Abfrage für Terminal, Schalter, Gate, Kofferband und Gleis']], [3.2, 12.8])
+          ['0.10.0', 'KI liest Zahlungsstand (Anzahlung, Fälligkeit) aus Dokumenten; Reisetag-Abfrage für Terminal, Schalter, Gate, Kofferband und Gleis'],
+          ['0.10.1', 'Fehler behoben: Dokument-Analyse wurde von der KI abgelehnt; Zahlungsstand jetzt nur bei Einträgen, nicht bei der Kreuzfahrt']], [3.2, 12.8])
 S += [CondPageBreak(6 * cm), Paragraph('<b>Geplant</b>', body)]
 S += TBL([['Geplant', 'Hinweis'],
           ['iOS-App (SwiftUI)', 'Widgets, Live-Aktivität, Erinnerungen nach Standort im Hintergrund; Bau auf dem Mac, API ist in docs/API.md beschrieben'],

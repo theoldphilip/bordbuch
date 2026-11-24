@@ -2,12 +2,16 @@
  * Shape the model must return (structured output). Constraints of the API's JSON-schema mode:
  * every object is closed, no numeric ranges, no free-form maps. So all fields are required but
  * nullable, and "details" is a list of key/value pairs.
+ *
+ * KEEP THIS SCHEMA SMALL. The API compiles it into a grammar with a size limit; every nullable field and every enum
+ * makes it bigger. 0.10.0 added six payment fields here and every analysis failed with "The compiled grammar is too
+ * large". New, optional facts go into the existing "details" list (see PAYMENT_DETAIL_KEYS in normalize.ts) instead
+ * of new fields. The unit tests cannot catch this: they never reach the real API.
  */
 import { z } from 'zod';
-import { CRUISE_DAY_KINDS, INFO_KINDS, ITEM_TYPES, PAYMENT_STATUSES } from '../schemas.ts';
+import { CRUISE_DAY_KINDS, INFO_KINDS, ITEM_TYPES } from '../schemas.ts';
 
 const nullableText = z.string().nullable();
-const aiPaymentStatus = z.enum(PAYMENT_STATUSES).nullable();
 
 export const aiInfoSchema = z.object({
   label: z.string(),
@@ -28,9 +32,6 @@ export const aiItemSchema = z.object({
   provider: nullableText,
   cost: z.number().nullable(),
   currency: nullableText,
-  paymentStatus: aiPaymentStatus,
-  paidAmount: z.number().nullable(),
-  dueDate: nullableText,
   notes: nullableText,
   cruiseDayId: nullableText,
   details: z.array(z.object({ key: z.string(), value: z.string() })),
@@ -59,9 +60,6 @@ export const aiCruiseSchema = z.object({
   bookingRef: nullableText,
   cost: z.number().nullable(),
   currency: nullableText,
-  paymentStatus: aiPaymentStatus,
-  paidAmount: z.number().nullable(),
-  dueDate: nullableText,
   notes: nullableText,
   infos: z.array(aiInfoSchema),
   days: z.array(aiCruiseDaySchema),

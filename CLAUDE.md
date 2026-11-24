@@ -1,6 +1,6 @@
 # CLAUDE.md – Übergabe und Arbeitsbriefing für Reisebuch (Repository „bordbuch“)
 
-Stand: 23.11.2026, App-Version 0.10.0, Datenbank-Stand 9, 141 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
+Stand: 24.11.2026, App-Version 0.10.1, Datenbank-Stand 9, 143 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
 einer früheren Claude-Code-Sitzung (Cloud, Web). Wer sie liest, setzt die Arbeit dort fort, wo sie aufgehört hat. Lies sie ganz,
 bevor du etwas änderst, und prüfe Aussagen über Code im Repo nach, statt dich auf diese Datei zu verlassen (Code gewinnt).
 
@@ -134,7 +134,10 @@ ohne API.md und beide Clients mitzuziehen. `GET /api/version` und `/api/health` 
 - **Kosten** (`server/src/costs.ts`, Reiter „Kosten“ in `web/src/components/CostsTab.tsx`, `GET /api/trips/:id/costs`): Summen je Währung, nie
   umgerechnet, gruppiert nach Art; bezahlt/offen aus `paymentStatus` (`open`/`deposit`/`paid`/null = keine Angabe, zählt als offen),
   `paidAmount` (nur bei `deposit`, sonst speichert der Server null) und `dueDate`. Die Kreuzfahrt hat einen eigenen Gesamtpreis (`cruises.cost`),
-  den die KI aus der Buchung liest, ebenso den Zahlungsstand (nur wenn ausdrücklich genannt, Anzahlung höchstens der Preis). Beim Aktualisieren
+  den die KI aus der Buchung liest. Den Zahlungsstand liest die KI nur bei Einträgen (nur wenn ausdrücklich genannt, Anzahlung höchstens der
+  Preis), und zwar als `details`-Einträge `paymentStatus`/`paidAmount`/`dueDate`, die `normalize.ts` herauszieht. **Grenze der KI-Antwort:**
+  Das Schema in `ai/schema.ts` darf nicht wachsen; mit sechs zusätzlichen Feldern lehnte die API in 0.10.0 jede Analyse ab („The compiled grammar
+  is too large“). Neue Angaben gehören in `details`. Ein Test schreibt die Felder fest. Beim Aktualisieren
   aus einem Dokument werden Preis und Zahlungsstand nur gefüllt, wenn noch nichts eingetragen ist (`mergeItem`, Kreuzfahrt in `documents.ts`). „Ohne Preis“
   listet nur gebuchte Leistungen (`PRICED_TYPES`). Preisfelder im Web gemeinsam in `MoneyFields.tsx` (Einträge und Kreuzfahrt).
 - **Zeitbedarf:** Faktor und Zusatzminuten je Benutzer; alle Mindestzeiten werden damit gerechnet, Meldungen zeigen **immer beide Zeiten**
@@ -153,7 +156,8 @@ Einstellungen mit Unterseiten, Einladung per Teilen-Menü) · 0.2 Versionsanzeig
 Link, Diagnose · 0.5 Reise prüfen · 0.6 Reisearten, Stationen, Umbenennung Reisebuch, Jetzt-Markierung, Ausschiffung ab 06:00, Bord-ABC,
 Währung · 0.7 Quittieren, Ansichtsmodus · 0.8 Gate/Schalter/Kofferband/Gleis, Push bei Änderung, Kabine sichtbar · 0.8.1 Update auf der
 Synology durch Claude · 0.9 Kostenauswertung (Reiter „Kosten“, Preis an der Kreuzfahrt, Zahlungsstand und Fälligkeit) · 0.10 KI liest
-Zahlungsstand aus Dokumenten, Reisetag-Abfrage für Gate/Schalter/Kofferband/Gleis. Details in der
+Zahlungsstand aus Dokumenten, Reisetag-Abfrage für Gate/Schalter/Kofferband/Gleis · 0.10.1 Dokument-Analyse wieder lauffähig (KI-Schema zu
+groß, Zahlungsstand nur noch bei Einträgen über details). Details in der
 Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
 
 ## 6. Offene Punkte (Reihenfolge nach Philips Wünschen)
@@ -210,5 +214,5 @@ nach 5 Minuten Verspätung nicht mehr gesendet.
 ## 10. Erste Schritte in einer neuen Sitzung
 
 1. `git pull`, diese Datei und `README.md` lesen, `git log --oneline -10` ansehen.
-2. `npm run install:all`, `cd server && npm test` (sollte 141 grün sein), `cd web && npm run build`.
-3. Philip begrüßen, kurz den Stand nennen (0.10.0, Kosten und Reisetag-Abfrage fertig) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.
+2. `npm run install:all`, `cd server && npm test` (sollte 143 grün sein), `cd web && npm run build`.
+3. Philip begrüßen, kurz den Stand nennen (0.10.1, Kosten und Reisetag-Abfrage fertig) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.

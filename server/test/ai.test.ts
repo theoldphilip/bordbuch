@@ -1,7 +1,8 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createAnthropicExtractor } from '../src/ai/anthropic.ts';
-import { normalizeExtraction, normalizeLocal } from '../src/ai/normalize.ts';
+import { amount, normalizeExtraction, normalizeLocal } from '../src/ai/normalize.ts';
+import { aiCruiseSchema, aiItemSchema } from '../src/ai/schema.ts';
 import { buildProposals, diffItem, matchCruise, matchItem, mergeItem, titleSimilarity } from '../src/ai/proposals.ts';
 import { classifyFile } from '../src/ai/files.ts';
 import { ExtractionError, type ExtractionContext, type ItemData } from '../src/ai/types.ts';
@@ -17,7 +18,7 @@ const ctx: ExtractionContext = {
 
 const aiItem = (p: Partial<AiResult['items'][number]> = {}): AiResult['items'][number] => ({
   type: 'hotel', title: 'Hotel Artemide', startLocal: '2027-05-08T14:00', startTz: 'Europe/Rome', endLocal: '2027-05-10T10:00', endTz: null,
-  location: null, confirmation: 'AB12345', provider: null, cost: null, currency: null, paymentStatus: null, paidAmount: null, dueDate: null,
+  location: null, confirmation: 'AB12345', provider: null, cost: null, currency: null,
   notes: null, cruiseDayId: null, details: [], infos: [], confidence: 'high', ...p,
 });
 const aiResult = (p: Partial<AiResult> = {}): AiResult => ({ suggestedTripTitle: null, documentKind: 'Hotelbuchung', summary: 'ok', items: [aiItem()], cruise: null, warnings: [], ...p });
@@ -52,25 +53,51 @@ describe('normalize', () => {
     assert.equal(out.items[1]!.currency, 'CHF');
   });
 
-  test('payment state from the document only with a price, sane deposit and a real date', () => {
+  test('payment state comes from details, only with a price, sane deposit and a real date; the keys leave the details', () => {
+    const pd = (status: string, paid?: string, due?: string) => [
+      { key: 'paymentStatus', value: status },
+      ...(paid ? [{ key: 'paidAmount', value: paid }] : []),
+      ...(due ? [{ key: 'dueDate', value: due }] : []),
+    ];
     const out = normalizeExtraction(
       aiResult({
         items: [
-          aiItem({ cost: 3480, currency: 'EUR', paymentStatus: 'deposit', paidAmount: 500, dueDate: '2027-03-01' }),
-          aiItem({ cost: null, paymentStatus: 'paid' }),
-          aiItem({ cost: 100, paymentStatus: 'deposit', paidAmount: 250, dueDate: 'Anfang März' }),
-          aiItem({ cost: 100, paymentStatus: 'paid', paidAmount: 100, dueDate: '2027-03-01' }),
-          aiItem({ cost: 100, paymentStatus: 'open', paidAmount: 40, dueDate: '2027-04-01T00:00' }),
+          aiItem({ cost: 3480, currency: 'EUR', details: [{ key: 'room', value: '12' }, ...pd('deposit', '500,00 €', '2027-03-01')] }),
+          aiItem({ cost: null, details: pd('paid') }),
+          aiItem({ cost: 100, details: pd('deposit', '250', 'Anfang März') }),
+          aiItem({ cost: 100, details: pd('paid', '100', '2027-03-01') }),
+          aiItem({ cost: 100, details: pd('open', '40', '2027-04-01T00:00') }),
+          aiItem({ cost: 100, details: pd('bald') }),
         ],
       }),
       ctx, 'm',
     );
     const pay = out.items.map((i) => [i.paymentStatus, i.paidAmount, i.dueDate]);
     assert.deepEqual(pay[0], ['deposit', 500, '2027-03-01']);
+    assert.deepEqual(out.items[0]!.details, { room: '12' }, 'payment keys are not kept as details');
     assert.deepEqual(pay[1], [null, null, null], 'no price, no payment state');
     assert.deepEqual(pay[2], ['deposit', null, null], 'deposit above the price and an unreadable date are dropped');
     assert.deepEqual(pay[3], ['paid', null, null], 'paid needs no deposit and no due date');
     assert.deepEqual(pay[4], ['open', null, '2027-04-01'], 'a deposit amount only counts with state deposit');
+    assert.deepEqual(pay[5], [null, null, null], 'unknown state');
+  });
+
+  test('amounts as written in documents', () => {
+    assert.equal(amount("1'250,50"), 1250.5);
+    assert.equal(amount('1.250,50 EUR'), 1250.5);
+    assert.equal(amount('1,250.50'), 1250.5);
+    assert.equal(amount('500'), 500);
+    assert.equal(amount('2.500'), 2500);
+    assert.equal(amount('keine'), null);
+  });
+
+  test('the structured output stays small: the API rejects a grammar that is too large (see schema.ts)', () => {
+    // Real API answer with six more fields in 0.10.0: "The compiled grammar is too large". New facts go into details.
+    assert.deepEqual(Object.keys(aiItemSchema.shape), [
+      'type', 'title', 'startLocal', 'startTz', 'endLocal', 'endTz', 'location', 'confirmation', 'provider', 'cost', 'currency', 'notes',
+      'cruiseDayId', 'details', 'infos', 'confidence',
+    ]);
+    assert.deepEqual(Object.keys(aiCruiseSchema.shape), ['shipName', 'cruiseLine', 'cabin', 'bookingRef', 'cost', 'currency', 'notes', 'infos', 'days']);
   });
 });
 

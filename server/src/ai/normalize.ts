@@ -34,14 +34,29 @@ const money = (v: number | null | undefined): number | null => (v !== null && v 
 const currency = (v: string | null | undefined): string | null => clean(v)?.toUpperCase().slice(0, 3) ?? null;
 
 /**
- * Payment state read from the document. Only with a price; a deposit amount only with state 'deposit' and never
- * above the price; a due date only as a real date. Missing fields (older model output) count as not stated.
+ * The payment state comes as entries of the "details" list (not as own schema fields: they made the structured-output
+ * grammar too large, see schema.ts). These keys are taken out of the details and become the payment fields.
  */
-function payment(p: { cost?: number | null; paymentStatus?: string | null; paidAmount?: number | null; dueDate?: string | null }) {
-  const cost = money(p.cost);
-  const status = cost !== null && (PAYMENT_STATUSES as readonly string[]).includes(p.paymentStatus ?? '') ? (p.paymentStatus as PaymentStatus) : null;
-  const paid = status === 'deposit' ? money(p.paidAmount) : null;
-  const due = normalizeLocal(p.dueDate)?.slice(0, 10) ?? null;
+export const PAYMENT_DETAIL_KEYS = ['paymentStatus', 'paidAmount', 'dueDate'] as const;
+
+/** "1'250,50", "1.250,50 EUR", "1,250.50", "500" → number; anything else → null. */
+export function amount(v: string | undefined): number | null {
+  const t = v?.replace(/[^\d.,]/g, '');
+  if (!t || !/\d/.test(t)) return null;
+  // A separator followed by one or two digits at the end is the decimal mark; every other separator groups thousands.
+  const m = t.match(/^(.*)[.,](\d{1,2})$/);
+  const n = m ? Number(`${m[1]!.replace(/[.,]/g, '') || '0'}.${m[2]}`) : Number(t.replace(/[.,]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Payment state read from the document. Only with a price; a deposit amount only with state 'deposit' and never
+ * above the price; a due date only as a real date. Missing values count as not stated.
+ */
+function payment(cost: number | null, d: Record<string, string>) {
+  const status = cost !== null && (PAYMENT_STATUSES as readonly string[]).includes(d.paymentStatus ?? '') ? (d.paymentStatus as PaymentStatus) : null;
+  const paid = status === 'deposit' ? amount(d.paidAmount) : null;
+  const due = normalizeLocal(d.dueDate)?.slice(0, 10) ?? null;
   return {
     paymentStatus: status,
     paidAmount: paid !== null && paid >= 0 && cost !== null && paid <= cost ? paid : null,
@@ -57,7 +72,13 @@ const tz = (v: string | null): string | null => {
 /** Turns the model output into app data. Unknown ids and invalid time zones are dropped, never trusted. */
 export function normalizeExtraction(ai: AiResult, ctx: ExtractionContext, model: string, now = new Date()): NormalizedExtraction {
   const dayIds = new Set(ctx.cruiseDays.map((d) => d.id));
-  const items = ai.items.map((i) => ({
+  const items = ai.items.map((i) => {
+    const allDetails: Record<string, string> = Object.fromEntries(
+      i.details.map((d) => [d.key.trim(), d.value.trim()] as const).filter(([k, v]) => k && v),
+    );
+    const details = Object.fromEntries(Object.entries(allDetails).filter(([k]) => !(PAYMENT_DETAIL_KEYS as readonly string[]).includes(k)));
+    const cost = money(i.cost);
+    return {
     type: i.type,
     title: i.title.trim(),
     startLocal: normalizeLocal(i.startLocal) ?? '',
@@ -67,15 +88,16 @@ export function normalizeExtraction(ai: AiResult, ctx: ExtractionContext, model:
     location: clean(i.location),
     confirmation: clean(i.confirmation),
     provider: clean(i.provider),
-    cost: money(i.cost),
+    cost,
     currency: currency(i.currency),
-    ...payment(i),
+    ...payment(cost, allDetails),
     notes: clean(i.notes),
     cruiseDayId: i.cruiseDayId && dayIds.has(i.cruiseDayId) ? i.cruiseDayId : null,
     infos: infos(i.infos),
-    details: Object.fromEntries(i.details.map((d) => [d.key.trim(), d.value.trim()] as const).filter(([k, v]) => k && v)),
+    details,
     confidence: i.confidence,
-  }));
+    };
+  });
 
   const cruise = ai.cruise
     ? {
@@ -85,7 +107,7 @@ export function normalizeExtraction(ai: AiResult, ctx: ExtractionContext, model:
         bookingRef: clean(ai.cruise.bookingRef),
         cost: money(ai.cruise.cost),
         currency: currency(ai.cruise.currency),
-        ...payment(ai.cruise),
+        // The cruise has no details list and no own payment fields (grammar size, see schema.ts): payment state is entered by hand.
         notes: clean(ai.cruise.notes),
         infos: infos(ai.cruise.infos),
         days: ai.cruise.days.map(

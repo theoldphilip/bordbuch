@@ -296,8 +296,9 @@ Preis und Zahlung gibt es an Einträgen und an der Kreuzfahrt (Gesamtpreis der B
 | `paidAmount` | bereits angezahlt; nur bei `deposit`, sonst speichert der Server `null` |
 | `dueDate` | `JJJJ-MM-TT`, bis wann der (Rest-)Betrag zu zahlen ist, oder `null` |
 
-Die KI liest Preis und Zahlungsstand aus Buchungsbestätigungen (`cost`, `currency`, `paymentStatus`, `paidAmount`, `dueDate` an Einträgen und an
-`cruise` im Vorschlag), den Zahlungsstand nur, wenn das Dokument ihn ausdrücklich nennt. Beim Aktualisieren füllt ein Dokument nur Lücken:
+Die KI liest Preise aus Buchungsbestätigungen (`cost`, `currency` an Einträgen und an `cruise` im Vorschlag) und bei Einträgen auch den
+Zahlungsstand (`paymentStatus`, `paidAmount`, `dueDate`), nur wenn das Dokument ihn ausdrücklich nennt. Den Zahlungsstand der Kreuzfahrt trägt
+der Nutzer ein: Die Antwortstruktur der KI muss klein bleiben, die API lehnt sie sonst ab („compiled grammar is too large“). Beim Aktualisieren füllt ein Dokument nur Lücken:
 einen eingetragenen Preis und einen eingetragenen Zahlungsstand ändert es nie.
 
 `GET /trips/:id/costs` liefert die Übersicht, auf dem Server gerechnet:

@@ -12,7 +12,7 @@ const ai: AiResult = {
   suggestedTripTitle: null, documentKind: 'Hotelbuchung', summary: 's', warnings: [], cruise: null,
   items: [{
     type: 'hotel', title: 'Hotel Artemide', startLocal: '2027-05-08T14:00', startTz: null, endLocal: null, endTz: null, location: null,
-    confirmation: 'AB12345', provider: null, cost: null, currency: null, paymentStatus: null, paidAmount: null, dueDate: null, notes: 'Frühstück inklusive', cruiseDayId: null, details: [{ key: 'room', value: '12' }],
+    confirmation: 'AB12345', provider: null, cost: null, currency: null, notes: 'Frühstück inklusive', cruiseDayId: null, details: [{ key: 'room', value: '12' }],
     infos: [], confidence: 'high',
   }],
 };
