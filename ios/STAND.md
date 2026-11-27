@@ -110,9 +110,22 @@ Grün (iPhone 17 Pro Simulator, Xcode 26.3, Deployment Target iOS 26.2). Keine C
 5. Einstellungen: Server-Version wie in der Web-App unter „Über Reisebuch“; Abmelden.
 6. Querformat und Hellmodus kurz ansehen.
 
-## IPA (Nachtrag 27.11.2026, auf Philips ausdrücklichen Wunsch)
-- `ios/IPA/Reisebuch-0.1.0-1.ipa` (0.1.0, Build 1, Release, ca. 290 KB). Export-Methode `debugging` (Entwicklung), automatische
-  Signierung mit dem Team aus dem Projekt, `-allowProvisioningUpdates`; Projekteinstellungen unverändert.
-- Eingebettetes Profil: „iOS Team Provisioning Profile: *“, 2 registrierte Geräte, gültig bis 27.11.2027. Installierbar nur auf diesen
-  Geräten. Das Profil enthält Team-ID und Geräte-IDs; Philip hat das Pushen ins private Repo ausdrücklich erlaubt.
-- `ios/.gitignore` ergänzt um `.claude/settings.local.json` (lokale Berechtigung für das Ablegen der IPA, nicht im Repo).
+## IPA (AUFTRAG-IPA-0.1.0, 27.11.2026)
+- Trennungsprüfung erneut bestanden (Repo-Wurzel, origin theoldphilip/bordbuch, 0 Gym-Dateien, Bundle-IDs nur de.theoldphilip.Reisebuch*).
+- Erster Versuch vor dem Auftrag (lokaler Commit 0f88eb3, auf Philips Wunsch im Chat): Methode `debugging`, Ablage `ios/IPA/`. Durch den
+  Auftrag ersetzt; `ios/IPA/` in diesem Commit wieder entfernt (Historie nicht umgeschrieben). Profil dieses Versuchs: „iOS Team
+  Provisioning Profile: *“ (bestand vermutlich schon, nicht sicher).
+- `ios/Reisebuch/ExportOptions.plist` neu: `method` = `release-testing` (von Xcode 26.3 angenommen), `signingStyle` automatic, `teamID` aus
+  dem Projekt, `compileBitcode` false, `stripSwiftSymbols` true, `thinning` `<none>`.
+- Befehle (im Ordner `ios/Reisebuch`, Archiv im Scratchpad): `xcodebuild … -configuration Release -destination 'generic/platform=iOS'
+  -archivePath <Scratchpad>/Reisebuch-0.1.0-b1.xcarchive -allowProvisioningUpdates archive` → ARCHIVE SUCCEEDED;
+  `xcodebuild -exportArchive … -exportOptionsPlist ExportOptions.plist -exportPath <Scratchpad>/export-b1 -allowProvisioningUpdates`
+  → EXPORT SUCCEEDED. Keine Fehler.
+- Ergebnis: `ios/Installation/0.1.0-b1/Reisebuch-0.1.0-b1.ipa`, 294 597 Bytes (ca. 288 KB), Version 0.1.0, Build 1, signiert mit
+  „Apple Distribution“ des Teams.
+- SHA256: `88cbde9d0874e163870e09d0cbf6e3713308fab12073d87d9530ff71ed957675` (auch in `SHA256.txt`).
+- Neu entstandenes Profil: „iOS Team Ad Hoc Provisioning Profile: de.theoldphilip.Reisebuch“, **2 Geräte**, gültig bis 01.11.2027,
+  `get-task-allow` false. Ob Philips iPhone eines der beiden ist, kann ich nicht prüfen.
+- `project.pbxproj` unverändert (`git diff --stat` leer). Keine `.mobileprovision`- oder Zertifikatsdatei einzeln im Repo.
+- `ios/Installation/README.md` neu (Zweck, Installation per Finder oder Apple Configurator, nur letzte drei Versionen).
+- `ios/.gitignore` ergänzt um `.claude/settings.local.json` (lokale Claude-Code-Berechtigung, nicht im Repo).

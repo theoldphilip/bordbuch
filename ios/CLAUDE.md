@@ -100,6 +100,9 @@ Dazu gilt:
   auf Port 8091 (siehe `<repo>/CLAUDE.md` Abschnitt 7). Er braucht Node ≥ 22.18; ist Node nicht da, **nicht installieren**, sondern melden.
 - Bildschirmfotos aus dem Simulator (`xcrun simctl io booted screenshot`) in einen Ordner außerhalb des Repos oder `ios/shots/` (nicht in Git).
 - Auf Philips iPhone installierst du **nur nach seinem ausdrücklichen Auftrag**. IPA nur nach ausdrücklicher Freigabe.
+- IPA (nach Freigabe): in `ios/Reisebuch` `xcodebuild … -configuration Release -destination 'generic/platform=iOS' -archivePath <Scratchpad>/Reisebuch-<V>-b<B>.xcarchive -allowProvisioningUpdates archive`,
+  dann `xcodebuild -exportArchive -archivePath … -exportOptionsPlist ExportOptions.plist -exportPath <Scratchpad>/export -allowProvisioningUpdates`.
+  Ablage `ios/Installation/<V>-b<B>/Reisebuch-<V>-b<B>.ipa` + `SHA256.txt` (`shasum -a 256`), nur die letzten drei Versionen behalten.
 
 ## Womit du anfängst
 1. Trennungsprüfung (oben).
