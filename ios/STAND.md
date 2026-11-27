@@ -109,3 +109,10 @@ Grün (iPhone 17 Pro Simulator, Xcode 26.3, Deployment Target iOS 26.2). Keine C
 4. Einen Eintrag mit Telefonnummer antippen, Nummer antippen → Anrufdialog.
 5. Einstellungen: Server-Version wie in der Web-App unter „Über Reisebuch“; Abmelden.
 6. Querformat und Hellmodus kurz ansehen.
+
+## IPA (Nachtrag 27.11.2026, auf Philips ausdrücklichen Wunsch)
+- `ios/IPA/Reisebuch-0.1.0-1.ipa` (0.1.0, Build 1, Release, ca. 290 KB). Export-Methode `debugging` (Entwicklung), automatische
+  Signierung mit dem Team aus dem Projekt, `-allowProvisioningUpdates`; Projekteinstellungen unverändert.
+- Eingebettetes Profil: „iOS Team Provisioning Profile: *“, 2 registrierte Geräte, gültig bis 27.11.2027. Installierbar nur auf diesen
+  Geräten. Das Profil enthält Team-ID und Geräte-IDs; Philip hat das Pushen ins private Repo ausdrücklich erlaubt.
+- `ios/.gitignore` ergänzt um `.claude/settings.local.json` (lokale Berechtigung für das Ablegen der IPA, nicht im Repo).

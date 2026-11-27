@@ -5,3 +5,6 @@ DerivedData/
 *.xcarchive
 shots/
 .DS_Store
+
+# Persönliche Claude-Code-Einstellungen
+.claude/settings.local.json
