@@ -2,23 +2,23 @@
 //  ContentView.swift
 //  Reisebuch
 //
-//  Created by Philip Pleißner on 27.11.26.
+//  Wurzel: Anmeldung oder Reiseliste, je nach Anmeldezustand.
 //
 
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(AppSession.self) private var session
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        if session.isLoggedIn {
+            TripListView()
+        } else {
+            LoginView()
         }
-        .padding()
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView().environment(AppSession())
 }

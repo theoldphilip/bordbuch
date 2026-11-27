@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct ReisebuchApp: App {
+    @State private var session = AppSession()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(session)
         }
     }
 }
