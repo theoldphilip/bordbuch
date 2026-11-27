@@ -1,5 +1,8 @@
 # CLAUDE.md – Übergabe und Arbeitsbriefing für Reisebuch (Repository „bordbuch“)
 
+> **Claude Code auf dem Mac (iPhone-App unter `ios/`): Diese Datei ist nicht dein Briefing.** Für dich gilt `ios/CLAUDE.md`. Server, Web,
+> SSH zur Synology und Updates sind nicht deine Aufgabe; alles außerhalb von `ios/` ist für dich nur zum Lesen.
+
 Stand: 24.11.2026, App-Version 0.10.1, Datenbank-Stand 9, 143 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
 einer früheren Claude-Code-Sitzung (Cloud, Web). Wer sie liest, setzt die Arbeit dort fort, wo sie aufgehört hat. Lies sie ganz,
 bevor du etwas änderst, und prüfe Aussagen über Code im Repo nach, statt dich auf diese Datei zu verlassen (Code gewinnt).
@@ -167,9 +170,12 @@ Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
    an Reise („Bearbeiten“), Eintrag, Reisetag und als Eintragstyp „Notiz“.
 3. **Native iOS-App (SwiftUI)** gegen dieselbe API, geplant in Etappen: (1) Lesen/Unterwegs inkl. Offline, (2) APNs-Push + Standort-Erinnerungen
    + Widget, (3) Bearbeiten, Dokumente, Share-Extension. Philip hat einen Apple-Developer-Account und kennt eine Arbeitsweise mit einem Mac über
-   Remote Control (Variante B, empfohlen: Claude baut und testet im Simulator direkt auf dem Mac). Server-Teil APNs ca. 0,5 Tag. Philip hat ein
-   Briefing-Muster gezeigt (Rollen Philip/Architekt/Claude Code, `STAND.md` als Rückgabe mit „Nicht geprüft“, Backup-Ordner, Version zählen,
-   Signing nur nach Rückfrage). Vor Start eine angepasste `CLAUDE.md` für `ios/` anlegen (ohne Architekt-Chat, Backups durch Git-Commits ersetzen).
+   Remote Control. Server-Teil APNs ca. 0,5 Tag. **Begonnen am 27.11.2026** nach dem Muster von Philips Repo `gym-native`: diese Sitzung ist
+   der **Architekt** (schreibt `ios/AUFTRAG-<Version>.md`, beantwortet Rückfragen als Nachtrag im Auftrag, liest `ios/STAND.md`), Claude Code
+   auf dem Mac mini baut nach `ios/CLAUDE.md` und pusht. Entscheidungen von Philip: App unter `ios/` in diesem Repo, Backups nur über Git (kein
+   Backup-Ordner), vorerst nur iPhone (keine Watch), Bundle-ID `de.theoldphilip.Reisebuch`. **Ganz wichtig für Philip:** Der Mac legt ein
+   eigenes, neues Projekt an und darf nie in das Gym-Projekt schreiben; jeder Auftrag beginnt mit der Trennungsprüfung aus `ios/CLAUDE.md`.
+   iOS-Version zählt unabhängig von `VERSION` (Server/Web). Erster Auftrag: `ios/AUFTRAG-0.1.0.md` (Projekt, Anmeldung, Reiseliste, Ablauf lesen).
 4. Kleinere Wünsche: Dokument an mehrere Einträge hängen, „automatisch übernehmen wenn sicher“, Bordzeit vs. Ortszeit, Packliste (siehe README-Roadmap).
 5. **Vom Auftraggeber zu klären/prüfen:** Beträge, die früher auf „CHF“ gespeichert wurden (vor 0.6.4 wurde beim Öffnen eines Eintrags
    ohne Währung „CHF“ gesetzt); Kabinennummer (laut Screenshot der Buchung 12076) im Reiter „Kreuzfahrt“ prüfen und ggf. eintragen.
