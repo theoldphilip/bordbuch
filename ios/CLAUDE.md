@@ -42,7 +42,7 @@ ls <repo>                              # muss server/, web/, docs/, ios/ enthalt
 Dazu gilt:
 - Der Pfad von `<repo>` darf weder `gym` (Groß/Klein egal) enthalten noch innerhalb des Gym-Ordners liegen.
 - Im Repo darf es **keine** Datei geben, deren Pfad `GymNative` oder `gym-native` enthält (`git ls-files | grep -i gym` muss leer sein).
-- Sobald das Xcode-Projekt existiert: Die Bundle-ID in `ios/Reisebuch.xcodeproj/project.pbxproj` ist `de.theoldphilip.Reisebuch`
+- Sobald das Xcode-Projekt existiert: Die Bundle-ID in `ios/Reisebuch/Reisebuch.xcodeproj/project.pbxproj` ist `de.theoldphilip.Reisebuch`
   (Tests ggf. `de.theoldphilip.ReisebuchTests`). **Nie** eine ID, die mit `de.theoldphilip.GymNative` beginnt, nie die App Group
   `group.de.theoldphilip.GymNative`.
 - Siehst du in deinem Kontext ein Briefing über „Philip's Gym“, Watch-Protokolle, Laufband oder `GymNative`, bist du im falschen Ordner
@@ -58,8 +58,9 @@ Dazu gilt:
 ## Aufbau
 - `ios/CLAUDE.md` dieses Briefing · `ios/STAND.md` deine Rückgabe · `ios/AUFTRAG-<Version>.md` offener Auftrag (nach Erledigung mit
   `git mv` nach `ios/Auftraege/`) · `ios/Design/AppIcon-1024.png` App-Symbol (Kompass, ohne Transparenz).
-- Xcode-Projekt (legt Philip im ersten Auftrag an): `ios/Reisebuch.xcodeproj`, Code in `ios/Reisebuch/`. Synchronisierte Ordner wie Xcode sie
-  anlegt; neue Dateien tauchen von selbst auf, Target-Mitgliedschaft prüfen.
+- Xcode-Projekt (legt Philip im ersten Auftrag an): Xcode legt einen Projektordner mit dem Namen an, also
+  `ios/Reisebuch/Reisebuch.xcodeproj`, Code in `ios/Reisebuch/Reisebuch/`. Baubefehle laufen im Ordner `ios/Reisebuch`. Synchronisierte
+  Ordner wie Xcode sie anlegt; neue Dateien tauchen von selbst auf, Target-Mitgliedschaft prüfen.
 - **Der Vertrag mit dem Server ist `<repo>/docs/API.md`.** Die Typen der Web-App (`<repo>/web/src/types.ts`) spiegeln die Antworten des
   Servers und sind die beste Vorlage für die Swift-Modelle (`Codable`). Feldnamen sind camelCase und werden **nicht** umbenannt. Unbekannte
   Felder ignorieren, neue Felder sind optional: Der Server bekommt laufend Felder dazu, die App darf daran nicht zerbrechen.
@@ -73,7 +74,7 @@ Dazu gilt:
 ## Regeln (verbindlich)
 1. **Git statt Backup-Ordner.** Es gibt keinen `Backup/`-Ordner. Jeder Stand ist ein Commit; zurück geht es über die Git-Historie. Committe
    in sinnvollen Schritten, nie Halbfertiges mit rotem Build (Ausnahme `STAND.md`, Regel 6).
-2. **Version bei jeder Änderung hochzählen:** `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` in `ios/Reisebuch.xcodeproj/project.pbxproj`,
+2. **Version bei jeder Änderung hochzählen:** `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` in `ios/Reisebuch/Reisebuch.xcodeproj/project.pbxproj`,
    **alle** Vorkommen (vorher mit `grep -c` zählen; Debug und Release je Target müssen gleich sein). Die Version steht im Auftrag. Sie ist
    **unabhängig** von der Server-Version in `<repo>/VERSION`; die fasst du nicht an.
 3. **Komplette Dateien, nur Gelesenes ändern.** Jede lange Swift-Datei endet mit `// ENDE <Dateiname>`. Schreibe nie eine Datei aus dem
@@ -91,7 +92,7 @@ Dazu gilt:
 10. **Lies nichts außerhalb von `<repo>`** (kein Gym-Projekt, kein Papierkorb, keine anderen Projekte, kein Schlüsselbund, keine Browser-Daten).
 
 ## Bauen und Testen
-- Erst ansehen: `xcodebuild -list -project Reisebuch.xcodeproj` und `xcrun simctl list devices available`. Keine Gerätenamen raten.
+- Im Ordner `ios/Reisebuch`. Erst ansehen: `xcodebuild -list -project Reisebuch.xcodeproj` und `xcrun simctl list devices available`. Keine Gerätenamen raten.
 - Build: `xcodebuild -project Reisebuch.xcodeproj -scheme Reisebuch -destination 'platform=iOS Simulator,name=<iPhone aus der Liste>' build`.
 - Fehler: erst die erste echte Fehlermeldung beheben, nicht alle Folgefehler. Jede Warnung in `STAND.md` melden.
 - Testdaten: Gegen den echten Server nur mit einem Konto, dessen Zugangsdaten Philip **selbst** im Simulator eintippt; du liest sie nie aus,

@@ -38,12 +38,12 @@ Das Projekt legt **Philip** in Xcode an (Signing ist seine Sache). Gib ihm im Te
    **`de.theoldphilip.Reisebuch`**), Interface **SwiftUI**, Language **Swift**, Storage **None**, Testing System nach Wahl (Swift Testing ist
    recht), **keine** Host-in-CloudKit-Option.
 3. Speicherort: **`~/Projekte/bordbuch/ios`** (der Ordner, in dem `CLAUDE.md` und dieser Auftrag liegen).
-   **„Create Git repository on my Mac“ AUS** (das Repository gibt es schon). Ergebnis: `ios/Reisebuch.xcodeproj` und `ios/Reisebuch/`.
+   **„Create Git repository on my Mac“ AUS** (das Repository gibt es schon). Ergebnis: `ios/Reisebuch/Reisebuch.xcodeproj` und `ios/Reisebuch/Reisebuch/` (Xcode legt selbst einen Ordner `Reisebuch` an; siehe Nachtrag 1).
 4. **Keine** Capabilities hinzufügen (keine App Group, kein Push, kein HealthKit). Nichts aus dem Gym-Projekt kopieren.
 
 Danach prüfst du und schreibst es in `STAND.md`:
-- `ios/Reisebuch.xcodeproj` existiert; es gibt kein zweites `.xcodeproj` unter `ios/`.
-- `grep -o 'PRODUCT_BUNDLE_IDENTIFIER = [^;]*' ios/Reisebuch.xcodeproj/project.pbxproj | sort -u`: nur `de.theoldphilip.Reisebuch`
+- `ios/Reisebuch/Reisebuch.xcodeproj` existiert; es gibt kein zweites `.xcodeproj` unter `ios/`.
+- `grep -o 'PRODUCT_BUNDLE_IDENTIFIER = [^;]*' ios/Reisebuch/Reisebuch.xcodeproj/project.pbxproj | sort -u`: nur `de.theoldphilip.Reisebuch`
   (und ggf. `…ReisebuchTests`/`…ReisebuchUITests`).
 - `grep -ric gymnative ios/` ergibt 0 Treffer außer in `CLAUDE.md` und diesem Auftrag (dort steht das Wort als Warnung).
 - Keine `.entitlements`-Datei unter `ios/`.
@@ -131,3 +131,17 @@ Erster Commit: das leere Projekt mit grünem Build, `iOS 0.1.0: leeres Projekt R
 kurzen Block „Neu in 0.1.0“ ergänzen.
 
 Offene Fragen gehören in `STAND.md`, nicht geraten. Der Architekt antwortet mit einem Nachtrag in diesem Auftrag.
+
+---
+
+## Nachtrag 1 (Architekt, 27.11.2026): Projektordner und Test ohne Node
+
+1. **Pfad des Projekts.** Xcode legt beim neuen Projekt immer einen Ordner mit dem Projektnamen an. Mit Speicherort `~/Projekte/bordbuch/ios`
+   entsteht also `ios/Reisebuch/Reisebuch.xcodeproj` mit dem Code in `ios/Reisebuch/Reisebuch/`. **Das ist richtig so**, kein Fehler, nicht
+   verschieben. Teil 0.3 und `ios/CLAUDE.md` sind entsprechend angepasst; Baubefehle laufen im Ordner `ios/Reisebuch`. Hat Xcode trotz
+   ausgeschaltetem Schalter ein eigenes `.git` in `ios/Reisebuch/` angelegt: **aufhören und melden**, nicht selbst löschen.
+2. **Node fehlt.** Richtig, nicht installieren. Teil E gilt mit Möglichkeit 2: Philip meldet sich im Simulator selbst am echten Server an
+   (`http://172.16.10.1:8080`, er tippt die Zugangsdaten). Du liest nur, was die App anzeigt, und beschreibst es in `STAND.md`, ohne Namen von
+   Reisen, Orten oder Personen aus seinen echten Daten in `STAND.md` oder Commits zu übernehmen (schreib „eine Kreuzfahrt mit 6 Tagen“, nicht
+   den Titel). Bildschirmfotos mit echten Daten nicht ins Repo.
+3. Die Prüfung 0.2 war vollständig und richtig. Weiter mit 0.3, sobald Philip „fertig“ schreibt.
