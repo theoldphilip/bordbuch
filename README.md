@@ -249,6 +249,22 @@ sudo chmod 600 .env
 Die Ad-hoc-Versionen der App nutzen den normalen (Produktions-)Server von Apple. Nur für eine direkt aus Xcode gestartete App wäre
 `APNS_SANDBOX=1` nötig. Der Schlüssel gehört nie ins Repository.
 
+### iPhone-App von Linux aus installieren (Linux Mint)
+
+`scripts/mint/reisebuch-ipa.sh` holt die neueste IPA aus `ios/Installation/`, prüft die SHA-256-Prüfsumme aus `SHA256.txt` und installiert
+sie nach einem Klick auf „Installieren“ per USB (libimobiledevice). Stimmt die Prüfsumme nicht, installiert es nichts. Die Downloads liegen in
+`~/Downloads/Reisebuch/<Version>-b<Build>/`.
+
+```bash
+sudo apt install gh curl zenity ideviceinstaller libimobiledevice-utils usbmuxd
+gh auth login                      # einmalig, Zugriff auf das private Repository
+gh api -H 'Accept: application/vnd.github.raw' repos/theoldphilip/bordbuch/contents/scripts/mint/reisebuch-ipa.sh > /tmp/reisebuch-ipa.sh
+bash /tmp/reisebuch-ipa.sh --einrichten   # kopiert nach ~/.local/bin, Eintrag „Reisebuch-IPA“ im Startmenü
+```
+
+Danach im Startmenü „Reisebuch-IPA“ starten, iPhone per Kabel anschließen und entsperren. Weitere Aufrufe: `--terminal` (ohne Fenster),
+`--nur-laden` (nur laden und prüfen). Das Tool aktualisiert sich nicht selbst; eine neue Fassung holt der `gh api`-Befehl oben.
+
 ### Daten & Backup
 
 | Pfad | Inhalt |

@@ -3,7 +3,7 @@
 > **Claude Code auf dem Mac (iPhone-App unter `ios/`): Diese Datei ist nicht dein Briefing.** Für dich gilt `ios/CLAUDE.md`. Server, Web,
 > SSH zur Synology und Updates sind nicht deine Aufgabe; alles außerhalb von `ios/` ist für dich nur zum Lesen.
 
-Stand: 27.11.2026, App-Version 0.11.0, Datenbank-Stand 10, 154 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
+Stand: 28.11.2026, App-Version 0.11.1, Datenbank-Stand 10, 154 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
 einer früheren Claude-Code-Sitzung (Cloud, Web). Wer sie liest, setzt die Arbeit dort fort, wo sie aufgehört hat. Lies sie ganz,
 bevor du etwas änderst, und prüfe Aussagen über Code im Repo nach, statt dich auf diese Datei zu verlassen (Code gewinnt).
 
@@ -160,7 +160,8 @@ Link, Diagnose · 0.5 Reise prüfen · 0.6 Reisearten, Stationen, Umbenennung Re
 Währung · 0.7 Quittieren, Ansichtsmodus · 0.8 Gate/Schalter/Kofferband/Gleis, Push bei Änderung, Kabine sichtbar · 0.8.1 Update auf der
 Synology durch Claude · 0.9 Kostenauswertung (Reiter „Kosten“, Preis an der Kreuzfahrt, Zahlungsstand und Fälligkeit) · 0.10 KI liest
 Zahlungsstand aus Dokumenten, Reisetag-Abfrage für Gate/Schalter/Kofferband/Gleis · 0.10.1 Dokument-Analyse wieder lauffähig (KI-Schema zu
-groß, Zahlungsstand nur noch bei Einträgen über details) · 0.11 Push für die iPhone-App über APNs (Server-Teil). Details in der
+groß, Zahlungsstand nur noch bei Einträgen über details) · 0.11 Push für die iPhone-App über APNs (Server-Teil) · 0.11.1 Linux-Tool `scripts/mint/reisebuch-ipa.sh` (neueste IPA
+laden, SHA-256 prüfen, per USB installieren, README-Abschnitt). Details in der
 Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
 
 ## 6. Offene Punkte (Reihenfolge nach Philips Wünschen)
