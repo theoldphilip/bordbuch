@@ -1,6 +1,6 @@
 # STAND (iOS), 27.11.2026
 
-Auftrag: `ios/AUFTRAG-0.1.0.md` inkl. Nachtrag 1. **Angehalten in Teil 0.3**: Xcode hat ein eigenes `.git` in `ios/Reisebuch/` angelegt.
+Auftrag: `ios/AUFTRAG-0.1.0.md` inkl. Nachtrag 1. Teil 0.3 erledigt, weiter mit Teil A.
 
 ## Trennungsprüfung (Ausgabe der Befehle, gekürzt)
 ```
@@ -20,26 +20,28 @@ Ergebnis: bestanden. Pfad enthält kein „gym“.
 - Keine `.entitlements`-Datei.
 - Targets: Reisebuch, ReisebuchTests, ReisebuchUITests; Schema: Reisebuch. Version noch 1.0 / Build 1 (6 Vorkommen je Schlüssel).
 - **Abweichung:** `ios/Reisebuch/.git` existiert (eigenes Repository von Xcode, ein Commit `cdb32a1 Initial Commit`, kein Remote).
-  Der Schalter „Create Git repository on my Mac“ war offenbar doch an. Laut Nachtrag 1: angehalten, nichts gelöscht.
-  Folge: Das äußere Repo sieht `ios/Reisebuch/` als eingebettetes Repository; ein `git add` würde nur einen Verweis (gitlink) statt der
-  Dateien committen. Deshalb noch kein Projekt-Commit.
+  Der Schalter „Create Git repository on my Mac“ war offenbar doch an. Gemeldet (Commit d592c2d). Philip hat das Löschen freigegeben,
+  nach Prüfung (`git -C Reisebuch log --oneline --all` = nur `cdb32a1`, `remote -v` leer, nur Branch main) gelöscht.
+- `ios/.gitignore` angelegt (xcuserdata/, *.xcuserstate, DerivedData/, *.xcarchive, shots/, .DS_Store).
 
 ## Was ich getan habe
-- Trennungsprüfung und Prüfung 0.3 ausgeführt, nur gelesen. Am Projekt nichts geändert, nichts gebaut.
+- Trennungsprüfung und Prüfung 0.3 ausgeführt, inneres .git nach Freigabe gelöscht, .gitignore angelegt, leeres Projekt gebaut und committet.
 - Node fehlt auf dem Mac (nicht installiert); Test später nach Nachtrag 1 Punkt 2 gegen den echten Server.
 
 ## Build-Ergebnis
-Noch nicht gebaut.
+Leeres Projekt: grün (iPhone 17 Pro Simulator). Einzige Meldung, keine Code-Warnung:
+`appintentsmetadataprocessor warning: Metadata extraction skipped. No AppIntents.framework dependency found.`
 
 ## Geänderte Dateien
-- `ios/STAND.md` (neu)
+- `ios/STAND.md` (neu), `ios/.gitignore` (neu), `ios/Reisebuch/` (leeres Xcode-Projekt)
 
 ## Commits (Hashes)
-- dieser Commit (nur STAND.md)
+- d592c2d (STAND, Meldung .git)
+- Projekt-Commit „iOS 0.1.0: leeres Projekt Reisebuch angelegt“
 
 ## Offene Fragen an den Architekten
-1. Darf `ios/Reisebuch/.git` gelöscht werden (`rm -rf ios/Reisebuch/.git`)? Es enthält nur Xcodes leeren Anfangs-Commit, nichts Eigenes.
-   Alternativ löscht Philip den Ordner selbst. Danach mache ich mit 0.3 weiter (`.gitignore`, Build, erster Commit).
+- Frage zu `ios/Reisebuch/.git` erledigt (von Philip freigegeben und gelöscht).
+- Push vom Mac: Es fehlen GitHub-Zugangsdaten (`could not read Username`). Philip richtet das ein; bis dahin liegen Commits nur lokal.
 
 ## Was Philip auf dem iPhone testen soll
 Noch nichts.

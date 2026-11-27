@@ -1,0 +1,7 @@
+# Xcode, Benutzerdaten und Build-Ergebnisse
+xcuserdata/
+*.xcuserstate
+DerivedData/
+*.xcarchive
+shots/
+.DS_Store
