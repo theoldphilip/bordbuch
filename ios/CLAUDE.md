@@ -61,6 +61,11 @@ Dazu gilt:
 - Xcode-Projekt (legt Philip im ersten Auftrag an): Xcode legt einen Projektordner mit dem Namen an, also
   `ios/Reisebuch/Reisebuch.xcodeproj`, Code in `ios/Reisebuch/Reisebuch/`. Baubefehle laufen im Ordner `ios/Reisebuch`. Synchronisierte
   Ordner wie Xcode sie anlegt; neue Dateien tauchen von selbst auf, Target-Mitgliedschaft prüfen.
+- Targets: `Reisebuch` (App), `ReisebuchWidgetExtension` (Widget, Code in `ios/Reisebuch/ReisebuchWidget/`, Bundle-ID
+  `de.theoldphilip.Reisebuch.ReisebuchWidget`), `ReisebuchTests`, `ReisebuchUITests`. App und Widget teilen die App Group
+  **`group.de.theoldphilip.Reisebuch`** (nie die des Gym-Projekts); darin legt die App unter dem Schlüssel **`widget_stand`** die Termine
+  als JSON ab. `Reisebuch/WidgetStand.swift` gehört zu beiden Targets (Ausnahme im synchronisierten Ordner). Versionen von App und
+  Widget müssen gleich sein (8 Vorkommen je Schlüssel). URL-Schema `reisebuch` steht in `Reisebuch/Info.plist`.
 - **Der Vertrag mit dem Server ist `<repo>/docs/API.md`.** Die Typen der Web-App (`<repo>/web/src/types.ts`) spiegeln die Antworten des
   Servers und sind die beste Vorlage für die Swift-Modelle (`Codable`). Feldnamen sind camelCase und werden **nicht** umbenannt. Unbekannte
   Felder ignorieren, neue Felder sind optional: Der Server bekommt laufend Felder dazu, die App darf daran nicht zerbrechen.
@@ -144,3 +149,12 @@ Jetzt-Markierung und Ausgrauen (`NowLogic`, Regeln wie `Trip.tsx`), Reisetag-Abf
 (`PlaceLookupView`, nur bei `ai/status.placeLookup` und Rolle owner/editor; „Übernehmen“ = `PATCH` mit allen bisherigen `details`, einziger
 schreibender Aufruf). `details` wird verlustfrei als `JSONValue` gelesen. Tests in `ReisebuchTests/NowLogicTests.swift`.
 Release-Build zeigt manche Concurrency-Warnungen, die Debug nicht zeigt: vor dem IPA-Export auf Warnungen im Archiv-Log achten.
+
+**Neu in 0.3.0** (Build 3, Auftrag in `ios/Auftraege/AUFTRAG-0.3.0.md`): Widget „Nächster Termin“ (`ReisebuchWidget/`, Sperrbildschirm
+rechteckig und eine Zeile, Home klein und mittel). Die App stellt in `WidgetFeed.swift` aus den gespeicherten Abläufen laufender und
+kommender Reisen die Termine zusammen (Ende in der Zukunft, Beginn höchstens 7 Tage voraus, höchstens 30; Hafentag als „Alle an Bord“)
+und legt sie per `WidgetStandStore` ab, nach jedem Laden von Liste/Ablauf und beim Start; Widget-Neuladen nur bei geänderten Terminen.
+Abmelden löscht den Stand. Widget-Timeline mit Einträgen zu Beginn, 24 h vor Beginn und kurz nach Ende jedes Termins. Antippen öffnet
+`reisebuch://trip/<id>` (Liste, dann Ablauf). `NowLogic.entryStart` neu. Tests in `ReisebuchTests/WidgetTests.swift`.
+Hinweis Simulator: Hinzufügen eines Widgets per UI-Test lässt SpringBoard abstürzen; Prüfung über die Widget-Galerie. Bei gleicher
+Versionsnummer hält das System die alte Widget-Erweiterung fest; nach Änderungen am Widget App im Simulator neu installieren.
