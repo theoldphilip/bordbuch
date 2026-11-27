@@ -107,40 +107,103 @@ struct Item: Codable, Identifiable, Hashable {
     var detailMap: [String: String] { details?.values ?? [:] }
 }
 
-/// `details` ist auf dem Server ein Objekt mit Text-Werten. Damit ein abweichender Wert (Zahl, Wahrheitswert,
-/// null) die ganze Antwort nicht unlesbar macht, wird jeder Wert tolerant gelesen und alles andere übersprungen.
-struct StringMap: Codable, Hashable {
-    let values: [String: String]
-
-    private struct Key: CodingKey {
-        var stringValue: String
-        var intValue: Int? { nil }
-        init(stringValue: String) { self.stringValue = stringValue }
-        init?(intValue: Int) { nil }
-    }
+/// Beliebiger JSON-Wert. Wird für `details` gebraucht: Beim Übernehmen der Reisetag-Abfrage schickt die App alle
+/// bisherigen Schlüssel unverändert zurück (der Server ersetzt `details` als Ganzes), auch Zahlen oder null.
+enum JSONValue: Codable, Hashable {
+    case string(String)
+    case number(Double)
+    case bool(Bool)
+    case null
+    case array([JSONValue])
+    case object([String: JSONValue])
 
     init(from decoder: Decoder) throws {
-        var result: [String: String] = [:]
-        if let c = try? decoder.container(keyedBy: Key.self) {
-            for key in c.allKeys {
-                if let s = try? c.decode(String.self, forKey: key) {
-                    result[key.stringValue] = s
-                } else if let i = try? c.decode(Int.self, forKey: key) {
-                    result[key.stringValue] = String(i)
-                } else if let d = try? c.decode(Double.self, forKey: key) {
-                    result[key.stringValue] = String(d)
-                } else if let b = try? c.decode(Bool.self, forKey: key) {
-                    result[key.stringValue] = b ? "ja" : "nein"
-                }
-            }
-        }
-        values = result
+        let c = try decoder.singleValueContainer()
+        if c.decodeNil() { self = .null }
+        else if let b = try? c.decode(Bool.self) { self = .bool(b) }
+        else if let d = try? c.decode(Double.self) { self = .number(d) }
+        else if let s = try? c.decode(String.self) { self = .string(s) }
+        else if let a = try? c.decode([JSONValue].self) { self = .array(a) }
+        else { self = .object(try c.decode([String: JSONValue].self)) }
     }
 
     func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: Key.self)
-        for (k, v) in values { try c.encode(v, forKey: Key(stringValue: k)) }
+        var c = encoder.singleValueContainer()
+        switch self {
+        case let .string(s): try c.encode(s)
+        case let .number(d): try c.encode(d)
+        case let .bool(b): try c.encode(b)
+        case .null: try c.encodeNil()
+        case let .array(a): try c.encode(a)
+        case let .object(o): try c.encode(o)
+        }
     }
+
+    /// Lesbarer Text für die Anzeige; null, Listen und Objekte haben keinen.
+    var text: String? {
+        switch self {
+        case let .string(s): return s
+        case let .number(d): return d == d.rounded() && abs(d) < 1e15 ? String(Int64(d)) : String(d)
+        case let .bool(b): return b ? "ja" : "nein"
+        default: return nil
+        }
+    }
+}
+
+/// `details` eines Eintrags: die rohen Werte (zum Zurückschicken) und daraus die Texte (zur Anzeige).
+/// Ein abweichender Wert macht die Antwort nicht unlesbar; ohne Text wird er nur nicht angezeigt.
+struct StringMap: Codable, Hashable {
+    let raw: [String: JSONValue]
+    var values: [String: String] { raw.compactMapValues(\.text) }
+
+    init(raw: [String: JSONValue]) { self.raw = raw }
+
+    init(from decoder: Decoder) throws {
+        raw = (try? decoder.singleValueContainer().decode([String: JSONValue].self)) ?? [:]
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(raw)
+    }
+}
+
+// MARK: - KI-Status und Reisetag-Abfrage
+
+struct AIStatus: Codable {
+    let enabled: Bool?
+    let placeLookup: Bool?
+}
+
+struct PlaceLookupSource: Codable, Hashable {
+    let title: String?
+    let url: String?
+}
+
+struct PlaceLookupFinding: Codable, Hashable {
+    let key: String
+    let label: String
+    let value: String
+    /// Was bisher eingetragen ist, zum Vergleich.
+    let current: String?
+    let source: PlaceLookupSource?
+    let note: String?
+}
+
+struct PlaceLookup: Codable, Hashable {
+    /// pending, done, failed
+    let status: String
+    let startedAt: String?
+    let finishedAt: String?
+    let error: String?
+    let summary: String?
+    let searches: Int?
+    let queries: [String]?
+    let findings: [PlaceLookupFinding]?
+}
+
+struct PlaceLookupResponse: Codable {
+    let lookup: PlaceLookup?
 }
 
 // MARK: - Timeline

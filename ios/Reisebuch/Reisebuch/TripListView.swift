@@ -3,6 +3,7 @@
 //  Reisebuch
 //
 //  Reiseliste: laufende und kommende Reisen oben, vergangene unter „Vergangen“.
+//  Zeigt sofort die gespeicherte Liste, lädt dann vom Server; offline bleibt die gespeicherte Liste mit Band stehen.
 //
 
 import SwiftUI
@@ -14,14 +15,13 @@ struct TripListView: View {
     @State private var loaded = false
     @State private var errorText: String?
     @State private var showSettings = false
+    /// Gesetzt, solange gespeicherte Daten gezeigt werden, weil der Server nicht erreichbar ist.
+    @State private var offlineSince: Date?
+    @State private var startedUp = false
 
     private var today: String { Fmt.todayISO() }
 
-    /// Vergangen ist eine Reise, deren letzter Tag vor heute liegt. Reisen ohne Daten zählen als kommend.
-    private func isPast(_ t: TripSummary) -> Bool {
-        guard let end = t.effectiveEndDate ?? t.effectiveStartDate else { return false }
-        return String(end.prefix(10)) < today
-    }
+    private func isPast(_ t: TripSummary) -> Bool { TripDates.isPast(t, today: today) }
 
     private var upcoming: [TripSummary] {
         trips.filter { !isPast($0) }.sorted { a, b in
@@ -41,6 +41,9 @@ struct TripListView: View {
     var body: some View {
         NavigationStack {
             List {
+                if let offlineSince {
+                    OfflineBanner(savedAt: offlineSince)
+                }
                 if let errorText {
                     Section {
                         Label(errorText, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
@@ -88,20 +91,46 @@ struct TripListView: View {
                 SettingsView()
             }
             .refreshable { await load() }
-            .task { await load() }
+            .task {
+                if !startedUp {
+                    startedUp = true
+                    if let cached = session.cachedTrips() {
+                        trips = cached.value
+                        loaded = true
+                    }
+                    Task { await session.refreshAIStatus() }
+                }
+                await load()
+            }
         }
     }
 
     private func load() async {
         do {
-            trips = try await session.call { try await $0.trips() }
+            let fresh = try await session.fetchTrips()
+            trips = fresh
             errorText = nil
+            offlineSince = nil
+            loaded = true
+            // Abläufe laufender und kommender Reisen für offline vorladen, ohne die Liste warten zu lassen.
+            Task { await session.prefetchTimelines(for: fresh) }
         } catch is CancellationError {
             return
         } catch {
-            errorText = error.localizedDescription
+            if let cached = session.cachedTrips() {
+                trips = cached.value
+                if case APIError.unreachable = error {
+                    offlineSince = cached.savedAt
+                    errorText = nil
+                } else {
+                    offlineSince = nil
+                    errorText = error.localizedDescription
+                }
+            } else {
+                errorText = error.localizedDescription
+            }
+            loaded = true
         }
-        loaded = true
     }
 }
 
@@ -129,6 +158,19 @@ private struct TripRow: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// Ruhiges Band über gespeicherten Daten: „Offline · Stand Fr., 27. Nov., 14:32“.
+struct OfflineBanner: View {
+    let savedAt: Date
+
+    var body: some View {
+        Section {
+            Label("Offline · Stand \(Fmt.stamp(savedAt))", systemImage: "icloud.slash")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
     }
 }
 

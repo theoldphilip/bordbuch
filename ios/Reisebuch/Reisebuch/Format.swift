@@ -57,6 +57,33 @@ enum Fmt {
         return dayHeaderFormat.string(from: d)
     }
 
+    /// Zeitpunkt in der Zeitzone des Geräts: "Fr., 27. Nov., 14:32" (Offline-Band).
+    static func stamp(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = locale
+        f.timeZone = .current
+        f.dateFormat = "EEE, d. MMM, HH:mm"
+        return f.string(from: date)
+    }
+
+    /// Uhrzeit "14:32" eines ISO-Zeitstempels des Servers ("2027-05-08T12:32:00.000Z") in der Zeitzone des Geräts.
+    static func clockFromISO(_ text: String?) -> String? {
+        guard let text else { return nil }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        var date = iso.date(from: text)
+        if date == nil {
+            iso.formatOptions = [.withInternetDateTime]
+            date = iso.date(from: text)
+        }
+        guard let date else { return nil }
+        let f = DateFormatter()
+        f.locale = locale
+        f.timeZone = .current
+        f.dateFormat = "HH:mm"
+        return f.string(from: date)
+    }
+
     /// Heutiges Datum als "YYYY-MM-DD" in der Zeitzone des Geräts.
     static func todayISO() -> String {
         let c = Calendar.current.dateComponents([.year, .month, .day], from: Date())

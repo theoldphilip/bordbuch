@@ -10,8 +10,26 @@ import SwiftUI
 // MARK: - Eintrag
 
 struct ItemDetailView: View {
-    let item: Item
+    @Environment(AppSession.self) private var session
+    /// Lokal veränderbar: Nach „Übernehmen“ der Reisetag-Abfrage zeigt die Ansicht gleich den neuen Stand.
+    @State private var item: Item
     let warnings: [TimelineWarning]
+    let tripRole: String?
+    let onChanged: () async -> Void
+
+    init(item: Item, warnings: [TimelineWarning], tripRole: String? = nil, onChanged: @escaping () async -> Void = {}) {
+        _item = State(initialValue: item)
+        self.warnings = warnings
+        self.tripRole = tripRole
+        self.onChanged = onChanged
+    }
+
+    /// Reisetag-Abfrage nur für Flug, Zug, Mietwagen, wenn der Server sie anbietet und man in der Reise bearbeiten darf.
+    private var showsPlaceLookup: Bool {
+        ["flight", "train", "car_rental"].contains(item.type)
+            && session.placeLookupAvailable
+            && (tripRole == "owner" || tripRole == "editor")
+    }
 
     var body: some View {
         let type = Labels.itemType(item.type)
@@ -26,6 +44,10 @@ struct ItemDetailView: View {
                     }
                 }
                 .padding(.vertical, 2)
+            }
+
+            if showsPlaceLookup {
+                PlaceLookupSection(item: $item, onChanged: onChanged)
             }
 
             if !warnings.isEmpty {

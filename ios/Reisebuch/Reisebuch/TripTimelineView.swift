@@ -10,33 +10,75 @@ import SwiftUI
 
 struct TripTimelineView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.scenePhase) private var scenePhase
     let trip: TripSummary
 
     @State private var timeline: Timeline?
     @State private var errorText: String?
+    /// Gesetzt, solange der gespeicherte Ablauf gezeigt wird, weil der Server nicht erreichbar ist.
+    @State private var offlineSince: Date?
+    @State private var now = Date()
+    @State private var didScrollToNow = false
+    @State private var startedUp = false
 
     var body: some View {
-        List {
-            if let errorText {
-                Section {
-                    Label(errorText, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+        ScrollViewReader { proxy in
+            List {
+                if let offlineSince {
+                    OfflineBanner(savedAt: offlineSince)
+                }
+                if let errorText {
+                    Section {
+                        Label(errorText, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+                    }
+                }
+                if let timeline {
+                    let context = TimelineContext(timeline: timeline, now: now, tripRole: trip.role,
+                                                  warningsByItem: openWarningsByItem(timeline.warnings),
+                                                  reload: { await load() })
+                    WarningsSection(warnings: timeline.warnings)
+                    ForEach(Array(timeline.phases.enumerated()), id: \.offset) { _, phase in
+                        PhaseSection(phase: phase, context: context)
+                    }
                 }
             }
-            if let timeline {
-                WarningsSection(warnings: timeline.warnings)
-                ForEach(Array(timeline.phases.enumerated()), id: \.offset) { _, phase in
-                    PhaseSection(phase: phase, warningsByItem: openWarningsByItem(timeline.warnings))
+            .listStyle(.insetGrouped)
+            .overlay {
+                if timeline == nil && errorText == nil { ProgressView() }
+            }
+            .navigationTitle(trip.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .refreshable { await load() }
+            .task {
+                if !startedUp {
+                    startedUp = true
+                    if let cached = session.cachedTimeline(tripId: trip.id) {
+                        timeline = cached.value
+                        await scrollToNowOnce(proxy)
+                    }
+                }
+                await load()
+                await scrollToNowOnce(proxy)
+            }
+            .task {
+                // „Jetzt“ jede Minute neu berechnen.
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(60))
+                    now = Date()
                 }
             }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { now = Date() }
+            }
         }
-        .listStyle(.insetGrouped)
-        .overlay {
-            if timeline == nil && errorText == nil { ProgressView() }
-        }
-        .navigationTitle(trip.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await load() }
-        .task { await load() }
+    }
+
+    /// Beim Öffnen einer laufenden Reise einmal zur Markierung scrollen, nicht bei jeder Aktualisierung.
+    private func scrollToNowOnce(_ proxy: ScrollViewProxy) async {
+        guard !didScrollToNow, let timeline, NowLogic.nowElement(timeline, now: now) != nil else { return }
+        didScrollToNow = true
+        try? await Task.sleep(for: .milliseconds(300))
+        withAnimation { proxy.scrollTo(NowMarkerRow.rowID, anchor: .center) }
     }
 
     private func openWarningsByItem(_ warnings: [TimelineWarning]) -> [String: [TimelineWarning]] {
@@ -49,13 +91,67 @@ struct TripTimelineView: View {
 
     private func load() async {
         do {
-            timeline = try await session.call { try await $0.timeline(tripId: trip.id) }
+            timeline = try await session.fetchTimeline(tripId: trip.id)
             errorText = nil
+            offlineSince = nil
         } catch is CancellationError {
             return
         } catch {
-            errorText = error.localizedDescription
+            if let cached = session.cachedTimeline(tripId: trip.id) {
+                timeline = cached.value
+                if case APIError.unreachable = error {
+                    offlineSince = cached.savedAt
+                    errorText = nil
+                } else {
+                    offlineSince = nil
+                    errorText = error.localizedDescription
+                }
+            } else {
+                errorText = error.localizedDescription
+            }
         }
+        now = Date()
+    }
+}
+
+/// Was die Abschnitte zum Zeichnen brauchen: Zeitpunkt, Markierung, Hinweise, Rolle.
+struct TimelineContext {
+    let timeline: Timeline
+    let now: Date
+    let tripRole: String?
+    let warningsByItem: [String: [TimelineWarning]]
+    let reload: () async -> Void
+
+    var defaultTz: String { timeline.defaultTimezone ?? "Europe/Zurich" }
+    var nowElement: NowLogic.Element? { NowLogic.nowElement(timeline, now: now) }
+    var today: String { NowLogic.today(in: defaultTz, now: now) }
+
+    func isPast(_ e: TimelineEntry) -> Bool { NowLogic.entryEnd(e, defaultTz: defaultTz) < now }
+    func isPast(_ d: CruiseDay) -> Bool { NowLogic.dayEnd(d, defaultTz: defaultTz) < now }
+}
+
+/// Dünne Linie mit Etikett „Jetzt · 14:32“, Uhrzeit in der Zone des folgenden Elements.
+struct NowMarkerRow: View {
+    static let rowID = "jetzt-markierung"
+    static let color = Color(red: 0xd6 / 255, green: 0x33 / 255, blue: 0x6c / 255)
+    let now: Date
+    let timezone: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("Jetzt · \(NowLogic.clock(now, tz: timezone))")
+                .font(.caption.bold())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Self.color))
+            Rectangle().fill(Self.color).frame(height: 2)
+        }
+        .listRowInsets(EdgeInsets(top: 2, leading: 12, bottom: 2, trailing: 12))
+        .listRowBackground(Color.clear)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Jetzt, \(NowLogic.clock(now, tz: timezone))")
+        .id(Self.rowID)
     }
 }
 
@@ -162,20 +258,37 @@ struct WarningRow: View {
 
 private struct PhaseSection: View {
     let phase: TimelinePhase
-    let warningsByItem: [String: [TimelineWarning]]
+    let context: TimelineContext
 
     var body: some View {
+        let nowElement = context.nowElement
         Section {
             if phase.days.isEmpty {
                 Text("Keine Einträge").foregroundStyle(.secondary)
             }
             ForEach(Array(phase.days.enumerated()), id: \.offset) { _, day in
-                DayHeaderRow(day: day)
+                let keys = (day.cruiseDay.map { [NowLogic.dayKey($0)] } ?? []) + day.entries.map { NowLogic.entryKey($0) }
+                let dayFuture = day.date > context.today
+                // Markierung vor der Tagesüberschrift: wenn das erste Element eines künftigen Tages folgt, oder der
+                // Kreuzfahrt-Tag selbst (Überschrift und Hafenkarte sind hier eine Zeile).
+                let markerBeforeHeader = nowElement.map { el in
+                    el.key == keys.first && (dayFuture || day.cruiseDay != nil)
+                } ?? false
+                if markerBeforeHeader, let el = nowElement {
+                    NowMarkerRow(now: context.now, timezone: el.timezone)
+                }
+                DayHeaderRow(day: day, context: context, allPast: allPast(day, keys: keys))
                 ForEach(Array(day.entries.enumerated()), id: \.offset) { _, entry in
+                    let key = NowLogic.entryKey(entry)
+                    if let el = nowElement, el.key == key, !(markerBeforeHeader && key == keys.first) {
+                        NowMarkerRow(now: context.now, timezone: el.timezone)
+                    }
                     NavigationLink {
-                        ItemDetailView(item: entry.item, warnings: warningsByItem[entry.itemId] ?? [])
+                        ItemDetailView(item: entry.item, warnings: context.warningsByItem[entry.itemId] ?? [],
+                                       tripRole: context.tripRole, onChanged: context.reload)
                     } label: {
-                        EntryRow(entry: entry, warnings: warningsByItem[entry.itemId] ?? [])
+                        EntryRow(entry: entry, warnings: context.warningsByItem[entry.itemId] ?? [])
+                            .opacity(context.isPast(entry) ? 0.45 : 1)
                     }
                 }
             }
@@ -183,10 +296,19 @@ private struct PhaseSection: View {
             Text(phase.title)
         }
     }
+
+    /// Alle Elemente des Tages vorbei (ohne Elemente: der Tag liegt vor heute).
+    private func allPast(_ day: TimelineDay, keys: [String]) -> Bool {
+        if keys.isEmpty { return day.date < context.today }
+        let cdPast = day.cruiseDay.map(context.isPast) ?? true
+        return cdPast && day.entries.allSatisfy(context.isPast)
+    }
 }
 
 private struct DayHeaderRow: View {
     let day: TimelineDay
+    let context: TimelineContext
+    let allPast: Bool
 
     var body: some View {
         if let cd = day.cruiseDay {
@@ -195,7 +317,9 @@ private struct DayHeaderRow: View {
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(Fmt.dayHeader(day.date)).font(.headline)
+                        .opacity(allPast ? 0.45 : 1)
                     CruiseDaySummary(day: cd)
+                        .opacity(context.isPast(cd) ? 0.45 : 1)
                 }
                 .padding(.vertical, 2)
             }
@@ -203,6 +327,7 @@ private struct DayHeaderRow: View {
             Text(Fmt.dayHeader(day.date))
                 .font(.headline)
                 .padding(.top, 4)
+                .opacity(allPast ? 0.45 : 1)
         }
     }
 }

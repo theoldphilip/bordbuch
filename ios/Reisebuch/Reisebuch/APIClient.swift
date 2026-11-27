@@ -79,13 +79,36 @@ struct APIClient {
         try await send("GET", "/api/version", authorized: false)
     }
 
-    func trips() async throws -> [TripSummary] {
-        try await send("GET", "/api/trips")
+    /// Reiseliste als rohe Antwort (für den Zwischenspeicher) und gelesen.
+    func tripsRaw() async throws -> (data: Data, trips: [TripSummary]) {
+        let data = try await perform("GET", "/api/trips", body: nil)
+        return (data, try Self.decode([TripSummary].self, from: data))
     }
 
-    func timeline(tripId: String) async throws -> Timeline {
-        let id = tripId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? tripId
-        return try await send("GET", "/api/trips/\(id)/timeline")
+    /// Ablauf einer Reise als rohe Antwort (für den Zwischenspeicher) und gelesen.
+    func timelineRaw(tripId: String) async throws -> (data: Data, timeline: Timeline) {
+        let data = try await perform("GET", "/api/trips/\(Self.pathID(tripId))/timeline", body: nil)
+        return (data, try Self.decode(Timeline.self, from: data))
+    }
+
+    func aiStatus() async throws -> AIStatus {
+        try await send("GET", "/api/ai/status")
+    }
+
+    func placeLookup(itemId: String) async throws -> PlaceLookup? {
+        let r: PlaceLookupResponse = try await send("GET", "/api/items/\(Self.pathID(itemId))/place-lookup")
+        return r.lookup
+    }
+
+    func startPlaceLookup(itemId: String) async throws -> PlaceLookup? {
+        let r: PlaceLookupResponse = try await send("POST", "/api/items/\(Self.pathID(itemId))/place-lookup", body: EmptyBody())
+        return r.lookup
+    }
+
+    /// Schreibt `details` eines Eintrags. Der Server ersetzt `details` als Ganzes: `details` muss alle Schlüssel enthalten.
+    func patchItemDetails(itemId: String, details: [String: JSONValue]) async throws -> Item {
+        struct Body: Encodable { let details: [String: JSONValue] }
+        return try await send("PATCH", "/api/items/\(Self.pathID(itemId))", body: Body(details: details))
     }
 
     // MARK: Grundlage
@@ -93,12 +116,24 @@ struct APIClient {
     private struct EmptyBody: Encodable {}
     private struct EmptyResponse: Decodable {}
 
+    private static func pathID(_ id: String) -> String {
+        id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+    }
+
     private func send<Response: Decodable>(_ method: String, _ path: String, authorized: Bool = true) async throws -> Response {
         try await send(method, path, body: Optional<EmptyBody>.none, authorized: authorized)
     }
 
     private func send<Body: Encodable, Response: Decodable>(_ method: String, _ path: String, body: Body?,
                                                            authorized: Bool = true) async throws -> Response {
+        let bodyData = try body.map { try JSONEncoder().encode($0) }
+        let data = try await perform(method, path, body: bodyData, authorized: authorized)
+        if Response.self == EmptyResponse.self, let empty = EmptyResponse() as? Response { return empty }
+        return try Self.decode(Response.self, from: data)
+    }
+
+    /// Führt die Anfrage aus und gibt die rohe Antwort zurück; Fehler werden zu APIError.
+    private func perform(_ method: String, _ path: String, body: Data?, authorized: Bool = true) async throws -> Data {
         guard let url = URL(string: baseURL.absoluteString + path) else { throw APIError.invalidAddress }
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -108,7 +143,7 @@ struct APIClient {
         }
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONEncoder().encode(body)
+            request.httpBody = body
         }
 
         let data: Data
@@ -135,13 +170,17 @@ struct APIClient {
             let message = (try? JSONDecoder().decode(APIErrorBody.self, from: data))?.error
             throw APIError.server(status: http.statusCode, message: message)
         }
-        if Response.self == EmptyResponse.self, let empty = EmptyResponse() as? Response { return empty }
+        return data
+    }
+
+    /// Liest eine Antwort; auch für gespeicherte Antworten aus dem Zwischenspeicher.
+    static func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         do {
-            return try JSONDecoder().decode(Response.self, from: data)
+            return try JSONDecoder().decode(T.self, from: data)
         } catch let DecodingError.keyNotFound(key, ctx) {
-            throw APIError.decoding("Feld \(key.stringValue) fehlt, \(Self.pathText(ctx.codingPath))")
+            throw APIError.decoding("Feld \(key.stringValue) fehlt, \(pathText(ctx.codingPath))")
         } catch let DecodingError.typeMismatch(_, ctx), let DecodingError.valueNotFound(_, ctx) {
-            throw APIError.decoding("Feld \(Self.pathText(ctx.codingPath))")
+            throw APIError.decoding("Feld \(pathText(ctx.codingPath))")
         } catch {
             throw APIError.decoding(error.localizedDescription)
         }
