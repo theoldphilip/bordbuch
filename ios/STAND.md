@@ -1,6 +1,6 @@
-# STAND (iOS), 27.11.2026, 15:35
+# STAND (iOS), 28.11.2026, 00:55
 
-Auftrag: `ios/AUFTRAG-0.3.0.md` (0.3.0, Build 3), erledigt und nach `ios/Auftraege/` verschoben. Rückgabe zu 0.2.0 steht in der
+Auftrag: `ios/AUFTRAG-0.4.0.md` (0.4.0, Build 4), erledigt und nach `ios/Auftraege/` verschoben. Rückgabe zu 0.3.0 steht in der
 Git-Historie dieser Datei.
 
 ## Trennungsprüfung (Ausgabe der Befehle, gekürzt)
@@ -11,105 +11,91 @@ pwd                            -> /Users/philippleissner/Projekte/bordbuch/ios
 ls <repo>                      -> CLAUDE.md docker-compose.yml Dockerfile docs ios package.json README.md scripts server VERSION web
 git ls-files | grep -ci gym    -> 0
 ```
-Ergebnis: bestanden. Commit-Identität fest im Klon (`git config --local`), `git config user.email` → `noreply@anthropic.com`.
+Ergebnis: bestanden. `git config user.email` → `noreply@anthropic.com`.
 
-## Teil 1 und 2: Target und App Group (von Philip angelegt), Prüfung
-- Ablauf: Beim ersten Anlegen entstand das Widget-Target doppelt (zweimal `ReisebuchWidgetExtension`). Philip hat eines gelöscht; dabei
-  verschwand die Einbettung in die App, die er unter *Build Phases → Embed Foundation Extensions* wieder hinzugefügt hat. „Activate
-  scheme?“ wurde mit „Do not activate“ beantwortet; das Schema `ReisebuchWidgetExtension` existiert trotzdem, gebaut wird über `Reisebuch`.
-  Außerdem von Philip in Xcode: `WidgetStand.swift` zusätzlich ins Widget-Target, URL-Typ `reisebuch` (legte `Reisebuch/Info.plist` an).
-- Bundle-IDs: `de.theoldphilip.Reisebuch`, `de.theoldphilip.Reisebuch.ReisebuchWidget`, `de.theoldphilip.ReisebuchTests`,
-  `de.theoldphilip.ReisebuchUITests`.
-- Entitlements: genau zwei (`Reisebuch/Reisebuch.entitlements`, `ReisebuchWidgetExtension.entitlements`), jede nur mit
-  `group.de.theoldphilip.Reisebuch`. `grep -ri GymNative ios/Reisebuch` leer.
-- Targets (`xcodebuild -list`): Reisebuch, ReisebuchTests, ReisebuchUITests, ReisebuchWidgetExtension.
-- Beispielcode von Xcode im Widget-Ordner vollständig ersetzt.
-- Von mir im Projekt gesetzt: Version 0.3.0 / Build 3 in allen 8 Vorkommen (Widget hatte 1.0 / 1), `TARGETED_DEVICE_FAMILY = 1` auch beim
-  Widget (Xcode hatte iPhone und iPad gesetzt; die App ist nur iPhone).
+## Teil 0: Capability (von Philip angelegt), Prüfung
+- Philip hat beim Target **Reisebuch** „Push Notifications“ hinzugefügt, sonst nichts.
+- `Reisebuch/Reisebuch.entitlements`: `aps-environment` (`development`, beim Ad-hoc-Export setzt Xcode `production`) und weiter nur die
+  App Group `group.de.theoldphilip.Reisebuch`. `ReisebuchWidgetExtension.entitlements` unverändert (nur die App Group).
+- `project.pbxproj` änderte sich durch die Capability nicht (nur die Entitlements-Datei). `grep -ri GymNative ios/Reisebuch` leer.
 
 ## Was ich getan habe
-- **Teil 3, Daten** (`WidgetStand.swift` in beiden Targets, `WidgetFeed.swift` nur App): Format wie im Auftrag
-  (`{updated, termine: [{start, ende, tz, symbol, titel, ort, reise, reiseId}]}`, ms als Int64, `ort` ohne Wert als `null`) in
-  `UserDefaults(suiteName: "group.de.theoldphilip.Reisebuch")`, Schlüssel `widget_stand`. Auswahl aus den gespeicherten Abläufen laufender
-  und kommender Reisen: Ende nach jetzt, Beginn höchstens 7 Tage voraus, nach Beginn sortiert (bei gleichem Beginn Reihenfolge des Ablaufs),
-  höchstens 30. Beginn = neues `NowLogic.entryStart` (wie `Trip.tsx`), Ende = `entryEnd`. Titel wie im Ablauf (`Check-out · …` usw.), `ort`
-  = fette Ortszeile. Kreuzfahrt-Tag außer Seetag: Termin „Alle an Bord · <Hafen>“ zu `allAboard`, sonst `departure`, in der Zone des Tages.
-  Aktualisiert nach jedem geladenen Ablauf und jeder Liste (auch beim Vorladen) und beim Start aus dem Zwischenspeicher;
-  `reloadAllTimelines()` nur bei geänderten Terminen. Abmelden und 401 löschen `widget_stand` und laden das Widget neu.
-- **Teil 4, Widget** (`ReisebuchWidget/ReisebuchWidget.swift`): `accessoryRectangular`, `accessoryInline`, `systemSmall`, `systemMedium`.
-  Erster Termin mit `ende >= jetzt`; läuft er: „läuft · bis 11:58“, sonst Uhrzeit, mehr als 24 h vorher „Mo. 09:40“, alles in der Zone des
-  Termins. Darunter Symbol und Titel, Ort fett. Mittel: dazu „Danach …“ und der Reisetitel (Kopfzeile). Eine Zeile: „09:40 ✈️ Gate B12“,
-  ohne Ort Titel gekürzt. Leer: „Keine Termine in den nächsten 7 Tagen“ bzw. „Reisebuch“ + „Nicht angemeldet“ (eine Zeile:
-  „Reisebuch · Nicht angemeldet“). Timeline: jetzt, jeder Beginn, 24 h vor jedem Beginn, 1 min nach jedem Ende; `.atEnd`. Antippen:
-  `reisebuch://trip/<reiseId>`, ohne Termin `reisebuch://` (öffnet nur die App). Keine Netzanfragen, keine Buchungsnummern, Preise,
-  Telefonnummern.
-- **App**: `.onOpenURL` → `AppSession.handle(url:)`; die Reiseliste nutzt jetzt `NavigationStack(path:)` und öffnet die Reise, sobald sie in
-  der Liste steht (kalt und bei laufender App, Einstellungen werden dabei geschlossen).
-- **Tests** (`ReisebuchTests/WidgetTests.swift`, neu, 7): Auswahl (7-Tage-Grenze genau, vergangene raus, Hafentag „Alle an Bord“ in
-  Lissabonner Zeit, `role: "end"` als „Check-out · …“, Flug-Ende in Ankunftszone, keine Buchungsnummer im Stand), 30er-Grenze, Abfahrt ohne
-  „Alle an Bord“, Widget-Auswahl läuft/kommt/Wochentag/keiner, Uhrzeit in fremder Zone, Zeitpunkte der Timeline, Ablage (Änderung erkannt,
-  löschen, Format). **19/19 grün.** Gegenprobe: Grenze auf 8 Tage und `role: "end"` ohne Präfix → Test rot, danach zurückgestellt.
+- **Teil A, Anmelden des Geräts** (`Push.swift` neu, `APIClient.swift`, `SettingsView.swift`):
+  - Einstellungen → Bereich „Benachrichtigungen“. Fragt `GET /api/push/apns`. Bei `enabled: false`: „Auf dem Server noch nicht
+    eingerichtet.“
+  - Schalter „Auf diesem iPhone“: Erlaubnis (`.alert`, `.sound`), dann `registerForRemoteNotifications()`, Token als Hex-Text (klein),
+    `POST /api/push/apns` mit `deviceName: "iPhone-App"`, danach `PATCH /api/me/settings` `{notifications: {enabled: true}}`. Ablehnung:
+    Hinweis auf iOS-Einstellungen → Reisebuch → Mitteilungen, Schalter bleibt aus.
+  - Ausschalten: `DELETE /api/push/apns` `{token}`, `notifications.enabled` bleibt.
+  - „Testnachricht senden“ (`POST /api/push/test`): alle ok → „Gesendet, sollte gleich ankommen.“, sonst je Gerät eine Zeile
+    („iPhone-App: HTTP 410 Unregistered“, „Browser: ok“).
+  - Fehler von `didFailToRegister…` und vom Server erscheinen rot im Bereich, nie als Dialog. Satz zur Web-App als Fußzeile.
+  - Beim Start (angemeldet, Schalter an, Erlaubnis erteilt): Token neu holen und schicken. Hat es sich geändert, wird das alte abgemeldet.
+    Schalter und letztes Token in `UserDefaults`.
+  - Abmelden: erst `DELETE /api/push/apns` (Fehler still), dann wie bisher.
+- **Teil B, Empfangen** (`AppDelegate` in `Push.swift`, eingebunden über `@UIApplicationDelegateAdaptor`): `willPresent` →
+  `[.banner, .sound, .list]`. Antippen: `userInfo["url"]` `/trips/<id>` → `reisebuch://trip/<id>` → `AppSession.handle(url:)` (derselbe
+  Weg wie beim Widget). Andere oder fehlende `url` öffnet nur die App. Kein Badge, nichts gespeichert.
+- Session und PushController gehören jetzt dem App-Delegate (statt `@State` in `ReisebuchApp`), damit sie beim Kaltstart durch eine
+  Mitteilung schon da sind. `AppSession.onLocalLogout` setzt den Schalter auch nach einem 401 zurück.
+- **Tests** (`ReisebuchTests/PushTests.swift`, neu, 4): Hex-Umwandlung, `url` → Reise (`/trips/abc` → `abc`; `/`, leer, nil, `/trips/`,
+  `/trips/abc/items`, fremde Formen → keine), Antippen setzt `pendingTripId`, Text der Testnachricht. **23/23 grün.** Gegenprobe: Hex groß
+  und `/trips/abc/items` zugelassen → 2 Tests rot, danach zurückgestellt.
 
 ## Entscheidungen / Abweichungen
-- Timeline-Einträge zusätzlich 24 h vor jedem Beginn (dann fällt der Wochentag weg) und 1 min **nach** jedem Ende statt genau zum Ende
-  (zum Ende selbst gilt `ende >= jetzt` noch).
-- Zeitpunkte ohne Dauer („Alle an Bord“, Check-in) zeigen nie „läuft“, sondern die Uhrzeit.
-- Eine Zeile bei laufendem Termin: „bis 11:58 ✈️ Gate B12“ (ohne „läuft ·“, sonst zu lang für den Sperrbildschirm).
-- Kompass im Widget als SF Symbol `safari`, nicht das App-Symbol (passt sich Hell/Dunkel und Sperrbildschirm an).
-- `ort` auch beim zweiten Auftritt (z. B. Rückgabe Mietwagen), wie die fette Zeile im Ablauf.
-- Ohne Termine: Neuladen nach 1 h statt `.atEnd` (bei nur einem Eintrag würde `.atEnd` sofort neu anfragen).
-- Galerie und Platzhalter zeigen den echten Stand (nicht angemeldet → „Nicht angemeldet“), Beispieldaten nur in den Xcode-Vorschauen.
+- Nach dem Abmelden ist der Schalter aus; nach erneutem Anmelden muss er wieder eingeschaltet werden (das Token gehörte dem alten Konto).
+- „Testnachricht senden“ ist auch bei ausgeschaltetem Schalter nutzbar (der Server sendet auch an Browser).
+- Ist der Server nicht erreichbar, zeigt der Bereich „Server nicht erreichbar.“ und keinen Schalter.
+- Die Mitteilungsmethoden laufen mit Completion-Handler auf dem Hauptthread: die zuerst gebaute `async`-Variante brachte die App beim
+  Antippen im Simulator zum Absturz („Call must be made on main thread“). Gefunden im Simulator, behoben, erneut geprüft.
 
 ## Prüfung im Simulator (Beispielserver im Scratchpad, erfundene Daten, nicht im Repo)
-- Anmelden gegen den Beispielserver (Wegwerf-UI-Test, gelöscht): `widget_stand` im App-Group-Container enthielt den laufenden Flug mit
-  „Terminal 1 · Gate B14“, Taxi, Hotel, „Check-out · Hotel …“; der vergangene Zug fehlte.
-- **Klein und mittel** in der Widget-Galerie: „läuft · bis 16:01“, Titel, fett „Terminal 1 · Gate B14“; mittel zusätzlich „Danach 17:01 …
-  Taxi zum Hotel“ und der Reisetitel. Emojis erscheinen im Simulator als „?“ (bekannt).
-- **Antippen**: `reisebuch://trip/t1` bei beendeter App → Ablauf der Reise offen (Titelleiste geprüft), dann `…/t2` bei laufender App →
-  andere Reise offen.
-- **Abmelden**: `widget_stand` gelöscht (Plist leer), Galerie zeigt „Reisebuch / Nicht angemeldet“.
-- **Nicht geprüft**: Sperrbildschirm-Größen (`accessoryRectangular`, `accessoryInline`) nur über Code und Tests, nicht als Bild. Das Widget
-  auf den Home-Bildschirm legen: Ein UI-Test, der auf „Widget hinzufügen“ tippt, ließ SpringBoard im Simulator abstürzen; deshalb Galerie.
-  Ebenso nicht geprüft: echter Server, Weiterspringen über Stunden ohne App, Flugmodus auf dem Gerät.
-- Versehen: Bei einer leeren Shell-Variable hat ein `ls` einmal den Mac-Ordner `/Library/Preferences` aufgelistet (nur Dateinamen, nichts gelesen).
+- Wegwerf-UI-Tests (gelöscht), Protokoll des Beispielservers:
+  - Einschalten: Erlaubnis-Dialog → `POST /api/push/apns` (Token 160 Hex-Zeichen, `deviceName` „iPhone-App“) →
+    `PATCH /api/me/settings {"notifications": {"enabled": true}}`.
+  - Testnachricht: „Gesendet, sollte gleich ankommen.“; mit Fehlerantwort: „iPhone-App: HTTP 410 Unregistered“.
+  - App neu gestartet: Schalter an, `POST /api/push/apns` erneut.
+  - Ausschalten: `DELETE /api/push/apns`. Wieder an, dann Abmelden: `DELETE /api/push/apns` vor `POST /api/auth/logout`.
+  - `GET /api/push/apns` → `enabled: false`: nur der Satz, kein Schalter.
+- `xcrun simctl push` mit `{"aps":{"alert":{"title":"⚓ Alle an Bord in 1 h",…}},"url":"/trips/t1"}`:
+  - App beendet, Banner auf dem Home-Bildschirm angetippt → App startet, Ablauf „Lissabon Beispiel“ offen.
+  - App offen (Reiseliste): Banner erscheint → angetippt → Ablauf offen.
+- **Nicht prüfbar** auf dem Mac: echte Zustellung durch Apple an das iPhone (braucht den APNs-Schlüssel auf dem Server und das Gerät).
+  Antippen auf dem Sperrbildschirm im Simulator nicht geprüft (dort öffnet ein Tipp per UI-Test nicht).
 
 ## Build-Ergebnis
-Grün (Debug Simulator, Clean Build, Release-Archiv), keine Compiler-Warnungen, auch nicht im Archiv-Log. Verbleibend nur die bekannte
-Meldung `appintentsmetadataprocessor … No AppIntents.framework dependency found` (Build-Werkzeug).
+Grün (Clean Build, Tests, Release-Archiv), keine Compiler-Warnungen, auch nicht im Archiv-Log. Verbleibend nur die bekannte Meldung
+`appintentsmetadataprocessor … No AppIntents.framework dependency found` (Build-Werkzeug).
 
 ## IPA
-- `ios/Installation/0.3.0-b3/Reisebuch-0.3.0-b3.ipa`, 459 045 Bytes, App und Widget je 0.3.0 (3), URL-Schema `reisebuch` enthalten.
-- SHA256: `c4f9a86871ab4f2a0823005757f038a2c56a842b991841fd85c502aa6ffe8086`
-- Profile (von Xcode mit `-allowProvisioningUpdates` erzeugt):
-  - App: „iOS Team Ad Hoc Provisioning Profile: de.theoldphilip.Reisebuch“ **erneuert** (wegen App Group; neue UUID d90aa876…, das alte
-    8fb0a89a… wurde ersetzt), 2 Geräte, gültig bis 01.11.2027, App Group `group.de.theoldphilip.Reisebuch`.
-  - Widget: „iOS Team Ad Hoc Provisioning Profile: de.theoldphilip.Reisebuch.ReisebuchWidget“ **neu** (a8497ea0…), 2 Geräte, gültig bis
-    01.11.2027, dieselbe App Group.
+- `ios/Installation/0.4.0-b4/Reisebuch-0.4.0-b4.ipa`, 492 772 Bytes, App und Widget je 0.4.0 (4).
+- SHA256: `a7abe8f1cf30023fa48dbc814932911c07fb8a27c9128ef4218f3be1ee497ac0`
+- Profile:
+  - App: „iOS Team Ad Hoc Provisioning Profile: de.theoldphilip.Reisebuch“ **erneuert** wegen Push (neue UUID 22d2bb98…, ersetzt
+    d90aa876…), 2 Geräte, gültig bis 01.11.2027. Im Profil und in der signierten App: **`aps-environment` = `production`**, App Group nur
+    `group.de.theoldphilip.Reisebuch`.
+  - Widget: unverändert (a8497ea0…), ohne `aps-environment`, dieselbe App Group.
 - `project.pbxproj` nach Archiv und Export unverändert (Vergleich mit Kopie vor dem Archiv).
-- Im Ordner liegen 0.1.0-b1, 0.2.0-b2, 0.3.0-b3 (drei Versionen, nichts gelöscht).
+- `0.1.0-b1` aus dem Ordner gelöscht (über Git erreichbar); es bleiben 0.2.0-b2, 0.3.0-b3, 0.4.0-b4.
 
 ## Geänderte Dateien
-- `ios/Reisebuch/Reisebuch.xcodeproj/project.pbxproj` (Widget-Target und App Group von Philip, Version und Gerätefamilie von mir)
-- `ios/Reisebuch/Reisebuch/`: `AppSession.swift`, `NowLogic.swift`, `ReisebuchApp.swift`, `TripListView.swift`, neu `WidgetStand.swift`,
-  `WidgetFeed.swift`, `Info.plist`, `Reisebuch.entitlements`
-- `ios/Reisebuch/ReisebuchWidget/` (neu), `ios/Reisebuch/ReisebuchWidgetExtension.entitlements` (neu)
-- `ios/Reisebuch/ReisebuchTests/WidgetTests.swift` (neu)
-- `ios/Installation/0.3.0-b3/`, `ios/STAND.md`, `ios/CLAUDE.md`, Auftrag verschoben
+- `ios/Reisebuch/Reisebuch.xcodeproj/project.pbxproj` (nur Version 0.4.0 / Build 4, 8 Vorkommen je Schlüssel)
+- `ios/Reisebuch/Reisebuch/`: `APIClient.swift`, `AppSession.swift`, `ReisebuchApp.swift`, `SettingsView.swift`, `Reisebuch.entitlements`
+  (Philip), neu `Push.swift`
+- `ios/Reisebuch/ReisebuchTests/PushTests.swift` (neu)
+- `ios/Installation/0.4.0-b4/` (neu), `ios/Installation/0.1.0-b1/` (gelöscht), `ios/STAND.md`, `ios/CLAUDE.md`, Auftrag verschoben
 
 ## Commits (Hashes)
-- f531408 iOS 0.3.0: Widget „Nächster Termin“
-- folgender Commit: iOS 0.3.0 (3): STAND, Auftrag abgeschlossen
-- IPA in eigenem Commit (siehe Rückmeldung im Terminal)
+- 17324b5 iOS 0.4.0: Benachrichtigungen über APNs (der Absturz-Fix beim Antippen ist darin enthalten)
+- folgender Commit: iOS 0.4.0 (4): STAND, IPA, Auftrag abgeschlossen
 
 ## Offene Fragen an den Architekten
-- Keine zwingenden. Zur Kenntnis: die Entscheidungen oben, vor allem die zusätzlichen Timeline-Zeitpunkte und die gekürzte Zeile bei
-  laufendem Termin.
+- Keine zwingenden. Zur Kenntnis: Schalter nach Abmelden aus (siehe Entscheidungen).
 
 ## Was Philip auf dem iPhone testen soll
-1. IPA 0.3.0-b3 installieren, App einmal mit VPN öffnen (Liste und Abläufe laden).
-2. Home-Bildschirm: lange drücken → Bearbeiten → Widget hinzufügen → „Reisebuch“ → klein und mittel hinzufügen. Zeigt es den nächsten
-   Termin mit Uhrzeit in Ortszeit und fett Gate/Schalter/Gleis?
-3. Sperrbildschirm: lange drücken → Anpassen → Sperrbildschirm → Widgets → „Reisebuch“ rechteckig, und die Zeile über der Uhr. Lesbar?
-4. Flugmodus an, App nicht öffnen, später wieder ansehen: Das Widget springt ohne App zum nächsten Termin weiter.
-5. Widget antippen → App öffnet den Ablauf der Reise dieses Termins.
-6. In der App abmelden → Widget zeigt „Nicht angemeldet“. Wieder anmelden → Termine kommen zurück.
+1. IPA 0.4.0-b4 installieren, App mit VPN öffnen. Der APNs-Schlüssel muss auf dem Server eingerichtet sein.
+2. Einstellungen → Benachrichtigungen → „Auf diesem iPhone“ einschalten → Erlauben. Danach „Testnachricht senden“: Ergebnistext und
+   Mitteilung „🔔 Reisebuch“ kommen an (auch bei offener App als Banner).
+3. „Testnachricht senden“ tippen und die App sofort ganz schließen (nach oben wischen). Mitteilung antippen → App öffnet.
+   Bei einer Erinnerung zu einer Reise öffnet das Antippen deren Ablauf (auch vom Sperrbildschirm).
+4. Schalter aus → keine Mitteilungen mehr an dieses iPhone. In der App abmelden → das iPhone ist am Server abgemeldet.

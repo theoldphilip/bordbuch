@@ -158,3 +158,12 @@ Abmelden löscht den Stand. Widget-Timeline mit Einträgen zu Beginn, 24 h vor B
 `reisebuch://trip/<id>` (Liste, dann Ablauf). `NowLogic.entryStart` neu. Tests in `ReisebuchTests/WidgetTests.swift`.
 Hinweis Simulator: Hinzufügen eines Widgets per UI-Test lässt SpringBoard abstürzen; Prüfung über die Widget-Galerie. Bei gleicher
 Versionsnummer hält das System die alte Widget-Erweiterung fest; nach Änderungen am Widget App im Simulator neu installieren.
+
+**Neu in 0.4.0** (Build 4, Auftrag in `ios/Auftraege/AUFTRAG-0.4.0.md`): Benachrichtigungen über APNs (`Push.swift`). Capability Push
+Notifications nur beim App-Target (Entitlements `aps-environment` + App Group). Einstellungen → „Benachrichtigungen“ (nur bei
+`GET /api/push/apns` → `enabled`): Schalter meldet das Token (Hex, klein, `deviceName` „iPhone-App“) an und setzt `notifications.enabled`,
+Testnachricht, Abmelden meldet das Token vorher ab. Session und `PushController` gehören dem `AppDelegate` (`@UIApplicationDelegateAdaptor`).
+Antippen: `url` `/trips/<id>` → `reisebuch://trip/<id>` wie beim Widget. Mitteilungs-Delegate mit Completion-Handler (die `async`-Variante
+stürzte beim Antippen ab). Ad-hoc-Profil der App muss `aps-environment` = `production` enthalten. Tests in `ReisebuchTests/PushTests.swift`.
+Hinweis Simulator: `xcrun simctl push booted de.theoldphilip.Reisebuch <datei.apns>`; UI-Tests laufen sonst auf geklonten Simulatoren
+ohne Anmeldung, daher `-parallel-testing-enabled NO`.
