@@ -1,6 +1,7 @@
 # STAND (iOS), 27.11.2026
 
-Auftrag: `ios/AUFTRAG-0.1.0.md` inkl. Nachtrag 1. Teil 0, A–D gebaut, Teil E (Test mit echten Daten) steht noch aus.
+Auftrag: `ios/AUFTRAG-0.1.0.md` inkl. Nachtrag 1, erledigt und nach `ios/Auftraege/` verschoben. Test mit echten Daten steht aus
+(nur auf dem iPhone möglich, siehe Teil E).
 
 ## Trennungsprüfung (Ausgabe der Befehle, gekürzt)
 ```
@@ -56,11 +57,31 @@ Ergebnis: bestanden. Pfad enthält kein „gym“.
 Grün (iPhone 17 Pro Simulator, Xcode 26.3, Deployment Target iOS 26.2). Keine Compiler-Warnungen. Einzige Meldung im Log:
 `appintentsmetadataprocessor warning: Metadata extraction skipped. No AppIntents.framework dependency found.` (Build-Werkzeug, kein Code).
 
-## Bildschirmfotos (nicht im Repo, `ios/shots/`)
-- Anmeldung: Kompass-Symbol, „Reisebuch“, Server-Adresse mit Vorgabe, Benutzername, Passwort, Knopf ausgegraut bis beides ausgefüllt,
-  Dunkelmodus. Richtig dargestellt.
-- Reiseliste, Ablauf, Flug mit Gate, Hafentag, Detail mit Telefonnummer: **noch offen**, braucht die Anmeldung am echten Server
-  (Nachtrag 1, Punkt 2). Der Server war vom Mac aus um 09:40 nicht erreichbar (curl ohne Antwort).
+## Teil E: Prüfen mit Daten
+- **Echter Server: auf diesem Mac nicht möglich.** Laut Philip erreicht der Mac den Server nie (auch der Simulator nicht, er nutzt
+  das Netz des Macs). Node fehlt, der Testserver des Repos fällt also auch aus. Test mit echten Daten geht nur auf Philips iPhone
+  und braucht dessen eigene Freigabe zur Installation.
+- **Ersatz:** kleiner Python-Beispielserver nur im Scratchpad (nicht im Repo, nichts installiert) mit erfundenen Daten nach
+  `docs/API.md` (Kreuzfahrt mit Anreise-Flug mit Gate, Hotel mit Check-out, Einschiffung, Seetag, Tender-Hafentag mit Ausflug,
+  Ausschiffung, Zug mit Gleis, drei Hinweise davon einer quittiert und einer „nur persönlich“). Gesteuert über einen Wegwerf-UI-Test
+  (danach gelöscht, nicht committet). Danach Server beendet.
+
+## Bildschirmfotos (nicht im Repo, nur Scratchpad, erfundene Daten)
+- Anmeldung: Kompass-Symbol, „Reisebuch“, Server-Vorgabe, Knopf ausgegraut bis alles ausgefüllt. Falsches Passwort → rot
+  „Benutzername oder Passwort falsch.“
+- Reiseliste: zwei kommende Reisen oben (Zeitraum „8. Mai – 13. Mai 2027“, Schiff darunter), eine unter „Vergangen“.
+- Ablauf: Hinweis-Kasten rot (es gibt einen `error`), aufgeklappt, „2 Hinweise“, Etikett „nur persönlich“, „Quittiert (1)“
+  zugeklappt. Abschnitte „Anreise“, „Kreuzfahrt · MS Beispiel“, „Abreise“, Tage „Sa., 8. Mai“. Flug mit fetter Zeile
+  „Terminal 1 · Schalter 31–40 · Gate B12“, „Check-out · Hotel …“ am Folgetag mit rotem Hinweis. Kreuzfahrt-Tage mit orangem
+  „Alle an Bord 17:00“, „Tenderhafen“, Seetag, Ausschiffung.
+- Flug-Detail: Abflug/Ankunft mit „MESZ, Europe/Zurich“ bzw. „Europe/Madrid“, Anbieter, Buchungsnummer, Preis „420,50 €“, bezahlt,
+  Details mit deutschen Namen.
+- Hafentag-Detail: Ankunft, Abfahrt, „Alle an Bord“ orange, Tenderhafen, Zeitzone, Zusatzinfo mit „bitte prüfen“ und Anruf-Link.
+- Ausflug-Detail: Hinweis, Zeiten, Treffpunkt, „Gebucht über: privat“, Telefonnummer als Anruf-Link, Notruf mit „bitte prüfen“.
+- Einstellungen: „Testkonto“, Server, App „0.1.0 (Build 1)“, Server „0.10.1 · Datenbank-Stand 9“, Abmelden → zurück zur Anmeldung.
+- **Auffällig: Alle Emojis erscheinen im Simulator als „?“-Kästchen.** Ursache ist der Simulator, nicht die App: Die Quelle enthält die
+  richtigen Zeichen (`✈️` = E2 9C 88 EF B8 8F), und eine einfache HTML-Seite mit Emojis zeigt in Safari im selben Simulator ebenfalls
+  „?“. Auf dem iPhone sollten sie erscheinen; nicht geprüft.
 
 ## Geänderte Dateien
 - `ios/STAND.md`, `ios/.gitignore`
@@ -73,11 +94,18 @@ Grün (iPhone 17 Pro Simulator, Xcode 26.3, Deployment Target iOS 26.2). Keine C
 ## Commits (Hashes)
 - d592c2d STAND, Meldung .git
 - 689870c iOS 0.1.0: leeres Projekt Reisebuch angelegt
-- folgender Commit: iOS 0.1.0: Anmeldung, Reiseliste und Ablauf lesen
+- 8459ed4 iOS 0.1.0: Anmeldung, Reiseliste und Ablauf lesen
+- folgender Commit: iOS 0.1.0: Auftrag abgeschlossen, STAND und Briefing
 
 ## Offene Fragen an den Architekten
 - Push vom Mac: Es fehlen GitHub-Zugangsdaten (`could not read Username`). Philip richtet das ein; bis dahin liegen Commits nur lokal.
 - `TARGETED_DEVICE_FAMILY` auf nur iPhone gestellt (rückgängig machbar). Falls iPad doch gewünscht ist, bitte melden.
 
-## Was Philip auf dem iPhone testen soll
-Noch nichts (keine Installation auf dem iPhone in diesem Auftrag). Im Simulator: anmelden, sobald der Mac den Server erreicht.
+## Was Philip auf dem iPhone testen soll (sobald die Installation freigegeben ist)
+1. Anmelden mit `http://172.16.10.1:8080` (VPN an); einmal mit falschem Passwort, einmal ohne VPN (Meldung „Ist das VPN an?“).
+2. Reiseliste: Reisen, Zeiträume, Schiffe, „Vergangen“; Symbole (Emojis) sichtbar?
+3. Eine Kreuzfahrt öffnen: Hinweis-Kasten mit gleicher Anzahl offener Hinweise wie in der Web-App, „Quittiert“, Gate/Schalter fett,
+   „Alle an Bord“, Tenderhafen.
+4. Einen Eintrag mit Telefonnummer antippen, Nummer antippen → Anrufdialog.
+5. Einstellungen: Server-Version wie in der Web-App unter „Über Reisebuch“; Abmelden.
+6. Querformat und Hellmodus kurz ansehen.

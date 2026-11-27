@@ -120,4 +120,11 @@ Dazu gilt:
 ```
 
 ## Stand der App
-Noch keine Version. Erster Auftrag: `ios/AUFTRAG-0.1.0.md`.
+**Neu in 0.1.0** (Build 1, Auftrag in `ios/Auftraege/AUFTRAG-0.1.0.md`): Projekt `ios/Reisebuch/` (nur iPhone, iOS 26.2), Anmeldung mit
+Token im Schlüsselbund und Abmelden bei 401, Einstellungen (angemeldet als, Server, Versionen, Abmelden), Reiseliste (laufend/kommend,
+„Vergangen“), Ablauf lesend (Abschnitte, Tage, Einträge, Ortszeile Terminal/Schalter/Gate/Kofferband/Gleis, Kreuzfahrt-Tag mit „Alle an
+Bord“, Hinweis-Kasten mit „Quittiert“), Detail von Eintrag und Hafentag mit Zusatzinfos (`tel:`, `mailto:`, Link, „bitte prüfen“).
+Kein ATS-Eintrag nötig (IP-Adressen sind ausgenommen, per Test belegt). Dateien: `Models`, `APIClient`, `AppSession`, `Keychain`,
+`Format`, `LoginView`, `TripListView`, `TripTimelineView`, `DetailViews`. Unit-Tests in `ReisebuchTests`.
+Hinweis zum Testen: Der Mac erreicht den Server nicht; Daten im Simulator nur mit eigenem Beispielserver (nicht im Repo). Der
+Simulator hat keine Emoji-Schrift (auch Safari zeigt „?“), Symbole also nur auf dem iPhone prüfbar.
