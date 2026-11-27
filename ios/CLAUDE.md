@@ -131,3 +131,10 @@ Kein ATS-Eintrag nötig (IP-Adressen sind ausgenommen, per Test belegt). Dateien
 `Format`, `LoginView`, `TripListView`, `TripTimelineView`, `DetailViews`. Unit-Tests in `ReisebuchTests`.
 Hinweis zum Testen: Der Mac erreicht den Server nicht; Daten im Simulator nur mit eigenem Beispielserver (nicht im Repo). Der
 Simulator hat keine Emoji-Schrift (auch Safari zeigt „?“), Symbole also nur auf dem iPhone prüfbar.
+
+**Neu in 0.2.0** (Build 2, Auftrag in `ios/Auftraege/AUFTRAG-0.2.0.md`): Offline lesen (`ResponseCache`: rohe Antworten von Liste und
+Abläufen in Application Support/`cache/`, Band „Offline · Stand …“, Vorladen laufender/kommender Reisen, Abmelden löscht alles),
+Jetzt-Markierung und Ausgrauen (`NowLogic`, Regeln wie `Trip.tsx`), Reisetag-Abfrage im Detail von Flug/Zug/Mietwagen
+(`PlaceLookupView`, nur bei `ai/status.placeLookup` und Rolle owner/editor; „Übernehmen“ = `PATCH` mit allen bisherigen `details`, einziger
+schreibender Aufruf). `details` wird verlustfrei als `JSONValue` gelesen. Tests in `ReisebuchTests/NowLogicTests.swift`.
+Release-Build zeigt manche Concurrency-Warnungen, die Debug nicht zeigt: vor dem IPA-Export auf Warnungen im Archiv-Log achten.
