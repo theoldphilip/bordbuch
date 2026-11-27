@@ -225,6 +225,30 @@ oder der ausgehende Zugriff der Syno. Das Protokoll siehst du im Container Manag
 Umgebungsvariable `PUSH_SUBJECT` (Standard `mailto:bordbuch@example.com`). Setze dort bei Bedarf eine eigene Adresse in der `.env` ein,
 sie wird nur an Apples Push-Dienst geschickt.
 
+### Benachrichtigungen für die iPhone-App (APNs)
+
+Die native iPhone-App (unter `ios/`) bekommt Erinnerungen über den Push-Dienst von Apple (APNs). Dafür braucht der Server einmalig einen
+Schlüssel aus dem Apple-Developer-Account. Ohne ihn läuft alles andere normal, nur die App bekommt keine Benachrichtigungen.
+
+1. [developer.apple.com](https://developer.apple.com/account) → *Certificates, Identifiers & Profiles* → *Keys* → `+`. Name z. B. „Reisebuch Push“,
+   Häkchen bei **Apple Push Notifications service (APNs)**, *Continue*, *Register*. **Key ID** notieren und die Datei `AuthKey_<KeyID>.p8`
+   herunterladen (geht nur einmal). Die **Team ID** steht oben rechts im Account.
+2. Die `.p8`-Datei auf die Syno kopieren (z. B. per File Station in einen Ordner, auf den nur du Zugriff hast) und per SSH in die `.env` übernehmen.
+   Der Schlüssel erscheint dabei nicht auf dem Bildschirm:
+
+```bash
+cd /volume1/docker/bordbuch
+printf 'APNS_KEY=%s\n' "$(base64 < /pfad/zu/AuthKey_XXXXXXXXXX.p8 | tr -d '\n')" | sudo tee -a .env >/dev/null
+printf 'APNS_KEY_ID=%s\nAPNS_TEAM_ID=%s\n' XXXXXXXXXX DEINETEAMID | sudo tee -a .env >/dev/null
+sudo chmod 600 .env
+```
+
+3. Die `.p8`-Datei danach von der Syno löschen und sicher aufbewahren (Passwort-Manager). Container neu starten:
+   `sudo docker compose up -d`. Im Protokoll steht „APNs eingerichtet: Push für die iPhone-App ist an.“, bei einem kaputten Schlüssel eine Warnung.
+
+Die Ad-hoc-Versionen der App nutzen den normalen (Produktions-)Server von Apple. Nur für eine direkt aus Xcode gestartete App wäre
+`APNS_SANDBOX=1` nötig. Der Schlüssel gehört nie ins Repository.
+
 ### Daten & Backup
 
 | Pfad | Inhalt |

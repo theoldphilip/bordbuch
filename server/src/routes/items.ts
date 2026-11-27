@@ -7,7 +7,7 @@ import { normalizePayment } from '../costs.ts';
 import { unlinkAttachmentFiles } from '../files.ts';
 import { itemFromRow, touchTrip } from '../model.ts';
 import { describeChanges, placeChanges, type PlaceChange } from '../place.ts';
-import type { PushSender } from '../push.ts';
+import { deliverToUser, type Senders } from '../push.ts';
 import { itemInput, type ItemInput } from '../schemas.ts';
 import { readSettings } from '../settings.ts';
 import { toInstant } from '../timeline.ts';
@@ -59,7 +59,7 @@ const bulkDeleteInput = z.object({ ids: z.array(z.string()).min(1).max(500) });
  * these messages on; the person who made the change is not notified about their own edit.
  */
 async function announcePlaceChange(
-  { db, sender, defaultTz }: { db: DB; sender: PushSender; defaultTz: string },
+  { db, sender, apns, defaultTz }: { db: DB; defaultTz: string } & Senders,
   item: ReturnType<typeof itemFromRow>,
   changes: PlaceChange[],
   by: { id: string; displayName: string },
@@ -73,20 +73,18 @@ async function announcePlaceChange(
   for (const { user_id: userId } of members) {
     const prefs = readSettings(db, userId).notifications;
     if (!prefs.enabled || !prefs.infoChange) continue;
-    const subs = db.prepare('SELECT * FROM push_subscriptions WHERE user_id = ?').all(userId) as Record<string, any>[];
-    for (const s of subs) {
-      const res = await sender.send(
-        { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth },
-        { title: `${item.type === 'flight' ? '✈️' : item.type === 'train' ? '🚆' : '📍'} ${item.title}`, body: `${describeChanges(changes)}. Eingetragen von ${by.displayName}.`, url: `/trips/${item.tripId}`, tag: `info:${item.id}` },
-      );
-      if (res.gone) db.prepare('DELETE FROM push_subscriptions WHERE id = ?').run(s.id);
-      else sent++;
-    }
+    const results = await deliverToUser(db, { sender, apns }, userId, {
+      title: `${item.type === 'flight' ? '✈️' : item.type === 'train' ? '🚆' : '📍'} ${item.title}`,
+      body: `${describeChanges(changes)}. Eingetragen von ${by.displayName}.`,
+      url: `/trips/${item.tripId}`,
+      tag: `info:${item.id}`,
+    });
+    sent += results.filter((r) => r.ok).length;
   }
   return sent;
 }
 
-export function registerItemRoutes(app: FastifyInstance, { db, uploadDir, sender, config }: Ctx) {
+export function registerItemRoutes(app: FastifyInstance, { db, uploadDir, sender, apns, config }: Ctx) {
   /** Deletes several entries at once (e.g. a whole phase). All or nothing. */
   app.post<{ Params: { tripId: string } }>('/api/trips/:tripId/items/delete', async (req, reply) => {
     const user = requireUser(req);
@@ -145,7 +143,7 @@ export function registerItemRoutes(app: FastifyInstance, { db, uploadDir, sender
     const changes = placeChanges(before, after);
     if (changes.length) {
       // Announced in the background: a slow or failing push service must not slow down saving.
-      announcePlaceChange({ db, sender, defaultTz: config.defaultTz }, after, changes, user).catch((err) => app.log.warn({ err }, 'Push bei Änderung fehlgeschlagen'));
+      announcePlaceChange({ db, sender, apns, defaultTz: config.defaultTz }, after, changes, user).catch((err) => app.log.warn({ err }, 'Push bei Änderung fehlgeschlagen'));
     }
     return after;
   });

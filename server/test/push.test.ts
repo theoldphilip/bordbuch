@@ -145,7 +145,7 @@ describe('push API and reminder runner', () => {
   test('test notification reaches the caller\'s devices only; dead devices are removed', async () => {
     assert.equal((await ctx.call('POST', '/api/push/test', anna)).status, 409, 'no device yet');
     const ok = await ctx.call('POST', '/api/push/test', admin);
-    assert.deepEqual(ok.body.results, [{ deviceName: 'iPhone', ok: true, error: null }]);
+    assert.deepEqual(ok.body.results, [{ deviceName: 'iPhone', kind: 'web', ok: true, error: null }]);
     assert.equal(sent.at(-1)!.endpoint, phone);
     behave = () => ({ ok: false, gone: true, error: 'HTTP 410' });
     const dead = await ctx.call('POST', '/api/push/test', admin);

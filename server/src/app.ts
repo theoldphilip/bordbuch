@@ -21,6 +21,7 @@ import { BUILT_AT, VERSION } from './version.ts';
 import { registerCertificateRoutes } from './routes/certificate.ts';
 import { registerPlaceLookupRoutes } from './routes/placeLookup.ts';
 import { createWebPushSender, loadVapid, type PushSender } from './push.ts';
+import { apnsConfigFromEnv, createApnsSender, type ApnsSender } from './apns.ts';
 import { runReminderTick } from './reminderRunner.ts';
 import { createAnthropicExtractor } from './ai/anthropic.ts';
 import type { Extractor } from './ai/types.ts';
@@ -34,9 +35,11 @@ export interface Ctx {
   /** null = document analysis is not set up (no API key). */
   extractor: Extractor | null;
   sender: PushSender;
+  /** Native iPhone app push; null when no APNs key is configured. */
+  apns: ApnsSender | null;
 }
 
-export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFile?: string; backups?: number; extractor?: Extractor | null; pushSender?: PushSender; scheduler?: boolean } = {}) {
+export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFile?: string; backups?: number; extractor?: Extractor | null; pushSender?: PushSender; apnsSender?: ApnsSender | null; scheduler?: boolean } = {}) {
   fs.mkdirSync(config.dataDir, { recursive: true });
   const uploadDir = path.join(config.dataDir, 'uploads');
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -48,13 +51,28 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
         ? createAnthropicExtractor({ apiKey: config.anthropicApiKey, model: config.aiModel })
         : null;
   const sender = opts.pushSender ?? createWebPushSender(loadVapid(db, process.env.PUSH_SUBJECT?.trim() || 'mailto:bordbuch@example.com'));
-  const ctx: Ctx = { db, config, uploadDir, extractor, sender };
+  // APNs: tests pass their own sender (or null); otherwise from the environment. A broken key must not stop the server.
+  let apns: ApnsSender | null = null;
+  let apnsProblem: string | null = null;
+  if (opts.apnsSender !== undefined) apns = opts.apnsSender;
+  else {
+    const apnsConfig = apnsConfigFromEnv();
+    try {
+      apns = apnsConfig ? createApnsSender(apnsConfig) : null;
+    } catch (err) {
+      apnsProblem = `APNs-Schlüssel unbrauchbar, Push für die iPhone-App ist aus: ${(err as Error).message}`;
+    }
+  }
+  const ctx: Ctx = { db, config, uploadDir, extractor, sender, apns };
 
   const app: FastifyInstance = Fastify({
     logger: opts.logger ?? false,
     bodyLimit: 2 * 1024 * 1024,
     trustProxy: true,
   });
+
+  if (apnsProblem) app.log.warn(apnsProblem);
+  else if (apns && opts.apnsSender === undefined) app.log.info('APNs eingerichtet: Push für die iPhone-App ist an.');
 
   app.decorateRequest('user', null);
   app.decorateRequest('tokenHash', null);
@@ -120,7 +138,7 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
     ? setInterval(() => {
         if (ticking) return;
         ticking = true;
-        runReminderTick({ db, config, sender })
+        runReminderTick({ db, config, sender, apns })
           .catch((err) => app.log.warn({ err }, 'Erinnerungen fehlgeschlagen'))
           .finally(() => (ticking = false));
       }, 30_000)
@@ -129,6 +147,7 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
   app.addHook('onClose', async () => {
     if (reminderTimer) clearInterval(reminderTimer);
     stopBackup();
+    apns?.close?.();
     db.close();
   });
   return app;

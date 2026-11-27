@@ -175,6 +175,17 @@ const migrations: string[] = [
   ALTER TABLE items ADD COLUMN paid_amount REAL;
   ALTER TABLE items ADD COLUMN due_date TEXT;
   `,
+  `
+  -- iPhones with the native app (Apple Push Notification service). One row per device token; a token belongs to one user.
+  CREATE TABLE apns_devices (
+    id          TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token       TEXT NOT NULL UNIQUE,
+    device_name TEXT,
+    created_at  TEXT NOT NULL
+  );
+  CREATE INDEX apns_devices_user ON apns_devices(user_id);
+  `,
 ];
 
 export function openDb(file: string): DB {

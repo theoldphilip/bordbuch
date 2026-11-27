@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { Ctx } from '../app.ts';
+import { isDeviceToken } from '../apns.ts';
 import { requireUser } from '../auth.ts';
-import { isPushEndpoint } from '../push.ts';
+import { deliverToUser, hasDevices, isPushEndpoint } from '../push.ts';
 import { HttpError, newId, nowIso } from '../util.ts';
 
 const subscribeInput = z.object({
@@ -11,15 +12,28 @@ const subscribeInput = z.object({
   deviceName: z.string().trim().max(80).nullish(),
 });
 
-export function registerPushRoutes(app: FastifyInstance, { db, sender }: Ctx) {
+const apnsInput = z.object({
+  token: z.string().trim().refine(isDeviceToken, 'Ungültiges Geräte-Token'),
+  deviceName: z.string().trim().max(80).nullish(),
+});
+
+export function registerPushRoutes(app: FastifyInstance, { db, sender, apns }: Ctx) {
   app.get('/api/push/key', async () => ({ publicKey: sender.publicKey }));
 
   app.get('/api/push/status', async (req) => {
     const user = requireUser(req);
-    const devices = db
+    const web = db
       .prepare('SELECT device_name, created_at FROM push_subscriptions WHERE user_id = ? ORDER BY created_at')
       .all(user.id) as { device_name: string | null; created_at: string }[];
-    return { devices: devices.map((d) => ({ deviceName: d.device_name, createdAt: d.created_at })) };
+    const native = db
+      .prepare('SELECT device_name, created_at FROM apns_devices WHERE user_id = ? ORDER BY created_at')
+      .all(user.id) as { device_name: string | null; created_at: string }[];
+    return {
+      devices: [
+        ...web.map((d) => ({ deviceName: d.device_name, createdAt: d.created_at, kind: 'web' as const })),
+        ...native.map((d) => ({ deviceName: d.device_name, createdAt: d.created_at, kind: 'app' as const })),
+      ],
+    };
   });
 
   app.post('/api/push/subscribe', async (req, reply) => {
@@ -41,20 +55,38 @@ export function registerPushRoutes(app: FastifyInstance, { db, sender }: Ctx) {
     return reply.status(204).send();
   });
 
-  /** Sends a test notification to all devices of the caller. */
+  // ----- native iPhone app (APNs) -----
+  /** Whether the server can send to the iPhone app (an APNs key is configured). */
+  app.get('/api/push/apns', async (req) => {
+    requireUser(req);
+    return { enabled: !!apns };
+  });
+
+  app.post('/api/push/apns', async (req, reply) => {
+    const user = requireUser(req);
+    if (!apns) throw new HttpError(409, 'Benachrichtigungen für die iPhone-App sind auf dem Server nicht eingerichtet.');
+    const input = apnsInput.parse(req.body);
+    const token = input.token.toLowerCase();
+    // A device token belongs to exactly one user: registering again (other account on the same iPhone) moves it.
+    db.prepare('DELETE FROM apns_devices WHERE token = ?').run(token);
+    db.prepare('INSERT INTO apns_devices (id, user_id, token, device_name, created_at) VALUES (?, ?, ?, ?, ?)').run(
+      newId(), user.id, token, input.deviceName ?? null, nowIso(),
+    );
+    return reply.status(201).send({ ok: true });
+  });
+
+  app.delete('/api/push/apns', async (req, reply) => {
+    const user = requireUser(req);
+    const { token } = z.object({ token: z.string().trim() }).parse(req.body);
+    db.prepare('DELETE FROM apns_devices WHERE token = ? AND user_id = ?').run(token.toLowerCase(), user.id);
+    return reply.status(204).send();
+  });
+
+  /** Sends a test notification to all devices of the caller (browsers and iPhone app). */
   app.post('/api/push/test', async (req) => {
     const user = requireUser(req);
-    const subs = db.prepare('SELECT * FROM push_subscriptions WHERE user_id = ?').all(user.id) as Record<string, any>[];
-    if (subs.length === 0) throw new HttpError(409, 'Auf diesem Konto ist noch kein Gerät für Benachrichtigungen angemeldet.');
-    const results = [];
-    for (const s of subs) {
-      const res = await sender.send(
-        { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth },
-        { title: '🔔 Reisebuch', body: 'Test: So sehen Erinnerungen aus.', url: '/', tag: 'test' },
-      );
-      if (res.gone) db.prepare('DELETE FROM push_subscriptions WHERE id = ?').run(s.id);
-      results.push({ deviceName: s.device_name as string | null, ok: res.ok, error: res.error ?? null });
-    }
+    if (!hasDevices(db, user.id, !!apns)) throw new HttpError(409, 'Auf diesem Konto ist noch kein Gerät für Benachrichtigungen angemeldet.');
+    const results = await deliverToUser(db, { sender, apns }, user.id, { title: '🔔 Reisebuch', body: 'Test: So sehen Erinnerungen aus.', url: '/', tag: 'test' });
     return { results };
   });
 }

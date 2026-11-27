@@ -53,8 +53,16 @@ Der Download ist öffentlich, weil Safari einen Link ohne das Token der App öff
 | GET | `/push/key` | `{publicKey}`, der öffentliche VAPID-Schlüssel für `pushManager.subscribe` |
 | POST | `/push/subscribe` | `{endpoint, keys: {p256dh, auth}, deviceName?}`. Nur Endpunkte von Apple, Google, Mozilla und Microsoft (HTTPS) werden akzeptiert; ein Gerät gehört genau einem Benutzer |
 | DELETE | `/push/subscribe` | `{endpoint}`, meldet ein eigenes Gerät ab |
-| GET | `/push/status` | angemeldete Geräte des Benutzers |
-| POST | `/push/test` | Testnachricht an alle eigenen Geräte, Antwort `{results: [{deviceName, ok, error}]}` |
+| GET | `/push/status` | angemeldete Geräte des Benutzers: `{devices: [{deviceName, createdAt, kind: web\|app}]}` |
+| POST | `/push/test` | Testnachricht an alle eigenen Geräte (Browser und iPhone-App), Antwort `{results: [{deviceName, kind, ok, error}]}` |
+| GET | `/push/apns` | `{enabled}`: ob der Server an die iPhone-App senden kann (APNs-Schlüssel eingerichtet) |
+| POST | `/push/apns` | `{token, deviceName?}` meldet die iPhone-App an. `token` = Geräte-Token von APNs als Hex-Text (64 bis 200 Zeichen). Ein Token gehört genau einem Benutzer (neu anmelden verschiebt es). 409 ohne APNs-Schlüssel |
+| DELETE | `/push/apns` | `{token}`, meldet das eigene Gerät ab (z. B. beim Abmelden in der App) |
+
+**iPhone-App (APNs):** Dieselben Erinnerungen, Gate-Änderungen und Testnachrichten wie beim Web-Push gehen auch an angemeldete iPhone-Apps.
+Es gelten dieselben Einstellungen unter `notifications` (insbesondere `enabled`). Inhalt: `aps.alert` mit `title` und `body`, `sound: default`,
+dazu `url` (z. B. `/trips/<id>`), die die App zum Öffnen der Reise nutzt. Gültig 15 Minuten (`apns-expiration`); ein Token, das Apple als
+ungültig meldet (410, `BadDeviceToken`, `Unregistered`), wird gelöscht.
 
 Einstellungen unter `GET|PATCH /me/settings` → `notifications`: `enabled`, `boarding`/`boardingLead` (Minuten, Standard 60), `excursion`/`excursionLead` (45),
 `transport`/`transportLead` (90), `flightLead` (180). Der Server prüft alle 30 Sekunden, welche Erinnerungen fällig sind, und sendet sie einmal

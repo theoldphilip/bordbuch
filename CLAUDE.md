@@ -3,7 +3,7 @@
 > **Claude Code auf dem Mac (iPhone-App unter `ios/`): Diese Datei ist nicht dein Briefing.** Für dich gilt `ios/CLAUDE.md`. Server, Web,
 > SSH zur Synology und Updates sind nicht deine Aufgabe; alles außerhalb von `ios/` ist für dich nur zum Lesen.
 
-Stand: 24.11.2026, App-Version 0.10.1, Datenbank-Stand 9, 143 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
+Stand: 27.11.2026, App-Version 0.11.0, Datenbank-Stand 10, 154 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
 einer früheren Claude-Code-Sitzung (Cloud, Web). Wer sie liest, setzt die Arbeit dort fort, wo sie aufgehört hat. Lies sie ganz,
 bevor du etwas änderst, und prüfe Aussagen über Code im Repo nach, statt dich auf diese Datei zu verlassen (Code gewinnt).
 
@@ -160,7 +160,7 @@ Link, Diagnose · 0.5 Reise prüfen · 0.6 Reisearten, Stationen, Umbenennung Re
 Währung · 0.7 Quittieren, Ansichtsmodus · 0.8 Gate/Schalter/Kofferband/Gleis, Push bei Änderung, Kabine sichtbar · 0.8.1 Update auf der
 Synology durch Claude · 0.9 Kostenauswertung (Reiter „Kosten“, Preis an der Kreuzfahrt, Zahlungsstand und Fälligkeit) · 0.10 KI liest
 Zahlungsstand aus Dokumenten, Reisetag-Abfrage für Gate/Schalter/Kofferband/Gleis · 0.10.1 Dokument-Analyse wieder lauffähig (KI-Schema zu
-groß, Zahlungsstand nur noch bei Einträgen über details). Details in der
+groß, Zahlungsstand nur noch bei Einträgen über details) · 0.11 Push für die iPhone-App über APNs (Server-Teil). Details in der
 Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
 
 ## 6. Offene Punkte (Reihenfolge nach Philips Wünschen)
@@ -200,7 +200,10 @@ Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
 
 `ANTHROPIC_API_KEY` (leer = KI aus), `AI_MODEL` (Standard `claude-opus-5-5`; Fallback-Beta `server-side-fallback-2026-07-01` außer bei Haiku),
 `DEFAULT_TZ` (Europe/Zurich), `MAX_UPLOAD_MB` (25), `BACKUP_KEEP` (14), `DATA_DIR`, `WEB_DIR`, `PORT`, `HOST`, `PUSH_SUBJECT`
-(Standard `mailto:bordbuch@example.com`), `APP_VERSION`/`BUILD_TIME` (aus dem Image). Daten liegen in `./data` (Datenbank, `uploads/`,
+(Standard `mailto:bordbuch@example.com`), `APP_VERSION`/`BUILD_TIME` (aus dem Image). **APNs** für die iPhone-App (seit 0.11.0, `server/src/apns.ts`):
+`APNS_KEY` (`.p8` als base64 oder PEM), `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_TOPIC` (Standard `de.theoldphilip.Reisebuch`), `APNS_SANDBOX=1` nur für
+Builds aus Xcode; nur in der `.env` der Syno, nie im Repo. Ohne Schlüssel ist nur der App-Push aus. Zustellung an alle Geräte eines Benutzers über
+`deliverToUser` in `push.ts` (Web-Push und APNs), Tabelle `apns_devices` (Datenbank-Stand 10). Daten liegen in `./data` (Datenbank, `uploads/`,
 `backups/`, Zertifikat), gehört nicht ins Git (`.gitignore`).
 
 ## 9. Was bisher NICHT mit echten Diensten geprüft wurde
@@ -220,5 +223,5 @@ nach 5 Minuten Verspätung nicht mehr gesendet.
 ## 10. Erste Schritte in einer neuen Sitzung
 
 1. `git pull`, diese Datei und `README.md` lesen, `git log --oneline -10` ansehen.
-2. `npm run install:all`, `cd server && npm test` (sollte 143 grün sein), `cd web && npm run build`.
-3. Philip begrüßen, kurz den Stand nennen (0.10.1, Kosten und Reisetag-Abfrage fertig) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.
+2. `npm run install:all`, `cd server && npm test` (sollte 154 grün sein), `cd web && npm run build`.
+3. Philip begrüßen, kurz den Stand nennen (Server 0.11.0 mit APNs; iPhone-App siehe `ios/STAND.md`) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.

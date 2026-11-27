@@ -3,6 +3,7 @@
  * The sender is an interface so tests (and installations without push) never talk to a push service.
  */
 import { generateVAPIDKeys, sendNotification } from 'web-push';
+import type { ApnsSender } from './apns.ts';
 import type { DB } from './db.ts';
 
 export interface PushTarget {
@@ -65,6 +66,56 @@ export function createWebPushSender(vapid: Vapid): PushSender {
       }
     },
   };
+}
+
+export interface Senders {
+  sender: PushSender;
+  /** Native iPhone app (APNs); null when no APNs key is configured. */
+  apns: ApnsSender | null;
+}
+
+export interface DeliveryResult {
+  deviceName: string | null;
+  kind: 'web' | 'app';
+  ok: boolean;
+  error: string | null;
+}
+
+/** Does this user have any device that can receive a notification (web push or the iPhone app)? */
+export function hasDevices(db: DB, userId: string, apnsEnabled: boolean): boolean {
+  if (db.prepare('SELECT 1 FROM push_subscriptions WHERE user_id = ?').get(userId)) return true;
+  return apnsEnabled && !!db.prepare('SELECT 1 FROM apns_devices WHERE user_id = ?').get(userId);
+}
+
+/** Users that have at least one device, for the reminder runner. */
+export function usersWithDevices(db: DB, apnsEnabled: boolean): string[] {
+  const sql = apnsEnabled
+    ? 'SELECT user_id FROM push_subscriptions UNION SELECT user_id FROM apns_devices'
+    : 'SELECT DISTINCT user_id FROM push_subscriptions';
+  return (db.prepare(sql).all() as { user_id: string }[]).map((r) => r.user_id);
+}
+
+/**
+ * Sends one message to every device of a user: browsers via web push, iPhones with the app via APNs. Devices the push
+ * service reports as gone are removed. One failing device never stops the others.
+ */
+export async function deliverToUser(db: DB, { sender, apns }: Senders, userId: string, message: PushMessage): Promise<DeliveryResult[]> {
+  const results: DeliveryResult[] = [];
+  const subs = db.prepare('SELECT * FROM push_subscriptions WHERE user_id = ?').all(userId) as Record<string, any>[];
+  for (const s of subs) {
+    const res = await sender.send({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, message);
+    if (res.gone) db.prepare('DELETE FROM push_subscriptions WHERE id = ?').run(s.id);
+    results.push({ deviceName: s.device_name ?? null, kind: 'web', ok: res.ok, error: res.error ?? null });
+  }
+  if (apns) {
+    const devices = db.prepare('SELECT * FROM apns_devices WHERE user_id = ?').all(userId) as Record<string, any>[];
+    for (const d of devices) {
+      const res = await apns.send(d.token, message);
+      if (res.gone) db.prepare('DELETE FROM apns_devices WHERE id = ?').run(d.id);
+      results.push({ deviceName: d.device_name ?? null, kind: 'app', ok: res.ok, error: res.error ?? null });
+    }
+  }
+  return results;
 }
 
 /**
