@@ -86,6 +86,12 @@ Dazu gilt:
    erst pushen, wenn der Build grün ist. `ios/STAND.md` darfst du jederzeit einzeln committen und pushen, auch bei rotem Build.
 7. **Commit-Identität:** `git -c user.name="Claude (Mac)" -c user.email=noreply@anthropic.com commit …`, damit keine private Adresse in die
    Historie kommt. Commit-Meldungen auf Deutsch, mit Version in der Betreffzeile, z. B. `iOS 0.1.0: Anmeldung und Reiseliste`.
+   **Zusätzlich fest im Klon eingestellt** (nur dieses Repo, nicht global): `git config --local user.name "Claude (Mac)"` und
+   `git config --local user.email noreply@anthropic.com`. **Vor jedem Commit prüfen:** `git config user.email` muss `noreply@anthropic.com`
+   ausgeben; sonst die beiden Befehle ausführen und erst dann committen. Nach jedem Commit `git log -1 --format='%ae %ce'`: beide
+   `noreply@anthropic.com`, sonst **nicht pushen**, sondern melden (ein noch nicht gepushter Commit darf mit
+   `git commit --amend --no-edit --reset-author` berichtigt werden, ein gepushter nie). Anlass: Der IPA-Commit `2456291` von 0.2.0 trug eine
+   private Adresse und ist nicht mehr zu entfernen.
 8. **Nur Beauftragtes tun.** Bei Entscheidungen, die sich nicht zurücknehmen lassen und beide Wege zulassen: aufhören und fragen (in
    `STAND.md` unter „Offene Fragen an den Architekten“ und im Terminal an Philip).
 9. **Nichts installieren ohne Rückfrage** (kein Homebrew, keine Pakete, keine Swift-Packages von außen), außer der Auftrag nennt es.
