@@ -62,7 +62,7 @@ enum ResponseCache {
 
     /// Entfernt die Abläufe von Reisen, die nicht mehr in der Liste stehen.
     static func pruneTimelines(keeping tripIds: [String]) {
-        let keep = Set(tripIds.map(timelineFile))
+        let keep = Set(tripIds.map { timelineFile($0) })
         let files = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
         for file in files where file.hasPrefix("timeline-") && !keep.contains(file) {
             try? FileManager.default.removeItem(at: directory.appendingPathComponent(file))
