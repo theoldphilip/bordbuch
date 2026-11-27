@@ -31,6 +31,8 @@ final class AppSession {
     private(set) var placeLookupAvailable: Bool
     /// Reise, die geöffnet werden soll (Antippen des Widgets, reisebuch://trip/<id>); die Reiseliste setzt sie zurück.
     var pendingTripId: String?
+    /// Wird beim lokalen Abmelden gerufen (auch nach 401), z. B. um den Schalter für Mitteilungen zurückzusetzen.
+    @ObservationIgnored var onLocalLogout: (() -> Void)?
 
     var isLoggedIn: Bool { token != nil }
 
@@ -91,6 +93,7 @@ final class AppSession {
         ResponseCache.clear()
         WidgetFeed.clear()
         token = nil
+        onLocalLogout?()
     }
 
     // MARK: - KI-Status

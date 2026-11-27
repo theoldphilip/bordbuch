@@ -9,13 +9,15 @@ import SwiftUI
 
 @main
 struct ReisebuchApp: App {
-    @State private var session = AppSession()
+    /// Session und PushController gehören dem App-Delegate (Token und Antippen von Mitteilungen kommen dort an).
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(session)
-                .onOpenURL { session.handle(url: $0) }
+                .environment(delegate.session)
+                .environment(delegate.push)
+                .onOpenURL { delegate.session.handle(url: $0) }
         }
     }
 }

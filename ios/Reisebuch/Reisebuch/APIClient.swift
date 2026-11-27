@@ -111,6 +111,35 @@ struct APIClient {
         return try await send("PATCH", "/api/items/\(Self.pathID(itemId))", body: Body(details: details))
     }
 
+    // MARK: Benachrichtigungen (APNs)
+
+    /// Ob der Server an die iPhone-App senden kann (APNs-Schlüssel eingerichtet).
+    func apnsStatus() async throws -> APNsStatus {
+        try await send("GET", "/api/push/apns")
+    }
+
+    /// Meldet dieses iPhone an. Bewusst fester Gerätename statt des iOS-Namens (der enthält oft einen Personennamen).
+    func registerAPNs(token: String) async throws {
+        struct Body: Encodable { let token: String; let deviceName: String }
+        let _: EmptyResponse = try await send("POST", "/api/push/apns", body: Body(token: token, deviceName: "iPhone-App"))
+    }
+
+    func unregisterAPNs(token: String) async throws {
+        struct Body: Encodable { let token: String }
+        let _: EmptyResponse = try await send("DELETE", "/api/push/apns", body: Body(token: token))
+    }
+
+    /// Schaltet Benachrichtigungen fürs Konto ein (dieselbe Einstellung wie in der Web-App).
+    func enableNotificationsSetting() async throws {
+        struct Notifications: Encodable { let enabled: Bool }
+        struct Body: Encodable { let notifications: Notifications }
+        let _: EmptyResponse = try await send("PATCH", "/api/me/settings", body: Body(notifications: Notifications(enabled: true)))
+    }
+
+    func pushTest() async throws -> PushTestResponse {
+        try await send("POST", "/api/push/test", body: EmptyBody())
+    }
+
     // MARK: Grundlage
 
     private struct EmptyBody: Encodable {}
