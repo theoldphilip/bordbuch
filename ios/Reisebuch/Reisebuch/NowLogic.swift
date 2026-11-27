@@ -33,6 +33,12 @@ enum NowLogic {
         return calendar.date(from: c)
     }
 
+    /// Zeitpunkt, zu dem ein Auftritt beginnt (entryStart in Trip.tsx); nur ein Datum = Tagesbeginn.
+    static func entryStart(_ e: TimelineEntry, defaultTz: String) -> Date {
+        let local = e.role == "end" ? (e.item.endLocal ?? e.item.startLocal) : e.item.startLocal
+        return instant(local, tz: e.timezone ?? defaultTz, dateOnlyAsEnd: false) ?? .distantFuture
+    }
+
     /// Zeitpunkt, zu dem ein Auftritt vorbei ist (entryEnd in Trip.tsx).
     static func entryEnd(_ e: TimelineEntry, defaultTz: String) -> Date {
         let item = e.item

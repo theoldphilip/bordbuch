@@ -18,6 +18,8 @@ struct TripListView: View {
     /// Gesetzt, solange gespeicherte Daten gezeigt werden, weil der Server nicht erreichbar ist.
     @State private var offlineSince: Date?
     @State private var startedUp = false
+    /// Geöffnete Reisen; das Widget kann über reisebuch://trip/<id> eine Reise öffnen.
+    @State private var path: [TripSummary] = []
 
     private var today: String { Fmt.todayISO() }
 
@@ -39,7 +41,7 @@ struct TripListView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 if let offlineSince {
                     OfflineBanner(savedAt: offlineSince)
@@ -98,11 +100,22 @@ struct TripListView: View {
                         trips = cached.value
                         loaded = true
                     }
+                    session.refreshWidget()
+                    openPendingTrip()
                     Task { await session.refreshAIStatus() }
                 }
                 await load()
             }
+            .onChange(of: session.pendingTripId) { _, _ in openPendingTrip() }
         }
+    }
+
+    /// Reise aus dem Widget öffnen, sobald sie in der Liste steht (Liste, dann Ablauf).
+    private func openPendingTrip() {
+        guard let id = session.pendingTripId, let trip = trips.first(where: { $0.id == id }) else { return }
+        session.pendingTripId = nil
+        showSettings = false
+        path = [trip]
     }
 
     private func load() async {
@@ -112,6 +125,7 @@ struct TripListView: View {
             errorText = nil
             offlineSince = nil
             loaded = true
+            openPendingTrip()
             // Abläufe laufender und kommender Reisen für offline vorladen, ohne die Liste warten zu lassen.
             Task { await session.prefetchTimelines(for: fresh) }
         } catch is CancellationError {
@@ -130,6 +144,7 @@ struct TripListView: View {
                 errorText = error.localizedDescription
             }
             loaded = true
+            openPendingTrip()
         }
     }
 }

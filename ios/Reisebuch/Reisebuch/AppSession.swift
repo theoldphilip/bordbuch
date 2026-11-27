@@ -29,6 +29,8 @@ final class AppSession {
     private(set) var isOffline = false
     /// Server bietet die Reisetag-Abfrage an (GET /api/ai/status); offline gilt der letzte bekannte Wert.
     private(set) var placeLookupAvailable: Bool
+    /// Reise, die geöffnet werden soll (Antippen des Widgets, reisebuch://trip/<id>); die Reiseliste setzt sie zurück.
+    var pendingTripId: String?
 
     var isLoggedIn: Bool { token != nil }
 
@@ -87,6 +89,7 @@ final class AppSession {
     private func clearLocal() {
         Keychain.deleteToken()
         ResponseCache.clear()
+        WidgetFeed.clear()
         token = nil
     }
 
@@ -111,6 +114,7 @@ final class AppSession {
         let result = try await call { try await $0.tripsRaw() }
         ResponseCache.save(result.data, as: ResponseCache.tripsFile)
         ResponseCache.pruneTimelines(keeping: result.trips.map(\.id))
+        refreshWidget()
         return result.trips
     }
 
@@ -123,7 +127,25 @@ final class AppSession {
     func fetchTimeline(tripId: String) async throws -> Timeline {
         let result = try await call { try await $0.timelineRaw(tripId: tripId) }
         ResponseCache.save(result.data, as: ResponseCache.timelineFile(tripId))
+        refreshWidget()
         return result.timeline
+    }
+
+    /// Termine für das Widget aus dem Zwischenspeicher (laufende und kommende Reisen) neu zusammenstellen.
+    func refreshWidget(now: Date = Date()) {
+        guard isLoggedIn, let trips = cachedTrips()?.value else { return }
+        let today = Fmt.todayISO()
+        let pairs = trips.filter { !TripDates.isPast($0, today: today) }.compactMap { trip in
+            cachedTimeline(tripId: trip.id).map { (trip: trip, timeline: $0.value) }
+        }
+        WidgetFeed.publish(WidgetFeed.termine(pairs, now: now), now: now)
+    }
+
+    /// Öffnet eine Reise aus einer URL reisebuch://trip/<id>; andere URLs öffnen nur die App.
+    func handle(url: URL) {
+        guard url.scheme == "reisebuch", url.host == "trip" else { return }
+        let id = url.pathComponents.filter { $0 != "/" }.first
+        if let id, !id.isEmpty { pendingTripId = id }
     }
 
     /// Lädt die Abläufe laufender und kommender Reisen vor, höchstens 5 gleichzeitig. Fehler bleiben still.

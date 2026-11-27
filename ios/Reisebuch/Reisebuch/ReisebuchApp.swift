@@ -15,6 +15,7 @@ struct ReisebuchApp: App {
         WindowGroup {
             ContentView()
                 .environment(session)
+                .onOpenURL { session.handle(url: $0) }
         }
     }
 }

@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		97ECC7CB30B9BA2F0016A06E /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 97ECC7B030B9B9E40016A06E /* WidgetKit.framework */; };
+		97ECC7CC30B9BA2F0016A06E /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 97ECC7B230B9B9E40016A06E /* SwiftUI.framework */; };
+		97ECC7DD30B9BFC30016A06E /* ReisebuchWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 97ECC7CA30B9BA2F0016A06E /* ReisebuchWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		97ECC73C30B977A00016A06E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,17 +27,70 @@
 			remoteGlobalIDString = 97ECC72D30B9779D0016A06E;
 			remoteInfo = Reisebuch;
 		};
+		97ECC7D530B9BA310016A06E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97ECC72630B9779D0016A06E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 97ECC7C930B9BA2F0016A06E;
+			remoteInfo = ReisebuchWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		97ECC7C530B9B9E70016A06E /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				97ECC7DD30B9BFC30016A06E /* ReisebuchWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		97ECC72E30B9779D0016A06E /* Reisebuch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Reisebuch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		97ECC73B30B977A00016A06E /* ReisebuchTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ReisebuchTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		97ECC74530B977A00016A06E /* ReisebuchUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ReisebuchUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		97ECC7B030B9B9E40016A06E /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		97ECC7B230B9B9E40016A06E /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		97ECC7CA30B9BA2F0016A06E /* ReisebuchWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ReisebuchWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		97ECC7DC30B9BB090016A06E /* ReisebuchWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ReisebuchWidgetExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		97ECC7D730B9BA310016A06E /* Exceptions for "ReisebuchWidget" folder in "ReisebuchWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 97ECC7C930B9BA2F0016A06E /* ReisebuchWidgetExtension */;
+		};
+		97ECC81230B9C22A0016A06E /* Exceptions for "Reisebuch" folder in "ReisebuchWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				WidgetStand.swift,
+			);
+			target = 97ECC7C930B9BA2F0016A06E /* ReisebuchWidgetExtension */;
+		};
+		97ECC81430B9C2FF0016A06E /* Exceptions for "Reisebuch" folder in "Reisebuch" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 97ECC72D30B9779D0016A06E /* Reisebuch */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		97ECC73030B9779D0016A06E /* Reisebuch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				97ECC81430B9C2FF0016A06E /* Exceptions for "Reisebuch" folder in "Reisebuch" target */,
+				97ECC81230B9C22A0016A06E /* Exceptions for "Reisebuch" folder in "ReisebuchWidgetExtension" target */,
+			);
 			path = Reisebuch;
 			sourceTree = "<group>";
 		};
@@ -43,6 +102,14 @@
 		97ECC74830B977A00016A06E /* ReisebuchUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ReisebuchUITests;
+			sourceTree = "<group>";
+		};
+		97ECC7CD30B9BA2F0016A06E /* ReisebuchWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				97ECC7D730B9BA310016A06E /* Exceptions for "ReisebuchWidget" folder in "ReisebuchWidgetExtension" target */,
+			);
+			path = ReisebuchWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -69,15 +136,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		97ECC7C730B9BA2F0016A06E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				97ECC7CC30B9BA2F0016A06E /* SwiftUI.framework in Frameworks */,
+				97ECC7CB30B9BA2F0016A06E /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		97ECC72530B9779D0016A06E = {
 			isa = PBXGroup;
 			children = (
+				97ECC7DC30B9BB090016A06E /* ReisebuchWidgetExtension.entitlements */,
 				97ECC73030B9779D0016A06E /* Reisebuch */,
 				97ECC73E30B977A00016A06E /* ReisebuchTests */,
 				97ECC74830B977A00016A06E /* ReisebuchUITests */,
+				97ECC7CD30B9BA2F0016A06E /* ReisebuchWidget */,
+				97ECC7AF30B9B9E40016A06E /* Frameworks */,
 				97ECC72F30B9779D0016A06E /* Products */,
 			);
 			sourceTree = "<group>";
@@ -88,8 +167,18 @@
 				97ECC72E30B9779D0016A06E /* Reisebuch.app */,
 				97ECC73B30B977A00016A06E /* ReisebuchTests.xctest */,
 				97ECC74530B977A00016A06E /* ReisebuchUITests.xctest */,
+				97ECC7CA30B9BA2F0016A06E /* ReisebuchWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		97ECC7AF30B9B9E40016A06E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				97ECC7B030B9B9E40016A06E /* WidgetKit.framework */,
+				97ECC7B230B9B9E40016A06E /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -102,10 +191,12 @@
 				97ECC72A30B9779D0016A06E /* Sources */,
 				97ECC72B30B9779D0016A06E /* Frameworks */,
 				97ECC72C30B9779D0016A06E /* Resources */,
+				97ECC7C530B9B9E70016A06E /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				97ECC7D630B9BA310016A06E /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				97ECC73030B9779D0016A06E /* Reisebuch */,
@@ -163,6 +254,28 @@
 			productReference = 97ECC74530B977A00016A06E /* ReisebuchUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		97ECC7C930B9BA2F0016A06E /* ReisebuchWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 97ECC7D830B9BA310016A06E /* Build configuration list for PBXNativeTarget "ReisebuchWidgetExtension" */;
+			buildPhases = (
+				97ECC7C630B9BA2F0016A06E /* Sources */,
+				97ECC7C730B9BA2F0016A06E /* Frameworks */,
+				97ECC7C830B9BA2F0016A06E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				97ECC7CD30B9BA2F0016A06E /* ReisebuchWidget */,
+			);
+			name = ReisebuchWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = ReisebuchWidgetExtension;
+			productReference = 97ECC7CA30B9BA2F0016A06E /* ReisebuchWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -184,6 +297,9 @@
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = 97ECC72D30B9779D0016A06E;
 					};
+					97ECC7C930B9BA2F0016A06E = {
+						CreatedOnToolsVersion = 26.3;
+					};
 				};
 			};
 			buildConfigurationList = 97ECC72930B9779D0016A06E /* Build configuration list for PBXProject "Reisebuch" */;
@@ -203,6 +319,7 @@
 				97ECC72D30B9779D0016A06E /* Reisebuch */,
 				97ECC73A30B977A00016A06E /* ReisebuchTests */,
 				97ECC74430B977A00016A06E /* ReisebuchUITests */,
+				97ECC7C930B9BA2F0016A06E /* ReisebuchWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -223,6 +340,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		97ECC74330B977A00016A06E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		97ECC7C830B9BA2F0016A06E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -253,6 +377,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		97ECC7C630B9BA2F0016A06E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -265,6 +396,11 @@
 			isa = PBXTargetDependency;
 			target = 97ECC72D30B9779D0016A06E /* Reisebuch */;
 			targetProxy = 97ECC74630B977A00016A06E /* PBXContainerItemProxy */;
+		};
+		97ECC7D630B9BA310016A06E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 97ECC7C930B9BA2F0016A06E /* ReisebuchWidgetExtension */;
+			targetProxy = 97ECC7D530B9BA310016A06E /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -395,11 +531,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Reisebuch/Reisebuch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = WLA6TAYCK7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Reisebuch/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Reisebuch;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -410,7 +548,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.theoldphilip.Reisebuch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -428,11 +566,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Reisebuch/Reisebuch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = WLA6TAYCK7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Reisebuch/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Reisebuch;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -443,7 +583,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.theoldphilip.Reisebuch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -461,11 +601,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = WLA6TAYCK7;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.theoldphilip.ReisebuchTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -483,11 +623,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = WLA6TAYCK7;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.theoldphilip.ReisebuchTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -504,10 +644,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = WLA6TAYCK7;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.theoldphilip.ReisebuchUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -524,10 +664,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = WLA6TAYCK7;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 0.2.0;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.theoldphilip.ReisebuchUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -537,6 +677,68 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				TEST_TARGET_NAME = Reisebuch;
+			};
+			name = Release;
+		};
+		97ECC7D930B9BA310016A06E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = ReisebuchWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = WLA6TAYCK7;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ReisebuchWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ReisebuchWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.3.0;
+				PRODUCT_BUNDLE_IDENTIFIER = de.theoldphilip.Reisebuch.ReisebuchWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		97ECC7DA30B9BA310016A06E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = ReisebuchWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = WLA6TAYCK7;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ReisebuchWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ReisebuchWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.3.0;
+				PRODUCT_BUNDLE_IDENTIFIER = de.theoldphilip.Reisebuch.ReisebuchWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -575,6 +777,15 @@
 			buildConfigurations = (
 				97ECC75630B977A00016A06E /* Debug */,
 				97ECC75730B977A00016A06E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		97ECC7D830B9BA310016A06E /* Build configuration list for PBXNativeTarget "ReisebuchWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				97ECC7D930B9BA310016A06E /* Debug */,
+				97ECC7DA30B9BA310016A06E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
