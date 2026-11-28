@@ -197,6 +197,19 @@ const migrations: string[] = [
     error         TEXT
   );
   `,
+  `
+  -- Live Activities on the iPhone lock screen. kind 'start' = push-to-start token of a device (no trip);
+  -- kind 'update' = token of one running activity for one trip. last_state avoids sending the same content again.
+  CREATE TABLE live_activities (
+    token      TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind       TEXT NOT NULL CHECK (kind IN ('start','update')),
+    trip_id    TEXT REFERENCES trips(id) ON DELETE CASCADE,
+    last_state TEXT,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX live_activities_user ON live_activities(user_id, kind);
+  `,
 ];
 
 export function openDb(file: string): DB {

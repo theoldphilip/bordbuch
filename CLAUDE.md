@@ -3,7 +3,7 @@
 > **Claude Code auf dem Mac (iPhone-App unter `ios/`): Diese Datei ist nicht dein Briefing.** Für dich gilt `ios/CLAUDE.md`. Server, Web,
 > SSH zur Synology und Updates sind nicht deine Aufgabe; alles außerhalb von `ios/` ist für dich nur zum Lesen.
 
-Stand: 28.11.2026, App-Version 0.15.0, Datenbank-Stand 11, 192 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
+Stand: 28.11.2026, App-Version 0.16.0, Datenbank-Stand 12, 199 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
 einer früheren Claude-Code-Sitzung (Cloud, Web). Wer sie liest, setzt die Arbeit dort fort, wo sie aufgehört hat. Lies sie ganz,
 bevor du etwas änderst, und prüfe Aussagen über Code im Repo nach, statt dich auf diese Datei zu verlassen (Code gewinnt).
 
@@ -169,7 +169,8 @@ laden, SHA-256 prüfen, per USB installieren, README-Abschnitt) · 0.12 Dokument
 mit `documentId` an den Hochladenden) für die Teilen-Erweiterung der iPhone-App · 0.13 dasselbe für „zusammen auswerten“
 (`documents/group?background=1`) · 0.14 KI-Anbieter Claude, ChatGPT, Gemini mit Hauptanbieter und Ausweich, Schlüssel in den
 Einstellungen (Admin) · 0.15 Online-Check-in-Erinnerung (`details.checkinHours`, Standard 24 h) und Live-Flugstatus (AeroDataBox über
-RapidAPI, `flightdata.ts`, `flightStatus.ts`, Tabelle `flight_status`, Monatsgrenze, Push bei Verspätung/Annullierung, Gate ins Eintrag). Details in der
+RapidAPI, `flightdata.ts`, `flightStatus.ts`, Tabelle `flight_status`, Monatsgrenze, Push bei Verspätung/Annullierung, Gate ins Eintrag) · 0.16 Sperrbildschirm (Live Activity): Server berechnet `LockState`
+(`liveActivity.ts`), startet per Push-to-start 3 h vor dem ersten Schritt, aktualisiert bei Änderung, Tabelle `live_activities`. Details in der
 Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
 
 ## 6. Offene Punkte (Reihenfolge nach Philips Wünschen)
@@ -194,7 +195,7 @@ Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
    Danach `ios/AUFTRAG-0.9.0.md`: alle Reiter (Kreuzfahrt, Kosten, Teilen/Mitglieder) und Einstellungen wie Web inkl. Benutzerverwaltung
    (Familie, Einladung), damit die App alles kann, was die Web-App kann.
    0.8.0 und 0.9.0 geliefert (28.11.). Danach bestellt: `ios/AUFTRAG-0.10.0.md` Losgeh-Erinnerung (MapKit-Fahrzeit, nur auf dem Gerät),
-   Live-Flugstatus und Check-in-Schalter in der App, braucht Server 0.15.0. Ideen-Sammlung: `docs/IDEEN.md`.
+   Live-Flugstatus, Check-in-Schalter und Sperrbildschirm (Teil E, `ReisebuchActivityAttributes`) in der App, braucht Server 0.16.0. Ideen-Sammlung: `docs/IDEEN.md`.
    Philip will **keine Prüfung im Simulator** in den Aufträgen (nur Build und Unit-Tests). Philip installiert IPAs selbst mit
    `scripts/mint/reisebuch-ipa.sh`.
 4. Kleinere Wünsche: Dokument an mehrere Einträge hängen, „automatisch übernehmen wenn sicher“, Bordzeit vs. Ortszeit, Packliste (siehe README-Roadmap).
@@ -237,6 +238,8 @@ aufmerksam nachfragen und Philips Rückmeldung (Screenshots) ernst nehmen:
 - echter Web-Push auf dem iPhone (inkl. Push bei Gate-Änderung), Zertifikatsvertrauen unter iOS,
 - Verhalten über mehrere Tage/Zeitzonen (Jetzt-Markierung, Ansichtsmodus),
 - ob die KI den Gesamtpreis einer Kreuzfahrt und den Zahlungsstand (Anzahlung, Fälligkeit) aus echten Buchungsbestätigungen richtig liest,
+- **Sperrbildschirm (seit 0.16.0)**: Live-Activity-Pushes (Push-to-start, Update, Ende) nur gegen einen nachgebauten Sender getestet; Apple-Format nach
+  Dokumentation, nicht gegen echte Geräte. Begrenzung von Apple für Priorität 10 beachten.
 - **Live-Flugstatus (seit 0.15.0) nie echt abgefragt**: AeroDataBox-Antworten nur nachgebaut (beide bekannten Zeitformate); Gratis-Kontingent
   und Preise nicht geprüft. Erste echte Abfragen im Log und unter Einstellungen → Live-Flugstatus (Zähler) beobachten.
 - **ChatGPT und Gemini (seit 0.14.0) nie echt aufgerufen**: Anfrageformat (Responses API mit `web_search`, `json_schema` strict mit Rückfall;
@@ -251,5 +254,5 @@ nach 5 Minuten Verspätung nicht mehr gesendet.
 ## 10. Erste Schritte in einer neuen Sitzung
 
 1. `git pull`, diese Datei und `README.md` lesen, `git log --oneline -10` ansehen.
-2. `npm run install:all`, `cd server && npm test` (sollte 192 grün sein), `cd web && npm run build`.
-3. Philip begrüßen, kurz den Stand nennen (Server 0.15.0; iPhone-App siehe `ios/STAND.md`) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.
+2. `npm run install:all`, `cd server && npm test` (sollte 199 grün sein), `cd web && npm run build`.
+3. Philip begrüßen, kurz den Stand nennen (Server 0.16.0; iPhone-App siehe `ios/STAND.md`) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.

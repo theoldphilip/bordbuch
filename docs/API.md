@@ -313,6 +313,39 @@ Die geplanten Zeiten im Eintrag bleiben unverändert.
 `details.checkinHours` Stunden vorher (1 bis 96; die KI liest den Wert aus der Buchung, wenn er dort steht). Pro Person mit
 `notifications.checkin` (Standard an). Ohne Buchungsnummer im Text.
 
+### Sperrbildschirm (Live-Aktivität der iPhone-App, seit 0.16.0)
+
+Am Reisetag zeigt die iPhone-App eine Live-Aktivität (Sperrbildschirm, Dynamic Island): den Schritt, der läuft (Flug in der Luft) oder als
+nächster in den nächsten 12 h kommt, mit Countdown, Ort, Live-Flugstatus und dem Schritt danach. **Der Server berechnet den Inhalt**, startet
+die Aktivität 3 h vor dem ersten Schritt per Push-to-start, aktualisiert sie bei Änderungen (nächster Schritt, neues Gate, Verspätung) und
+beendet sie, wenn in den nächsten 12 h nichts mehr kommt. Pro Person abschaltbar mit `notifications.lockScreen` (Standard an).
+
+| Methode | Pfad | Rolle | Beschreibung |
+|---|---|---|---|
+| POST | `/live-activity/tokens` | – | `{token, kind: "start"\|"update", tripId?, replaces?}`. `start` = Push-to-start-Token des Geräts (`Activity<…>.pushToStartTokenUpdates`), `update` = Token einer laufenden Aktivität (`activity.pushTokenUpdates`, mit `tripId`). Hex-Text. `replaces` löscht das vorige Token. 409 ohne APNs |
+| DELETE | `/live-activity/tokens` | – | `{token}` (beim Abmelden alle eigenen Tokens) |
+| GET | `/trips/:id/live-activity` | viewer | `{state: LockState \| null}`: der Inhalt, den der Server gerade senden würde (zum lokalen Start) |
+
+**Attribute** (fest, Typname für Push-to-start **`ReisebuchActivityAttributes`**): `{tripId: String, tripTitle: String}`.
+
+**`LockState`** (`ContentState`, alle Schlüssel immer vorhanden, `null` = unbekannt):
+
+| Feld | Typ | Bedeutung |
+|---|---|---|
+| `icon` | String | ✈️ 🚆 🚌 ⛴️ 🚕 🚗 🅿️ 🏨 🧭 🎟️ 🍽️ 🚢 ⚓ 🧳 |
+| `title` | String | „Zürich → Rom“, „Einschiffung MS Aurora“, „Neapel“ |
+| `time` | String | geplante Ortszeit „09:40“ |
+| `targetLabel` | String | wohin der Countdown zählt: „Abflug“, „Abfahrt“, „Ankunft“, „Beginn“, „Check-in“, „Check-out“, „Alle an Bord“, „Von Bord bis“ … |
+| `target` | Int | Countdown-Ziel, Unix-Sekunden (bei Verspätung die neue Abflugzeit; unterwegs die Ankunft) |
+| `place` | String? | „Terminal 2 · Gate B12“ |
+| `live` | String? | „+45 min, neu 10:25“, „annulliert“ |
+| `alert` | Bool | rot hervorheben (ab 15 min Verspätung, Annullierung) |
+| `next` | String? | „🏨 Hotel Artemide · 14:00“ (nur innerhalb von 12 h) |
+
+APNs: `apns-push-type: liveactivity`, Topic `de.theoldphilip.Reisebuch.push-type.liveactivity`, `aps.event` `start`/`update`/`end`, `aps.timestamp`,
+`aps.content-state`, `aps.stale-date` (Ziel + 2 h), bei `end` `dismissal-date` (+15 min). Priorität 10 nur bei neuem Schritt, neuem Ort,
+Verspätung/Annullierung oder Zeitänderung über 5 min, sonst 5.
+
 ### Kosten
 
 Preis und Zahlung gibt es an Einträgen und an der Kreuzfahrt (Gesamtpreis der Buchung), mit denselben Feldern:

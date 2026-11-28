@@ -1,7 +1,8 @@
-# AUFTRAG-0.10.0.md: Losgeh-Erinnerung, Live-Flugstatus, Check-in-Erinnerung (iOS-Auftrag 10)
+# AUFTRAG-0.10.0.md: Losgeh-Erinnerung, Live-Flugstatus, Check-in-Erinnerung, Sperrbildschirm (iOS-Auftrag 10)
 
 Version **0.10.0, Build 10** (Regel 2: App, Widget, Teilen-Erweiterung gleich, 10 Vorkommen je Schlüssel). Philip hat bestellt: Check-in-Erinnerung,
-Losgeh-Erinnerung und Live-Flugstatus. Server **0.15.0** (Architekt) bringt Check-in-Erinnerung und Live-Flugstatus; vgl. `<repo>/docs/API.md`
+Losgeh-Erinnerung, Live-Flugstatus und den Sperrbildschirm (Teil E). Server **0.15.0** bringt Check-in-Erinnerung und Live-Flugstatus, **0.16.0**
+den Sperrbildschirm (`docs/API.md` Abschnitt „Sperrbildschirm“); vgl. `<repo>/docs/API.md`
 Abschnitt „Terminal, Gate, Schalter, Kofferband, Gleis“ (Live-Flugstatus, Online-Check-in-Erinnerung). Vorbild für Anzeige und Einstellungen:
 `<repo>/web/src/pages/Trip.tsx` (`liveLine`, `FlightLiveContext`), `pages/settings/Notifications.tsx`, `pages/settings/FlightStatus.tsx`.
 
@@ -9,7 +10,7 @@ Abschnitt „Terminal, Gate, Schalter, Kofferband, Gleis“ (Live-Flugstatus, On
 
 ## Teil 0: Vorher
 Trennungsprüfung, `git pull --rebase origin main`, `git config user.email` = noreply. Keine neue Capability (Standort „Beim Verwenden“ und
-Background fetch gibt es seit 0.5.0).
+Background fetch gibt es seit 0.5.0; Live Activities brauchen keine Capability, nur den Info.plist-Schlüssel aus Teil E).
 
 ## Teil A: Live-Flugstatus anzeigen
 - Beim Laden einer Reise mit Flügen zusätzlich `GET /trips/:id/flight-status` (auch im Offline-Cache ablegen, `flight-status-<id>.json`); solange
@@ -55,13 +56,38 @@ Ziel: „🚶 In 10 min los: Flughafen Zürich, 32 min mit dem Auto. LX 1726 um 
   kennt die Erinnerung nicht.“
 - Abmelden und Ausschalten entfernen alle `los-*`.
 
+## Teil E: Sperrbildschirm (Live Activity, Dynamic Island)
+Vertrag: `<repo>/docs/API.md` Abschnitt „Sperrbildschirm“. **Den Inhalt berechnet der Server**; die App zeigt ihn nur an.
+- `Info.plist` der App: `NSSupportsLiveActivities` = YES (und `NSSupportsLiveActivitiesFrequentUpdates` = YES).
+- Gemeinsamer Typ **`ReisebuchActivityAttributes: ActivityAttributes`** (Datei in App und Widget, Ausnahme im synchronisierten Ordner wie
+  `WidgetStand.swift`). **Der Typname muss genau so heißen** (Push-to-start nennt ihn). Felder `tripId`, `tripTitle`; `ContentState` mit genau den
+  Feldern von `LockState` (`icon`, `title`, `time`, `targetLabel`, `target` als Unix-Sekunden `Int`, `place`, `live`, `alert`, `next`), Namen nicht
+  ändern.
+- Im Widget-Target ein `ActivityConfiguration` (im bestehenden `WidgetBundle`):
+  - **Sperrbildschirm:** links groß Symbol und Titel, darunter `place` fett; rechts `targetLabel` und Countdown bis `target`
+    (`Text(timerInterval:countsDown:)`, kein eigenes Neuladen); Zeile `live` (rot, wenn `alert`); unten klein `next`. Reisename `tripTitle` klein oben.
+  - **Dynamic Island:** kompakt links Symbol, rechts Countdown; minimal Symbol; erweitert wie Sperrbildschirm in kurz.
+  - Antippen öffnet `reisebuch://trip/<tripId>` (gleicher Weg wie Widget und Push).
+  - Ist der Inhalt veraltet (`context.isStale`), den Countdown grau und „Stand unklar“ zeigen.
+- **Push-to-start (iOS 17.2+):** beim Start der App, wenn angemeldet und Push an: `Activity<ReisebuchActivityAttributes>.pushToStartTokenUpdates`
+  beobachten und jedes Token mit `POST /live-activity/tokens {token, kind: "start", replaces: <voriges>}` melden (Hex, klein). Für jede Aktivität
+  (auch vom Server gestartete, `Activity.activityUpdates`) `pushTokenUpdates` beobachten und mit `kind: "update", tripId` melden.
+- **Lokal starten:** In der Reise ein Knopf **„Auf den Sperrbildschirm“** (nur wenn `GET /trips/:id/live-activity` einen `state` liefert): startet die
+  Aktivität mit `pushType: .token` und diesem Inhalt; „Vom Sperrbildschirm nehmen“ beendet sie (und `DELETE /live-activity/tokens`).
+  Höchstens eine Reisebuch-Aktivität gleichzeitig.
+- **Einstellungen → Erinnerungen:** Schalter „Sperrbildschirm am Reisetag“ (`notifications.lockScreen`, Text wie Web). Ist Live Activities in den
+  iOS-Einstellungen aus (`ActivityAuthorizationInfo().areActivitiesEnabled`), Hinweis mit „In iOS-Einstellungen öffnen“.
+- **Abmelden:** alle eigenen Tokens mit `DELETE` abmelden, laufende Aktivitäten beenden.
+
 ## Teil D: Prüfen
 - Build grün für alle Targets, keine Warnungen (auch Archiv-Log).
 - Unit-Tests: `liveLine`-Texte (alle Zustände, rot ab 15 min), Lesen von `/trips/:id/flight-status` mit fehlenden Feldern und nur `error`;
   `LosgehAuswahl` (Ziele je Art, 12-h-Fenster, „Dort sein“ je Art inkl. Zeitbedarf und Einstellung „Am Flughafen sein“, Zeitzonen),
-  Losgeh-Rechnung (Fahrzeit, Vorlauf, „näher als 1 km“, „schon vorbei“), Kennungen stabil; `checkinHours` im Flug-Formular (leer entfernt den
+  Losgeh-Rechnung (Fahrzeit, Vorlauf, „näher als 1 km“, „schon vorbei“), Kennungen stabil; Dekodieren von `LockState` aus einem
+Push-Beispiel (alle Felder, `null`-Felder) und aus `GET /trips/:id/live-activity`, Token als Hex; `checkinHours` im Flug-Formular (leer entfernt den
   Schlüssel, andere `details` bleiben); PUT-Bodies für `/flight-status/config`. Gegenprobe.
 - **IPA ist freigegeben** nach `ios/Installation/0.10.0-b10/`, letzte drei behalten, Profile wie bisher.
 - `STAND.md` mit „Was Philip testen soll“ (Live-Zeile bei einem Flug in den nächsten 24 h, sobald der Admin den Schlüssel eingetragen hat;
-  Check-in-Schalter; Losgeh-Erinnerung mit einem Testeintrag „Aktivität“ in 2 h an einem Ort 10 km entfernt), „Neu in 0.10.0“ in `ios/CLAUDE.md`,
+  Check-in-Schalter; Losgeh-Erinnerung mit einem Testeintrag „Aktivität“ in 2 h an einem Ort 10 km entfernt; Sperrbildschirm: Testeintrag „Flug“ in 2 h mit Gate,
+„Auf den Sperrbildschirm“, Gate ändern → Anzeige folgt innerhalb von 1 min; ohne Knopf: startet der Server sie 3 h vorher von selbst), „Neu in 0.10.0“ in `ios/CLAUDE.md`,
   Auftrag nach `ios/Auftraege/`, committen, pull, push.

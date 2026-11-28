@@ -29,6 +29,8 @@ import { registerAiConfigRoutes } from './routes/aiConfig.ts';
 import { createAeroDataBox, DEFAULT_HOST, readFlightConfig, type FlightDataClient, type FlightDataConfig } from './flightdata.ts';
 import { runFlightTick } from './flightStatus.ts';
 import { registerFlightStatusRoutes } from './routes/flightStatus.ts';
+import { registerLiveActivityRoutes } from './routes/liveActivity.ts';
+import { runLiveActivityTick } from './liveActivity.ts';
 
 export { VERSION };
 
@@ -182,6 +184,7 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
   registerPlaceLookupRoutes(app, ctx);
   registerAiConfigRoutes(app, ctx);
   registerFlightStatusRoutes(app, ctx);
+  registerLiveActivityRoutes(app, ctx);
 
   // Web app (PWA) with SPA fallback.
   const webDir = config.webDir;
@@ -204,6 +207,7 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
         if (ticking) return;
         ticking = true;
         runReminderTick({ db, config, sender, apns })
+          .then(() => runLiveActivityTick({ db, apns, defaultTz: config.defaultTz }))
           .catch((err) => app.log.warn({ err }, 'Erinnerungen fehlgeschlagen'))
           .finally(() => (ticking = false));
       }, 30_000)

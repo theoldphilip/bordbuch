@@ -94,11 +94,13 @@ export const notificationInput = z.object({
   checkin: z.boolean().default(true),
   /** Live flight status: delay, cancellation, new gate from the flight data service. */
   flightStatus: z.boolean().default(true),
+  /** Live Activity on the iPhone lock screen on travel days (started by the server via push-to-start). */
+  lockScreen: z.boolean().default(true),
 });
 export const userSettingsInput = z.object({
   pace: paceInput.default({ enabled: false, factor: 1.5, extraMinutes: 0 }),
   notifications: notificationInput.default({
-    enabled: false, boarding: true, boardingLead: 60, excursion: true, excursionLead: 45, transport: true, transportLead: 90, flightLead: 180, infoChange: true, checkin: true, flightStatus: true,
+    enabled: false, boarding: true, boardingLead: 60, excursion: true, excursionLead: 45, transport: true, transportLead: 90, flightLead: 180, infoChange: true, checkin: true, flightStatus: true, lockScreen: true,
   }),
 });
 export type UserSettings = z.infer<typeof userSettingsInput>;

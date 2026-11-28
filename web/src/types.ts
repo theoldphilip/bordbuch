@@ -413,6 +413,7 @@ export interface NotificationPrefs {
   infoChange: boolean;
   checkin: boolean;
   flightStatus: boolean;
+  lockScreen: boolean;
 }
 
 export interface UserSettings {

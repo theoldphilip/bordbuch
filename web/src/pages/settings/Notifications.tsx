@@ -177,6 +177,13 @@ export function NotificationSettings() {
             <small className="muted">Ab 15 Minuten Verspätung und bei jeder Änderung um 15 Minuten. Nur wenn der Admin den Flugstatus eingerichtet hat.</small>
           </div>
           <div className="notify-rule">
+            <label className="check">
+              <input type="checkbox" checked={n.lockScreen} onChange={(e) => patch({ lockScreen: e.target.checked })} />
+              Sperrbildschirm am Reisetag (iPhone-App)
+            </label>
+            <small className="muted">Nächster Schritt mit Countdown, Gate und Verspätung auf dem Sperrbildschirm und in der Dynamic Island. Startet 3 h vor dem ersten Termin.</small>
+          </div>
+          <div className="notify-rule">
             <span className="field-label">Abflug</span>
             <select value={n.flightLead} onChange={(e) => patch({ flightLead: Number(e.target.value) })} aria-label="Vorlauf Abflug">
               {[...new Set([...LEADS, n.flightLead])].sort((a, b) => a - b).map((m) => <option key={m} value={m}>{m >= 60 && m % 60 === 0 ? `${m / 60} h` : `${m} min`} vorher</option>)}

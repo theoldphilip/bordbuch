@@ -22,6 +22,8 @@ export interface ApnsConfig {
 
 export interface ApnsSender {
   send(deviceToken: string, message: PushMessage): Promise<PushResult>;
+  /** Live Activity on the lock screen: start, update or end (payload is the whole JSON with "aps"). */
+  sendLiveActivity?(token: string, payload: Record<string, unknown>, priority: 5 | 10): Promise<PushResult>;
   close?(): void;
 }
 
@@ -95,47 +97,55 @@ export function createApnsSender(config: ApnsConfig): ApnsSender {
     return token;
   };
 
+  const post = (deviceToken: string, headers: Record<string, string>, body: string) =>
+    new Promise<PushResult>((resolve) => {
+      let req: http2.ClientHttp2Stream;
+      try {
+        req = connection().request({ ':method': 'POST', ':path': `/3/device/${deviceToken}`, authorization: `bearer ${bearer()}`, ...headers });
+      } catch (err) {
+        resolve({ ok: false, error: (err as Error).message });
+        return;
+      }
+      let status = 0;
+      let text = '';
+      req.setTimeout(10_000, () => {
+        req.close();
+        resolve({ ok: false, error: 'Zeitüberschreitung bei Apple' });
+      });
+      req.on('response', (h) => (status = Number(h[':status'])));
+      req.on('data', (chunk) => (text += chunk));
+      req.on('error', (err) => resolve({ ok: false, error: err.message }));
+      req.on('end', () => {
+        if (status === 200) return resolve({ ok: true });
+        let reason = '';
+        try {
+          reason = JSON.parse(text).reason ?? '';
+        } catch {
+          /* no JSON */
+        }
+        resolve({ ok: false, gone: status === 410 || GONE_REASONS.has(reason), error: `HTTP ${status}${reason ? ` ${reason}` : ''}` });
+      });
+      req.end(body);
+    });
+
   return {
     send(deviceToken, message) {
-      return new Promise<PushResult>((resolve) => {
-        let req: http2.ClientHttp2Stream;
-        try {
-          req = connection().request({
-            ':method': 'POST',
-            ':path': `/3/device/${deviceToken}`,
-            authorization: `bearer ${bearer()}`,
-            'apns-topic': config.topic,
-            'apns-push-type': 'alert',
-            'apns-priority': '10',
-            // A reminder that arrives much too late is worse than none (same 15 minutes as web push).
-            'apns-expiration': String(Math.floor(Date.now() / 1000) + 900),
-            ...(message.tag ? { 'apns-collapse-id': message.tag.slice(0, 64) } : {}),
-          });
-        } catch (err) {
-          resolve({ ok: false, error: (err as Error).message });
-          return;
-        }
-        let status = 0;
-        let body = '';
-        req.setTimeout(10_000, () => {
-          req.close();
-          resolve({ ok: false, error: 'Zeitüberschreitung bei Apple' });
-        });
-        req.on('response', (headers) => (status = Number(headers[':status'])));
-        req.on('data', (chunk) => (body += chunk));
-        req.on('error', (err) => resolve({ ok: false, error: err.message }));
-        req.on('end', () => {
-          if (status === 200) return resolve({ ok: true });
-          let reason = '';
-          try {
-            reason = JSON.parse(body).reason ?? '';
-          } catch {
-            /* no JSON */
-          }
-          resolve({ ok: false, gone: status === 410 || GONE_REASONS.has(reason), error: `HTTP ${status}${reason ? ` ${reason}` : ''}` });
-        });
-        req.end(apnsPayload(message));
-      });
+      return post(
+        deviceToken,
+        {
+          'apns-topic': config.topic,
+          'apns-push-type': 'alert',
+          'apns-priority': '10',
+          // A reminder that arrives much too late is worse than none (same 15 minutes as web push).
+          'apns-expiration': String(Math.floor(Date.now() / 1000) + 900),
+          ...(message.tag ? { 'apns-collapse-id': message.tag.slice(0, 64) } : {}),
+        },
+        apnsPayload(message),
+      );
+    },
+    sendLiveActivity(token, payload, priority) {
+      // Live Activities use their own topic and push type; priority 5 for quiet updates (Apple budgets priority 10).
+      return post(token, { 'apns-topic': `${config.topic}.push-type.liveactivity`, 'apns-push-type': 'liveactivity', 'apns-priority': String(priority) }, JSON.stringify(payload));
     },
     close() {
       session?.close();

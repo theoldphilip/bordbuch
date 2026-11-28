@@ -279,6 +279,13 @@ Danach im Startmenü „Reisebuch-IPA“ starten, iPhone per Kabel anschließen 
   Kofferband ab, trägt neue Angaben ein und meldet Verspätungen ab 15 min und Annullierungen. Ein Flug braucht etwa 50 bis 70 Abfragen; die
   Grenze pro Monat (Standard 500) ist einstellbar. Alternativ `FLIGHTDATA_API_KEY` in der `.env`.
 
+### Sperrbildschirm am Reisetag (iPhone-App)
+
+Ab Server 0.16.0 und App 0.10.0: 3 h vor dem ersten Termin eines Reisetags erscheint auf dem Sperrbildschirm und in der Dynamic Island der
+nächste Schritt mit Countdown, Gate und Live-Flugstatus. Der Server berechnet und aktualisiert den Inhalt über APNs (derselbe Schlüssel wie für
+die Mitteilungen) und beendet die Anzeige, wenn nichts mehr kommt. Abschaltbar unter *Einstellungen → Erinnerungen*; in der Reise lässt sie sich
+mit „Auf den Sperrbildschirm“ auch von Hand starten.
+
 ### Daten & Backup
 
 | Pfad | Inhalt |
