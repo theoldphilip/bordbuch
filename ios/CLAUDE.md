@@ -167,3 +167,11 @@ Antippen: `url` `/trips/<id>` → `reisebuch://trip/<id>` wie beim Widget. Mitte
 stürzte beim Antippen ab). Ad-hoc-Profil der App muss `aps-environment` = `production` enthalten. Tests in `ReisebuchTests/PushTests.swift`.
 Hinweis Simulator: `xcrun simctl push booted de.theoldphilip.Reisebuch <datei.apns>`; UI-Tests laufen sonst auf geklonten Simulatoren
 ohne Anmeldung, daher `-parallel-testing-enabled NO`.
+
+**Neu in 0.5.0** (Build 5, Auftrag in `ios/Auftraege/AUFTRAG-0.5.0.md`): Erinnerungen am Ort (`PlaceReminders.swift`): lokale
+Mitteilungen mit `UNLocationNotificationTrigger` (Erlaubnis „Beim Verwenden“), Kennungen `ort-*`, höchstens 20, Auswahl der nächsten 36 h
+als reine Funktion `OrtAuswahl` (Tests `PlaceReminderTests.swift`), Ortssuche `OrtSuche` mit MapKit (`MKLocalSearch`, `MKGeocodingRequest`,
+`MKMapItem.location`; Cache `cache/places.json`). Capability Background Modes nur „Background fetch“, `BGAppRefreshTask`
+`de.theoldphilip.Reisebuch.refresh` (Info.plist). Reise-Detail `GET /trips/:id` wird beim Vorladen gespeichert (`cache/trip-<id>.json`,
+`TripDetail`). `AppSession.onCacheChanged` löst das Planen aus. IPAs werden nur noch am Ende einer Auftragsreihe committet (Push der IPA
+wird von der Sicherheitsprüfung blockiert, Philip pusht sie).
