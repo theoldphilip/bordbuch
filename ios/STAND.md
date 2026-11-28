@@ -90,6 +90,10 @@ Grün (Clean Build, Tests, Release-Archiv), keine Compiler-Warnungen, auch nicht
 - c3c6b5b iOS 0.4.0 (4): STAND, Auftrag abgeschlossen
 - 8a4f319 iOS 0.4.0 (4): IPA signiert, 0.1.0 entfernt (Push von Claude blockiert, Philip pusht)
 
+## Rückmeldung Philip (iPhone, 0.4.0-b4)
+- Erste Testnachricht scheiterte mit `BadEnvironmentKeyInToken` (APNs-Schlüssel galt nicht für Production). Philip hat einen neuen
+  Schlüssel erzeugt und auf dem Server eingetragen (`APNS_SANDBOX` nicht gesetzt). Danach: Testnachricht kommt an. App-Seite unverändert.
+
 ## Offene Fragen an den Architekten
 - Keine zwingenden. Zur Kenntnis: Schalter nach Abmelden aus (siehe Entscheidungen).
 
