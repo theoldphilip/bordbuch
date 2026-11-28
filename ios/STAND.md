@@ -1,7 +1,7 @@
 # STAND (iOS), 28.11.2026
 
-Auftrag: `ios/AUFTRAG-0.7.0.md` (0.7.0, Build 7), erledigt und nach `ios/Auftraege/` verschoben. Damit ist die Reihe 0.5.0 bis 0.7.0
-fertig. Rückgaben zu 0.5.0 und 0.6.0 stehen in der Git-Historie dieser Datei.
+Auftrag: `ios/AUFTRAG-0.8.0.md` (0.8.0, Build 8), erledigt und nach `ios/Auftraege/` verschoben. Danach folgt ohne Rückfrage 0.9.0.
+Rückgabe zu 0.7.0 steht in der Git-Historie dieser Datei.
 
 ## Trennungsprüfung (Ausgabe der Befehle, gekürzt)
 ```
@@ -11,124 +11,103 @@ pwd                            -> /Users/philippleissner/Projekte/bordbuch/ios
 ls <repo>                      -> CLAUDE.md docker-compose.yml Dockerfile docs ios package.json README.md scripts server VERSION web
 git ls-files | grep -ci gym    -> 0
 ```
-Ergebnis: bestanden. `git config user.email` → `noreply@anthropic.com`.
-
-## Teil 0: Target (von Philip angelegt), Prüfung
-- Neues Target **ReisebuchShare** (Share Extension, in Reisebuch eingebettet), Bundle-ID `de.theoldphilip.Reisebuch.ReisebuchShare`,
-  Deployment Target iOS 26.2 wie die App, Team wie die App.
-- `ReisebuchShare/ReisebuchShare.entitlements`: nur die App Group `group.de.theoldphilip.Reisebuch`. App- und Widget-Entitlements
-  unverändert. `grep -ri GymNative ios/Reisebuch` leer.
-- Von mir angeglichen: Version/Build der Erweiterung (Xcode: 1.0 / 1) auf 0.7.0 / 7, Gerätefamilie nur iPhone (Xcode: iPhone und iPad).
-  Jetzt **10 Vorkommen** je Schlüssel (`MARKETING_VERSION = 0.7.0`, `CURRENT_PROJECT_VERSION = 7`), App, Widget und Erweiterung gleich.
-- Von mir im Projekt: Ausnahme im synchronisierten Ordner `Reisebuch/` für das Target ReisebuchShare (wie `WidgetStand.swift` beim Widget):
-  `APIClient.swift`, `DocumentLogic.swift`, `Keychain.swift`, `Models.swift` gehören auch zur Erweiterung. Diese Typen sind deshalb
-  `nonisolated` (die Erweiterung hat keine MainActor-Vorgabe). `APNsStatus`/`PushTestResponse` sind dafür von `Push.swift` nach
-  `Models.swift` gezogen.
-- Aktivierungsregel der Erweiterung: statt `TRUEPREDICATE` (Xcode-Warnung) Anhänge/Dateien/Bilder je bis 10 und Text.
+Ergebnis: bestanden. `git config user.email` → `noreply@anthropic.com`. Keine neue Capability, Entitlements unverändert.
 
 ## Was ich getan habe
-- **Teil A, Anmeldung teilen** (`Keychain.swift`): Token im Schlüsselbund mit `kSecAttrAccessGroup` = `group.de.theoldphilip.Reisebuch`.
-  Beim Start `Keychain.migrate()`: liegt das Token noch in der alten Gruppe, wird es in die App-Group-Gruppe kopiert und der alte
-  Eintrag gelöscht (Philip bleibt angemeldet). Meldet `SecItemAdd` `-34018`, bleibt der alte Eintrag und gilt weiter; die Einstellungen
-  zeigen dann rot „Teilen-Erweiterung: Die Anmeldung ließ sich nicht freigeben (Schlüsselbund-Gruppe fehlt, -34018)“ (dann bitte melden:
-  es bräuchte die Capability Keychain Sharing). Server-Adresse und Anzeigename zusätzlich in `UserDefaults(suiteName: group…)`
-  (`SharedStore`), nie das Token. Abmelden löscht beides.
-- **Teil B, Dokumente in der App** (`DocumentsView.swift`): Im Ablauf oben „Dokumente (n)“ mit Hinweis „… mit Vorschlägen zum Prüfen“ /
-  „… wird gelesen“ → Liste (neueste oben, `grouped` ausgeblendet): Dateiname, Datum, zugeordneter Eintrag, Status („Wird gelesen …“,
-  „Vorschläge prüfen“, „Nicht gelesen: …“, „Übernommen“). Liegt etwas auf `pending`, lädt die Liste alle 5 s neu, solange sie offen ist.
-  Antippen: mit Token laden, in eigenen temporären Ordner, Quick Look (Teilen aus Quick Look möglich), Ordner beim Schließen gelöscht.
-  „+“ (Bearbeiter, nicht im Ansichtsmodus): aus Dateien (mehrere), aus Fotos (bis 10, als JPEG), Scannen (`VNDocumentCameraViewController`,
-  als PDF „Scan <Datum>.pdf“). Hochladen mit `POST /trips/:id/documents?background=1`: 202 → „Wird gelesen. Du bekommst eine Mitteilung,
-  wenn die Vorschläge bereit sind.“, 201 → „Gespeichert.“ Löschen: nach links wischen, Bestätigung, `DELETE /attachments/:id`.
-  `NSCameraUsageDescription` = „Zum Scannen von Reiseunterlagen.“
-- **Teil C, Vorschläge prüfen** (`DocReviewView`): Art und Zusammenfassung, Warnungen, je Vorschlag Art, Titel, Zeit, Ort, Ortsfelder
-  fett, Preis, Sicherheit (sicher/prüfen/unsicher), Probleme rot, bei `match` „Aktualisiert: …“ mit Änderungen. Kreuzfahrt-Vorschlag mit
-  Schiff, Kabine, Zahl der Tage und „… Tage werden ergänzt, … kommen neu dazu“. Je Vorschlag ein Schalter „Übernehmen“/„Aktualisieren“
-  (Kreuzfahrt „Anlegen“/„Zusammenführen“); vorbelegt an, außer bei Problemen oder `confidence: low`. „Übernehmen“ → `POST …/apply`
-  (create/update mit `itemId`/skip, `data` unverändert, Kreuzfahrt create/update mit `cruiseId`/skip), danach Ablauf neu laden (Cache,
-  Widget, Orte). „Verwerfen (Datei bleibt)“ → `…/dismiss`. „Erneut lesen“ → `…/analyze` mit Fortschritt (bis 2 min Zeitlimit). Hinweis
-  „Ändern nach dem Übernehmen im Eintrag. Web-Recherche und „zusammen auswerten“ gibt es in der Web-App.“
-- **Mitteilung antippen** mit `documentId`: Reise öffnen (wie bisher über `url`), dort öffnen sich die Vorschläge dieses Dokuments.
-- **Teil D, Teilen-Erweiterung** (`ReisebuchShare/ShareViewController.swift`, `ShareView.swift`): SwiftUI im Host-Controller. Sammelt
-  PDF, Bilder (bis 10; HEIC wird JPEG), Dateien (z. B. `.eml`, MIME `message/rfc822`) und Text (als `Text.txt`) einzeln als temporäre
-  Dateien; größer als 25 MB wird vorher abgelehnt. Liste der Reisen mit Rolle owner/editor (laufende/kommende oben, „Vergangen“
-  eingeklappt), oben „Neue Reise …“ (Titel → `POST /trips`, Art „city“ wie der KI-Start der Web-App, wird beim Übernehmen einer
-  Kreuzfahrt zur Kreuzfahrt). „Hochladen“ je Datei mit `?background=1`, Body aus der Datei gestreamt (`URLSession.upload(fromFile:)`).
-  Ergebnis „Wird gelesen, du bekommst eine Mitteilung.“ bzw. „Gespeichert.“, dann schließt sie (`completeRequest`). Nicht angemeldet:
-  „Bitte zuerst in der App anmelden.“ Server nicht erreichbar: „Server nicht erreichbar (VPN an?).“, nicht hochgeladene Dateien bleiben,
-  Erweiterung bleibt offen. Sie liest nur Token und Server-Adresse aus der App Group.
-- **Tests** (`ReisebuchTests/DocumentTests.swift`, neu, 5): Vorbelegung (low und Probleme → überspringen) und apply-Body (create/update/
-  skip, Kreuzfahrt update/skip/null, `data` unverändert inkl. Zahl), Status-Texte und Sichtbarkeit/Reihenfolge, `documentId` aus
-  `userInfo`, Mehrteil-Body (Dateiname bereinigt, MIME, Inhalt gestreamt) und 202/201, Umzug des Tokens mit Test-Schlüsselbund (umziehen,
-  zweiter Start, leer, `-34018` lässt alles stehen, Speichern ohne Berechtigung, Abmelden). **42/42 grün.** Gegenprobe: `low` wird
-  übernommen und alter Eintrag bleibt beim Umzug → 2 Tests rot, danach zurückgestellt.
+- **KI-Status und Rolle** (`AILogic.swift` → `AIFeatures`): Die App merkt sich `GET /ai/status` (`enabled`, `research`, `review`,
+  `placeLookup`, `providers`, `model`, offline der letzte Stand) und über `GET /me`, ob das Konto Admin ist. Knöpfe erscheinen wie in der
+  Web-App; der Ansichtsmodus sperrt die KI-Knöpfe nicht.
+- **Teil A, Reise prüfen** (`TripReviewView.swift`): Knopf „🔍 Prüfen“ im Ablauf (bei `review`). Ohne Ergebnis: Text, was geprüft und was
+  **nicht** gesendet wird, „Prüfung starten“ (nur editor) → `POST /trips/:id/review`, danach alle 3 s `GET`, solange `pending` und offen.
+  Ergebnis: Zusammenfassung, Zählung („1 Fehler · 2 Warnungen · …“), Funde nach Schwere (Fehler rot, Warnung orange, Hinweis neutral) mit
+  Titel, Text, Vorschlag; Einträge/Tage eines Funds sind antippbar (Detail öffnet sich). `stale` → Band „Die Reise wurde seit der Prüfung
+  geändert“ und „Neu prüfen“; `failed` → Fehlertext und „Erneut versuchen“. Betrachter sehen nur das gespeicherte Ergebnis.
+- **Teil B, Vorschläge bearbeiten** (`DocumentsView.swift` → `DocReviewView`): je Vorschlag „Bearbeiten“ öffnet das Eintragsformular aus
+  0.6.0 mit den Daten des Vorschlags; „Fertig“ ersetzt nur die Daten dieses Vorschlags im Speicher (Felder, die das Formular nicht kennt,
+  bleiben; `details` verlustfrei), markiert ihn „bearbeitet“, blendet seine Probleme aus und schaltet „Übernehmen“ an. Gesendet wird erst mit
+  „Übernehmen“. Vorbelegung jetzt wie `DocReview.tsx` (nur Probleme → überspringen; die Abweichung bei `low` aus 0.7.0 ist
+  zurückgenommen). Der Hinweis „Ändern nach dem Übernehmen …“ ist weg.
+- **Teil C, Recherche** (Abschnitt „Im Internet ergänzen“ in den Vorschlägen, bei `research` und editor): Link optional (nur http/https),
+  „🧭 Reiseverlauf suchen“ (nur bei Kreuzfahrt) bzw. „Lücken füllen“ → `POST …/research` (202), alle 3 s `GET …/research`, solange
+  `pending`. Ergebnis: Zusammenfassung, Funde mit Häkchen, Ziel, Feldern, Details, Infos („bitte prüfen“), Reiseverlauf-Tagen und
+  antippbaren Quellen; „Ausgewählte übernehmen (n)“ → `…/research/accept` `{ids}`, danach Analyse neu laden (bei bearbeiteten
+  Vorschlägen vorher Rückfrage, dass die Änderungen verloren gehen, wie Web); „Verwerfen“ → `…/research/dismiss`. „Was wurde gesucht?“
+  aufklappbar. Satz „Funde aus dem Internet sind mit „bitte prüfen“ markiert. Nichts wird ohne „Übernehmen“ gespeichert.“
+- **Teil D, mehrere Dateien und Text** (`InputCollector.swift`): „Dokumente“ → „+“ öffnet „Dokumente hinzufügen“ mit Liste und
+  Hinzufügen aus Dateien, Fotos, Scannen und **„Text einfügen“** (als `Text.txt`). Ab zwei Einträgen Schalter „Gehören zu einer Buchung
+  (zusammen auswerten)“ (vorbelegt an, wenn alles Bilder sind). An: alle mit `POST /trips/:id/attachments`, dann
+  `POST /trips/:id/documents/group?background=1` mit den IDs (erste führt). Aus: einzeln mit `?background=1`. **Teilen-Erweiterung**:
+  derselbe Schalter ab zwei Dateien, gleiche Vorbelegung, gleicher Ablauf.
+- **Teil E, neue Reise mit KI**: „Neue Reise“ zeigt bei `enabled` die Wahl „Aus Dokumenten“ (vorbelegt) / „Von Hand“. Aus Dokumenten:
+  Name optional, Art „Automatisch erkennen“ (= `city`), Unterlagen wie Teil D, Knopf „Mit KI aufbauen“: `POST /trips` mit Titel oder
+  „Neue Reise“, dann Hochladen, dann öffnet sich die Reise. Scheitert eine Datei, bleibt das Blatt mit Fehler und „Zur Reise“ offen.
+  **Name aus dem Vorschlag:** Heißt die Reise noch „Neue Reise“ und liefert eine fertige Analyse `suggestedTripTitle`, setzt die App den
+  Namen per `PATCH /trips/:id` (beim Laden der Dokumente der Reise und beim Öffnen der Vorschläge).
+- **Teil F, Einstellungen „KI und Dokumente“** (`AISettingsView.swift`, in den Einstellungen verlinkt): für alle der Stand (an/aus,
+  Anbieter in Reihenfolge, zuletzt genutztes Modell, welche Funktionen). Nur Admin (`GET /ai/config`): aktive Kette, Hauptanbieter
+  (Anbieter ohne Schlüssel gekennzeichnet), Schalter „Ausweich“, „Verbindung testen“ (`POST /ai/check`, je Anbieter ✓/✗ mit Grund), je
+  Anbieter Stand („eingerichtet, endet auf …“, Quelle `.env` genannt), Feld API-Schlüssel (`SecureField`), „Prüfen und speichern“ (400 →
+  Grund, Feld bleibt gefüllt; Erfolg → Feld leer), „Schlüssel entfernen“ (nur Quelle `settings`, Bestätigung, `key: null`), Modell (leer =
+  Standard) mit „Modell speichern“. Hinweis zu Datenbank/Backups/VPN wie Web. **Der Schlüssel wird nirgends gespeichert**, er steht nur im
+  Feld (Zustand der Ansicht), bis er gesendet ist.
+- **Datenschutz-Sätze:** Die App nannte nirgends einen Anbieter; alle neuen Sätze sagen „an den eingestellten KI-Anbieter“ (auch der
+  Satz der Recherche, wo die Web-App noch „Websuche von Anthropic“ schreibt).
+- Technik: Die KI-Aufrufe stehen als `extension APIClient` in `AILogic.swift` (nur App), weil `APIClient.swift` mit der Erweiterung geteilt
+  ist; dafür sind `send`/`perform`/`pathID` nicht mehr `private`.
+- **Tests** (`ReisebuchTests/AILogicTests.swift`, neu, 8; `DocumentTests` an die Web-Vorbelegung angepasst): Sichtbarkeit nach Status und
+  Rolle, Sortierung/Farbe/Zählung der Funde, Polling stoppt bei done/failed, Ersetzen der Vorschlagsdaten (Rest unverändert, details
+  verlustfrei, Vorschlag ohne Datum öffnet), Bodies von Recherche-Start/-accept und Link-Prüfung, Gruppen-Body und Vorbelegung, Titel nur
+  bei „Neue Reise“, Bodies von `PUT /ai/config` (nur der geänderte Teil, `key: null`, leeres Modell = null). **50/50 grün.** Gegenprobe:
+  Funde unsortiert und leeres Modell als Text → 2 Tests rot, danach zurückgestellt.
 
 ## Entscheidungen / Abweichungen
-- Vorbelegung „überspringen“ auch bei `confidence: low` (wie im Auftrag; die Web-App übernimmt dort).
-- „Optional an einen Eintrag hängen“ (`?itemId=` aus dem Eintrags-Detail) nicht gebaut; der Server ordnet die Datei beim Übernehmen dem
-  ersten angelegten/aktualisierten Eintrag zu.
-- Ob 0.12.0 auf der Synology läuft, prüft die App nicht eigens. Läuft eine ältere Version, antwortet der Server ohne `background` mit 201
-  nach der Analyse (dann „Gespeichert.“ und die Vorschläge stehen gleich in der Liste).
-- Neue Reise aus der Erweiterung mit Art „Städtetrip“; der Server macht daraus beim Übernehmen einer Kreuzfahrt eine Kreuzfahrt.
+- Je Vorschlag ein Schalter „Übernehmen“/„Aktualisieren“ statt der drei Knöpfe der Web-App („Neu anlegen“ trotz Treffer gibt es in der
+  App nicht).
+- Wird bei „zusammen auswerten“ nur eine Datei angenommen, liest die App sie einzeln (`/analyze`, wartet bis zu einer Minute).
+- Recherche-Funde zeigen den betroffenen Hafentag nur als „Hafentag“ (die Web-App nennt Datum und Hafen).
 
 ## Build-Ergebnis
 Grün für App, Widget, Erweiterung und Tests (Debug Simulator, Release-Archiv), keine Compiler-Warnungen, auch nicht im Archiv-Log.
-Verbleibend nur die bekannte Meldung `appintentsmetadataprocessor … No AppIntents.framework dependency found` (Build-Werkzeug).
-**Keine Prüfung im Simulator** (Philips Entscheidung vom 28.11.2026), nur Build und Unit-Tests. Nicht gesehen: Dokumentenliste, Quick Look,
-Scanner, Fotos-Auswahl, Vorschläge-Ansicht, Teilen-Erweiterung, Umzug des Tokens auf dem Gerät.
+Verbleibend nur `appintentsmetadataprocessor … No AppIntents.framework dependency found` (Build-Werkzeug).
+**Keine Prüfung im Simulator** (Philips Entscheidung), nur Build und Unit-Tests. Keine der neuen Ansichten ist gesehen.
 
 ## IPA
-- `ios/Installation/0.7.0-b7/Reisebuch-0.7.0-b7.ipa`, 988 645 Bytes, App, Widget und Erweiterung je 0.7.0 (7).
-- SHA256: `8be6a81c48535f597560180c46fdcffe08c3cdcef112c8870f8ef9bf4489e944`
-- Profile:
-  - App „iOS Team Ad Hoc Provisioning Profile: de.theoldphilip.Reisebuch“ unverändert (22d2bb98…), `aps-environment` = `production`
-    (auch in der signierten App), App Group nur `group.de.theoldphilip.Reisebuch`.
-  - Widget unverändert (a8497ea0…).
-  - **Neu:** „iOS Team Ad Hoc Provisioning Profile: de.theoldphilip.Reisebuch.ReisebuchShare“ (c018dd7d…), App Group nur
-    `group.de.theoldphilip.Reisebuch`, kein Push. Alle 2 Geräte, gültig bis 01.11.2027.
-- `project.pbxproj` nach Archiv und Export unverändert.
-- Im Ordner jetzt 0.5.0-b5, 0.6.0-b6, 0.7.0-b7 (letzte drei); 0.2.0-b2, 0.3.0-b3, 0.4.0-b4 entfernt (über Git erreichbar).
-- Die drei IPAs (0.5 bis 0.7) stehen im eigenen Commit 7c1d762 (gepusht).
-
-| Version | SHA256 |
-|---|---|
-| 0.5.0-b5 | `feda0e3c9287b4e8b86f3fd56fe862a421785806afc329e36be39b4c8bb90196` |
-| 0.6.0-b6 | `af4dfba6c4ec3d7f39bab114cb565d17a0be8ae9fab6afa4b3cb04f608959d24` |
-| 0.7.0-b7 | `8be6a81c48535f597560180c46fdcffe08c3cdcef112c8870f8ef9bf4489e944` |
+- `ios/Installation/0.8.0-b8/Reisebuch-0.8.0-b8.ipa`, 1 175 937 Bytes, App, Widget und Erweiterung je 0.8.0 (8).
+- SHA256: `084f0705295b13225f996e442ab9ec8263d3659c795c17bee13cdf0a31e4b8dc`
+- Profile unverändert: App 22d2bb98… (`aps-environment` = `production`), Widget a8497ea0…, Erweiterung c018dd7d…, alle 2 Geräte, gültig
+  bis 01.11.2027, App Group nur `group.de.theoldphilip.Reisebuch`. `project.pbxproj` nach Archiv und Export unverändert.
+- Im Ordner 0.6.0-b6, 0.7.0-b7, 0.8.0-b8; 0.5.0-b5 entfernt.
 
 ## Geänderte Dateien
-- `ios/Reisebuch/Reisebuch.xcodeproj/project.pbxproj` (Target ReisebuchShare von Philip; ich: Version 0.7.0 / 7 überall, Gerätefamilie,
-  Ausnahme für gemeinsame Dateien)
-- `ios/Reisebuch/Reisebuch/`: neu `DocumentLogic.swift`, `DocumentsView.swift`; geändert `Keychain.swift` (Gruppe, Umzug, `SharedStore`),
-  `APIClient.swift` (Dokument-Aufrufe, Hochladen, längeres Zeitlimit), `Models.swift`, `AppSession.swift`, `Push.swift`,
-  `TripTimelineView.swift`, `SettingsView.swift`, `Info.plist` (Kamera)
-- `ios/Reisebuch/ReisebuchShare/` (Vorlage von Xcode ersetzt: `ShareViewController.swift`, neu `ShareView.swift`, `Info.plist`)
-- `ios/Reisebuch/ReisebuchTests/DocumentTests.swift` (neu)
+- `ios/Reisebuch/Reisebuch.xcodeproj/project.pbxproj` (nur Version 0.8.0 / 8, 10 Vorkommen je Schlüssel)
+- `ios/Reisebuch/Reisebuch/`: neu `AILogic.swift`, `TripReviewView.swift`, `InputCollector.swift`, `AISettingsView.swift`; geändert
+  `DocumentsView.swift`, `DocumentLogic.swift`, `EditForms.swift`, `APIClient.swift`, `Models.swift`, `AppSession.swift`,
+  `TripTimelineView.swift`, `DetailViews.swift`, `SettingsView.swift`
+- `ios/Reisebuch/ReisebuchShare/ShareView.swift`
+- `ios/Reisebuch/ReisebuchTests/AILogicTests.swift` (neu), `DocumentTests.swift`
 - `ios/Installation/`, `ios/STAND.md`, `ios/CLAUDE.md`, Auftrag verschoben
 
 ## Commits (Hashes)
-- 27cfe3e iOS 0.5.0: Erinnerungen am Ort · 8427861 STAND 0.5.0
-- 4f25f1b iOS 0.6.0: Bearbeiten in der App · 6fbe655 STAND 0.6.0
-- 0a3926b iOS 0.7.0: Dokumente und Teilen-Erweiterung
-- 19b11b2 STAND 0.7.0 · 7c1d762 IPAs 0.5.0 bis 0.7.0
+- c12e571 iOS 0.8.0: KI-Funktionen wie in der Web-App
+- folgende: STAND 0.8.0, IPA 0.8.0
 
 ## Offene Fragen an den Architekten
-- Keine zwingenden. Zur Kenntnis: `confidence: low` vorbelegt als überspringen (Abweichung zur Web-App, wie bestellt); Anhängen an einen
-  Eintrag aus dem Detail nicht gebaut.
+- Keine zwingenden. Zur Kenntnis: die drei kleinen Abweichungen oben.
 
 ## Was Philip auf dem iPhone testen soll
-Vorher: IPA 0.7.0-b7 installieren (enthält 0.5 und 0.6). Server 0.12.0 muss laufen (Einstellungen → Versionen → Server).
-1. **Angemeldet bleiben:** Nach dem Update öffnet die App ohne neue Anmeldung. In den Einstellungen unter „Anmeldung“ steht **keine** rote
-   Zeile „Teilen-Erweiterung …“ (sonst Screenshot).
-2. **Teilen aus Mail:** Eine Buchungsmail öffnen → PDF-Anhang lange drücken → Teilen → „Reisebuch“ (ggf. unter „Mehr“ einschalten).
-   Die Erweiterung zeigt die Datei und deine Reisen. Reise wählen → „Hochladen“ → „Wird gelesen, du bekommst eine Mitteilung.“ → schließt.
-   Ebenso eine Datei aus der Dateien-App und einen markierten Text.
-3. **Mitteilung abwarten** (bis etwa 1 Minute): „📄 Dokument gelesen: n Vorschläge zum Prüfen“. Antippen → die Reise öffnet sich, darüber
-   die Vorschläge. Schalter ansehen (unsichere/mit Problem sind aus), „Übernehmen“ → Einträge stehen im Ablauf.
-4. **Neue Reise aus dem Teilen-Menü:** „Neue Reise …“ → Name → „Anlegen“ → sie ist gewählt → „Hochladen“.
-5. **In der App:** Reise → „Dokumente“ → Datei antippen → Quick Look zeigt sie. „+“ → „Scannen“ (Kamera-Erlaubnis) → Seiten scannen →
-   „Sichern“ → „Wird gelesen …“ in der Liste, wechselt von selbst auf „Vorschläge prüfen“. „+“ → „Aus Fotos“ mit einem Foto einer Buchung.
-6. **Verwerfen / Erneut lesen** in den Vorschlägen ausprobieren; Löschen eines Dokuments durch Wischen nach links.
-7. **Offline:** VPN aus, aus Mail teilen → „Server nicht erreichbar (VPN an?).“, „Erneut versuchen“ nach VPN an.
-8. **Abmelden** in der App → Teilen zeigt „Bitte zuerst in der App anmelden.“
-Aus 0.5.0 und 0.6.0 gelten zusätzlich die Testschritte in der Git-Historie dieser Datei (Erinnerungen am Ort, Bearbeiten).
+Vorher: IPA 0.8.0-b8 installieren, Server 0.14.0.
+1. **Reise prüfen:** In einer Reise oben „🔍 Prüfen“ → „Prüfung starten“ → nach bis zu einer Minute die Funde. Einen Fund mit Eintrag
+   antippen → der Eintrag öffnet sich. Einen Eintrag ändern, wieder „🔍 Prüfen“ → Band „Die Reise wurde seit der Prüfung geändert“.
+2. **Vorschlag bearbeiten:** Ein Dokument hochladen → „Vorschläge prüfen“ → bei einem Vorschlag „Bearbeiten“ → z. B. Gate ändern →
+   „Fertig“ (nichts gespeichert, Vorschlag zeigt „bearbeitet“) → „Übernehmen“ → der Eintrag hat das geänderte Gate.
+3. **Recherche:** In den Vorschlägen einer Kreuzfahrt-Buchung „🧭 Reiseverlauf suchen“ (optional mit Link der Reederei) → nach ein bis zwei
+   Minuten Funde mit Quelle → Häkchen setzen → „Ausgewählte übernehmen“ → die Vorschläge oben sind ergänzt. „Was wurde gesucht?“ ansehen.
+4. **Zusammen auswerten aus Fotos:** „Dokumente“ → „+“ → „Aus Fotos“ → drei Screenshots derselben Buchung → Schalter „Gehören zu einer
+   Buchung“ ist an → „Hochladen“ → eine Mitteilung, ein Satz Vorschläge („Zusammen gelesen: …“).
+5. **Zusammen aus dem Teilen-Menü:** In Fotos drei Screenshots markieren → Teilen → „Reisebuch“ → Schalter an → Reise → „Hochladen“.
+6. **Text einfügen:** „+“ → „Text einfügen“ → kopierte Buchungsmail → „Hochladen“.
+7. **Neue Reise aus Dokumenten:** Reiseliste „+“ → „Aus Dokumenten“ → ohne Namen, Art „Automatisch erkennen“ → Unterlagen → „Mit KI
+   aufbauen“ → die Reise heißt erst „Neue Reise“; nach der Mitteilung „Dokumente“ bzw. „Vorschläge prüfen“ öffnen → der Name wechselt auf
+   den Vorschlag der KI.
+8. **KI-Einstellungen:** Einstellungen → „KI und Dokumente“: Stand stimmt? Als Admin „Verbindung testen“ (je Anbieter ✓/✗). Optional einen
+   Schlüssel eintragen, „Prüfen und speichern“ → Feld ist danach leer, Stand zeigt „endet auf …“.

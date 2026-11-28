@@ -190,3 +190,10 @@ für Server-Adresse/Name), `DocumentLogic.swift` (Analyse-Modelle, apply-Body, S
 `DocumentTests.swift`). App: `DocumentsView.swift` (Liste, Quick Look, Dateien/Fotos/Scanner, Vorschläge prüfen). Mitteilung mit
 `documentId` → `AppSession.pendingDocumentId`. Im Test-Target heißt `Attachment` auch ein Typ von Swift Testing: `Reisebuch.Attachment`.
 
+
+**Neu in 0.8.0** (Build 8, Auftrag in `ios/Auftraege/AUFTRAG-0.8.0.md`): KI-Funktionen wie Web. `AILogic.swift` (rein + `extension
+APIClient` für die KI-Aufrufe, nur App; Tests `AILogicTests.swift`): `AIFeatures` (Knöpfe nach `/ai/status` und Rolle), Reise prüfen
+(`TripReviewView.swift`), Recherche (in `DocumentsView.swift`), `ProposalEdit` (Vorschlag im Formular bearbeiten, nur im Speicher),
+`TripTitle` (Name aus `suggestedTripTitle`), `AIConfigBody`. `InputCollector.swift`: Dateien/Fotos/Scan/Text sammeln, zusammen auswerten
+(`/attachments` + `/documents/group?background=1`). `AISettingsView.swift`: KI-Anbieter (Admin); API-Schlüssel nie speichern.
+`AppSession.aiStatus` und `isAdmin` (aus `/me`). Vorbelegung der Vorschläge wie `DocReview.tsx`.
