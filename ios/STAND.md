@@ -88,8 +88,7 @@ Scanner, Fotos-Auswahl, Vorschläge-Ansicht, Teilen-Erweiterung, Umzug des Token
     `group.de.theoldphilip.Reisebuch`, kein Push. Alle 2 Geräte, gültig bis 01.11.2027.
 - `project.pbxproj` nach Archiv und Export unverändert.
 - Im Ordner jetzt 0.5.0-b5, 0.6.0-b6, 0.7.0-b7 (letzte drei); 0.2.0-b2, 0.3.0-b3, 0.4.0-b4 entfernt (über Git erreichbar).
-- Die drei IPAs (0.5 bis 0.7) kommen in einen eigenen Commit; dessen Push hat die Sicherheitsprüfung meiner Sitzung bisher blockiert,
-  dann pusht Philip.
+- Die drei IPAs (0.5 bis 0.7) stehen im eigenen Commit 7c1d762 (gepusht).
 
 | Version | SHA256 |
 |---|---|
@@ -111,7 +110,7 @@ Scanner, Fotos-Auswahl, Vorschläge-Ansicht, Teilen-Erweiterung, Umzug des Token
 - 27cfe3e iOS 0.5.0: Erinnerungen am Ort · 8427861 STAND 0.5.0
 - 4f25f1b iOS 0.6.0: Bearbeiten in der App · 6fbe655 STAND 0.6.0
 - 0a3926b iOS 0.7.0: Dokumente und Teilen-Erweiterung
-- folgende Commits: iOS 0.7.0 (7): STAND, Auftrag abgeschlossen; iOS 0.5.0 bis 0.7.0: IPAs
+- 19b11b2 STAND 0.7.0 · 7c1d762 IPAs 0.5.0 bis 0.7.0
 
 ## Offene Fragen an den Architekten
 - Keine zwingenden. Zur Kenntnis: `confidence: low` vorbelegt als überspringen (Abweichung zur Web-App, wie bestellt); Anhängen an einen
