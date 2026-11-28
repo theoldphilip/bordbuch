@@ -62,10 +62,11 @@ Dazu gilt:
   `ios/Reisebuch/Reisebuch.xcodeproj`, Code in `ios/Reisebuch/Reisebuch/`. Baubefehle laufen im Ordner `ios/Reisebuch`. Synchronisierte
   Ordner wie Xcode sie anlegt; neue Dateien tauchen von selbst auf, Target-Mitgliedschaft prüfen.
 - Targets: `Reisebuch` (App), `ReisebuchWidgetExtension` (Widget, Code in `ios/Reisebuch/ReisebuchWidget/`, Bundle-ID
-  `de.theoldphilip.Reisebuch.ReisebuchWidget`), `ReisebuchTests`, `ReisebuchUITests`. App und Widget teilen die App Group
+  `de.theoldphilip.Reisebuch.ReisebuchWidget`), `ReisebuchTests`, `ReisebuchUITests`, `ReisebuchShare` (Teilen-Erweiterung, Code in `ios/Reisebuch/ReisebuchShare/`, Bundle-ID
+  `de.theoldphilip.Reisebuch.ReisebuchShare`, nur App Group). App, Widget und Erweiterung teilen die App Group
   **`group.de.theoldphilip.Reisebuch`** (nie die des Gym-Projekts); darin legt die App unter dem Schlüssel **`widget_stand`** die Termine
-  als JSON ab. `Reisebuch/WidgetStand.swift` gehört zu beiden Targets (Ausnahme im synchronisierten Ordner). Versionen von App und
-  Widget müssen gleich sein (8 Vorkommen je Schlüssel). URL-Schema `reisebuch` steht in `Reisebuch/Info.plist`.
+  als JSON ab. `Reisebuch/WidgetStand.swift` gehört zu beiden Targets (Ausnahme im synchronisierten Ordner). Versionen von App, Widget und
+  Erweiterung müssen gleich sein (10 Vorkommen je Schlüssel). URL-Schema `reisebuch` steht in `Reisebuch/Info.plist`.
 - **Der Vertrag mit dem Server ist `<repo>/docs/API.md`.** Die Typen der Web-App (`<repo>/web/src/types.ts`) spiegeln die Antworten des
   Servers und sind die beste Vorlage für die Swift-Modelle (`Codable`). Feldnamen sind camelCase und werden **nicht** umbenannt. Unbekannte
   Felder ignorieren, neue Felder sind optional: Der Server bekommt laufend Felder dazu, die App darf daran nicht zerbrechen.
@@ -181,3 +182,11 @@ Felder je Art wie `ItemForm.tsx` (`ItemKinds`), `EditMerge.details` (details ver
 Feldern), `LocalTime` (Ortszeit-Text, DatePicker über UTC-Kalender), `MoneyInput` (wie `MoneyFields.tsx`), `ViewMode` (wie `Trip.tsx`).
 `EditForms.swift`: Formulare Eintrag/Reise/Kreuzfahrt/Reisetag, Zeitzonen-Auswahl mit Suche, Zusatzinfos. Rolle und Kreuzfahrten aus
 `TripDetail` (`GET /trips/:id`). Entsperren nur im Speicher (`AppSession.unlockedTrips`). Quittieren im Hinweis-Kasten.
+
+**Neu in 0.7.0** (Build 7, Auftrag in `ios/Auftraege/AUFTRAG-0.7.0.md`): Dokumente und Teilen. Target `ReisebuchShare` (von Philip,
+App Group). Gemeinsam mit der Erweiterung (Ausnahme im synchronisierten Ordner, darum `nonisolated`): `APIClient.swift`, `Models.swift`,
+`Keychain.swift` (Token in der Schlüsselbund-Gruppe `group.de.theoldphilip.Reisebuch`, einmaliger Umzug `Keychain.migrate`, `SharedStore`
+für Server-Adresse/Name), `DocumentLogic.swift` (Analyse-Modelle, apply-Body, Status-Texte, Mehrteil-Upload als Datei; Tests
+`DocumentTests.swift`). App: `DocumentsView.swift` (Liste, Quick Look, Dateien/Fotos/Scanner, Vorschläge prüfen). Mitteilung mit
+`documentId` → `AppSession.pendingDocumentId`. Im Test-Target heißt `Attachment` auch ein Typ von Swift Testing: `Reisebuch.Attachment`.
+
