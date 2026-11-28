@@ -107,4 +107,21 @@ describe('document analysis in the background (iPhone share sheet)', { timeout: 
     assert.equal(up.body.analyzable, false);
     assert.equal(up.body.attachment.analysisStatus, null);
   });
+
+  test('several files of one booking: group with ?background=1 answers 202 and notifies once', async () => {
+    sent.length = 0;
+    await ctx.call('PATCH', '/api/me/settings', admin, { notifications: { enabled: true } });
+    const a = await upload(ctx.app, admin, `/api/trips/${tripId}/attachments`, 'seite1.jpg', 'image/jpeg', 'x');
+    const b = await upload(ctx.app, admin, `/api/trips/${tripId}/attachments`, 'seite2.jpg', 'image/jpeg', 'y');
+    const ids = [a.body.id ?? a.body.attachment?.id, b.body.id ?? b.body.attachment?.id];
+    const g = await ctx.call('POST', `/api/trips/${tripId}/documents/group?background=1`, admin, { attachmentIds: ids });
+    assert.equal(g.status, 202);
+    assert.equal(g.body.attachment.id, ids[0]);
+    assert.equal(g.body.attachment.analysisStatus, 'pending');
+    assert.deepEqual(g.body.memberIds, [ids[1]]);
+    release();
+    await waitFor(() => sent.length === 1);
+    assert.equal(await status(ids[0]!), 'done');
+    assert.equal(sent[0]!.message.documentId, ids[0]);
+  });
 });

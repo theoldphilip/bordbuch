@@ -3,7 +3,7 @@
 > **Claude Code auf dem Mac (iPhone-App unter `ios/`): Diese Datei ist nicht dein Briefing.** Für dich gilt `ios/CLAUDE.md`. Server, Web,
 > SSH zur Synology und Updates sind nicht deine Aufgabe; alles außerhalb von `ios/` ist für dich nur zum Lesen.
 
-Stand: 28.11.2026, App-Version 0.12.0, Datenbank-Stand 10, 159 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
+Stand: 28.11.2026, App-Version 0.13.0, Datenbank-Stand 10, 160 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
 einer früheren Claude-Code-Sitzung (Cloud, Web). Wer sie liest, setzt die Arbeit dort fort, wo sie aufgehört hat. Lies sie ganz,
 bevor du etwas änderst, und prüfe Aussagen über Code im Repo nach, statt dich auf diese Datei zu verlassen (Code gewinnt).
 
@@ -162,7 +162,8 @@ Synology durch Claude · 0.9 Kostenauswertung (Reiter „Kosten“, Preis an der
 Zahlungsstand aus Dokumenten, Reisetag-Abfrage für Gate/Schalter/Kofferband/Gleis · 0.10.1 Dokument-Analyse wieder lauffähig (KI-Schema zu
 groß, Zahlungsstand nur noch bei Einträgen über details) · 0.11 Push für die iPhone-App über APNs (Server-Teil) · 0.11.1 Linux-Tool `scripts/mint/reisebuch-ipa.sh` (neueste IPA
 laden, SHA-256 prüfen, per USB installieren, README-Abschnitt) · 0.12 Dokument-Analyse im Hintergrund (`?background=1`, 202, danach Mitteilung
-mit `documentId` an den Hochladenden) für die Teilen-Erweiterung der iPhone-App. Details in der
+mit `documentId` an den Hochladenden) für die Teilen-Erweiterung der iPhone-App · 0.13 dasselbe für „zusammen auswerten“
+(`documents/group?background=1`). Details in der
 Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
 
 ## 6. Offene Punkte (Reihenfolge nach Philips Wünschen)
@@ -182,7 +183,10 @@ Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
    `ios/AUFTRAG-0.5.0.md` Erinnerungen am Ort (lokale Mitteilungen mit `UNLocationNotificationTrigger`, Standort bleibt auf dem Gerät,
    Background fetch), `0.6.0` Bearbeiten (Reisen, Einträge, Kreuzfahrt, Quittieren, Ansichtsmodus wie Web), `0.7.0` Dokumente, Vorschläge
    prüfen, Teilen-Erweiterung `ReisebuchShare` (Token per App Group im Schlüsselbund, Upload mit `?background=1`, braucht Server 0.12.0).
-   Philip installiert IPAs selbst mit `scripts/mint/reisebuch-ipa.sh`.
+   0.5.0 bis 0.7.0 geliefert, Server 0.12.0 eingespielt (28.11.). Danach bestellt: `ios/AUFTRAG-0.8.0.md` KI-Funktionen wie Web (Reise
+   prüfen, Vorschläge bearbeiten, Recherche, zusammen auswerten, neue Reise aus Dokumenten, KI-Status/Test), braucht Server 0.13.0.
+   Philip will **keine Prüfung im Simulator** in den Aufträgen (nur Build und Unit-Tests). Philip installiert IPAs selbst mit
+   `scripts/mint/reisebuch-ipa.sh`.
 4. Kleinere Wünsche: Dokument an mehrere Einträge hängen, „automatisch übernehmen wenn sicher“, Bordzeit vs. Ortszeit, Packliste (siehe README-Roadmap).
 5. **Vom Auftraggeber zu klären/prüfen:** Beträge, die früher auf „CHF“ gespeichert wurden (vor 0.6.4 wurde beim Öffnen eines Eintrags
    ohne Währung „CHF“ gesetzt); Kabinennummer (laut Screenshot der Buchung 12076) im Reiter „Kreuzfahrt“ prüfen und ggf. eintragen.
@@ -230,5 +234,5 @@ nach 5 Minuten Verspätung nicht mehr gesendet.
 ## 10. Erste Schritte in einer neuen Sitzung
 
 1. `git pull`, diese Datei und `README.md` lesen, `git log --oneline -10` ansehen.
-2. `npm run install:all`, `cd server && npm test` (sollte 159 grün sein), `cd web && npm run build`.
-3. Philip begrüßen, kurz den Stand nennen (Server 0.12.0; iPhone-App siehe `ios/STAND.md`) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.
+2. `npm run install:all`, `cd server && npm test` (sollte 160 grün sein), `cd web && npm run build`.
+3. Philip begrüßen, kurz den Stand nennen (Server 0.13.0; iPhone-App siehe `ios/STAND.md`) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.

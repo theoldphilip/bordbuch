@@ -219,7 +219,7 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
    * booking page). The first id leads: it carries the proposals, the others are hidden from the inbox
    * and follow the lead when it is applied or dismissed.
    */
-  app.post<{ Params: { tripId: string } }>('/api/trips/:tripId/documents/group', async (req) => {
+  app.post<{ Params: { tripId: string }; Querystring: { background?: string } }>('/api/trips/:tripId/documents/group', async (req, reply) => {
     const user = requireUser(req);
     const { tripId } = req.params;
     requireTripRole(db, tripId, user.id, 'editor');
@@ -240,8 +240,15 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
       }
       db.prepare('UPDATE attachments SET analysis = NULL WHERE id = ?').run(lead);
     });
+    const memberIds = rows.slice(1).map((r) => r.id as string);
+    // ?background=1 like the single upload: answer at once, notify the user when the proposals are ready.
+    if (req.query.background === '1') {
+      setStatus(lead, 'pending');
+      void analyze(lead).then(() => announceAnalysis(lead, user.id));
+      return reply.status(202).send({ attachment: view(lead), memberIds });
+    }
     await analyze(lead);
-    return { attachment: view(lead), memberIds: rows.slice(1).map((r) => r.id as string) };
+    return { attachment: view(lead), memberIds };
   });
 
   app.post<{ Params: { id: string } }>('/api/attachments/:id/analyze', async (req) => {
