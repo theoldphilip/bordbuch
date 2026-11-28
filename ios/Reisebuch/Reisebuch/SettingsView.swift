@@ -23,6 +23,16 @@ struct SettingsView: View {
                 Section("Anmeldung") {
                     LabeledContent("Angemeldet als", value: session.displayName.isEmpty ? "–" : session.displayName)
                     LabeledContent("Server", value: session.serverAddress)
+                    switch session.keychainMigration {
+                    case .missingEntitlement:
+                        Text("Teilen-Erweiterung: Die Anmeldung ließ sich nicht freigeben (Schlüsselbund-Gruppe fehlt, -34018).")
+                            .font(.footnote).foregroundStyle(.red)
+                    case let .failed(status):
+                        Text("Teilen-Erweiterung: Die Anmeldung ließ sich nicht freigeben (Fehler \(status)).")
+                            .font(.footnote).foregroundStyle(.red)
+                    default:
+                        EmptyView()
+                    }
                 }
                 notificationsSection
                 Section("Versionen") {

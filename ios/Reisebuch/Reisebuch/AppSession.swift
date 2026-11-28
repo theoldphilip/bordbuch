@@ -46,9 +46,17 @@ final class AppSession {
         let defaults = UserDefaults.standard
         serverAddress = defaults.string(forKey: Keys.server) ?? Self.defaultServer
         displayName = defaults.string(forKey: Keys.displayName) ?? ""
+        // 0.7.0: Token einmal in die Schlüsselbund-Gruppe der App Group umziehen (für die Teilen-Erweiterung).
+        keychainMigration = Keychain.migrate()
         token = Keychain.readToken()
         placeLookupAvailable = defaults.bool(forKey: Keys.placeLookup)
+        if token != nil { SharedStore.save(server: serverAddress, displayName: displayName) }
     }
+
+    /// Ergebnis des Umzugs ins Schlüsselbund der App Group (Einstellungen zeigen einen Fehler an).
+    private(set) var keychainMigration: Keychain.Migration = .nothing
+    /// Dokument, dessen Vorschläge geöffnet werden sollen (Antippen der Mitteilung „Dokument gelesen“).
+    var pendingDocumentId: String?
 
     var client: APIClient? {
         guard let url = APIClient.normalizedBaseURL(serverAddress) else { return nil }
@@ -68,6 +76,7 @@ final class AppSession {
         displayName = response.user.displayName
         token = response.token
         loginNotice = nil
+        SharedStore.save(server: address, displayName: response.user.displayName)
     }
 
     /// Abmelden am Server; scheitert das (offline), wird trotzdem lokal abgemeldet.
@@ -96,6 +105,7 @@ final class AppSession {
     /// Abmelden löscht Token und den ganzen Zwischenspeicher: Daten der Familie gehören dann nicht mehr aufs Gerät.
     private func clearLocal() {
         Keychain.deleteToken()
+        SharedStore.clear()
         ResponseCache.clear()
         WidgetFeed.clear()
         token = nil

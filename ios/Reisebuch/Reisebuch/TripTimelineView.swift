@@ -24,6 +24,7 @@ struct TripTimelineView: View {
     @State private var cruiseToEdit: CruiseSummary?
     @State private var cruiseForNewDay: CruiseSummary?
     @State private var actionError: String?
+    @State private var reviewDoc: DocumentsView.ReviewTarget?
     @State private var errorText: String?
     /// Gesetzt, solange der gespeicherte Ablauf gezeigt wird, weil der Server nicht erreichbar ist.
     @State private var offlineSince: Date?
@@ -97,6 +98,9 @@ struct TripTimelineView: View {
                         onLock: { session.unlockedTrips.remove(trip.id) })
         }
         WarningsSection(warnings: timeline.warnings, canAck: isEditor, onAck: { key, ack in await self.ack(key, ack) })
+        if detail != nil {
+            DocumentsLinkSection(attachments: detail?.attachments ?? [], edit: context.edit, itemTitles: itemTitles(timeline))
+        }
         ForEach(Array(timeline.phases.enumerated()), id: \.offset) { _, phase in
             PhaseSection(phase: phase, context: context)
         }
@@ -116,6 +120,10 @@ struct TripTimelineView: View {
             .sheet(item: $cruiseForNewDay) { cruise in
                 if let timeline { CruiseDayFormView(cruise: cruise, ctx: editContext(timeline)) }
             }
+            .sheet(item: $reviewDoc) { target in
+                if let timeline { DocReviewView(attachmentId: target.id, edit: editContext(timeline)) { Task { await load() } } }
+            }
+            .onChange(of: session.pendingDocumentId) { _, _ in openPendingDocument() }
     }
 
     private func dialogs(_ content: some View) -> some View {
@@ -231,9 +239,24 @@ struct TripTimelineView: View {
         }
     }
 
+    private func itemTitles(_ t: Timeline) -> [String: String] {
+        var result: [String: String] = [:]
+        for e in t.phases.flatMap(\.days).flatMap(\.entries) { result[e.itemId] = e.item.title }
+        return result
+    }
+
+    /// Mitteilung „Dokument gelesen“ angetippt: Vorschläge dieses Dokuments zeigen, sobald es in der Reise steht.
+    private func openPendingDocument() {
+        guard let id = session.pendingDocumentId, timeline != nil,
+              detail?.attachments?.contains(where: { $0.id == id }) == true else { return }
+        session.pendingDocumentId = nil
+        reviewDoc = DocumentsView.ReviewTarget(id: id)
+    }
+
     private func load() async {
         if detail == nil { detail = session.cachedTripDetail(tripId: trip.id) }
         if let fresh = try? await session.fetchTripDetail(tripId: trip.id) { detail = fresh }
+        defer { openPendingDocument() }
         do {
             timeline = try await session.fetchTimeline(tripId: trip.id)
             errorText = nil

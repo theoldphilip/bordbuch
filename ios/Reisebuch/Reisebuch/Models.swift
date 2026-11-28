@@ -6,37 +6,38 @@
 //  Feldnamen bleiben camelCase wie auf dem Server. Aufzählungen (kind, type, level …) sind
 //  bewusst Strings: Kommt ein neuer Wert dazu, darf die App nicht beim Dekodieren scheitern.
 //  Neue oder unbekannte Felder werden ignoriert, alles nicht Zwingende ist optional.
+//  Gehört zu App und ReisebuchShare (darum nonisolated).
 //
 
 import Foundation
 
 // MARK: - Anmeldung
 
-struct User: Codable, Equatable {
+nonisolated struct User: Codable, Equatable {
     let id: String
     let username: String
     let displayName: String
     let isAdmin: Bool?
 }
 
-struct LoginResponse: Codable {
+nonisolated struct LoginResponse: Codable {
     let user: User
     let token: String
 }
 
-struct ServerVersion: Codable {
+nonisolated struct ServerVersion: Codable {
     let version: String?
     let builtAt: String?
     let schema: Int?
 }
 
-struct APIErrorBody: Codable {
+nonisolated struct APIErrorBody: Codable {
     let error: String?
 }
 
 // MARK: - Reisen
 
-struct TripSummary: Codable, Identifiable, Equatable {
+nonisolated struct TripSummary: Codable, Identifiable, Equatable {
     let id: String
     let title: String
     let kind: String?
@@ -53,7 +54,7 @@ struct TripSummary: Codable, Identifiable, Equatable {
 // MARK: - Reise im Detail (GET /trips/:id)
 
 /// Kreuzfahrt mit Schiffsdaten, Preis und Tagen (aus `TripDetail.cruises`).
-struct CruiseSummary: Codable, Hashable, Identifiable {
+nonisolated struct CruiseSummary: Codable, Hashable, Identifiable {
     let id: String
     let shipName: String?
     let cruiseLine: String?
@@ -70,7 +71,7 @@ struct CruiseSummary: Codable, Hashable, Identifiable {
 }
 
 /// Stammdaten der Reise (aus `TripDetail.trip`).
-struct TripInfo: Codable, Hashable {
+nonisolated struct TripInfo: Codable, Hashable {
     let id: String
     let title: String
     let kind: String?
@@ -80,15 +81,16 @@ struct TripInfo: Codable, Hashable {
 }
 
 /// Ausschnitt aus `TripDetail`; weitere Felder werden ignoriert.
-struct TripDetail: Codable {
+nonisolated struct TripDetail: Codable {
     var trip: TripInfo? = nil
     let role: String?
     let cruises: [CruiseSummary]?
+    var attachments: [Attachment]? = nil
 }
 
 // MARK: - Zusatzinfos
 
-struct Info: Codable, Hashable {
+nonisolated struct Info: Codable, Hashable {
     let label: String
     let value: String
     /// phone, emergency, email, link, text
@@ -99,7 +101,7 @@ struct Info: Codable, Hashable {
 
 // MARK: - Kreuzfahrt-Tag
 
-struct CruiseDay: Codable, Identifiable, Hashable {
+nonisolated struct CruiseDay: Codable, Identifiable, Hashable {
     let id: String
     let cruiseId: String?
     let date: String
@@ -118,7 +120,7 @@ struct CruiseDay: Codable, Identifiable, Hashable {
 
 // MARK: - Eintrag
 
-struct Item: Codable, Identifiable, Hashable {
+nonisolated struct Item: Codable, Identifiable, Hashable {
     let id: String
     let tripId: String?
     let type: String
@@ -145,7 +147,7 @@ struct Item: Codable, Identifiable, Hashable {
 
 /// Beliebiger JSON-Wert. Wird für `details` gebraucht: Beim Übernehmen der Reisetag-Abfrage schickt die App alle
 /// bisherigen Schlüssel unverändert zurück (der Server ersetzt `details` als Ganzes), auch Zahlen oder null.
-enum JSONValue: Codable, Hashable {
+nonisolated enum JSONValue: Codable, Hashable {
     case string(String)
     case number(Double)
     case bool(Bool)
@@ -188,7 +190,7 @@ enum JSONValue: Codable, Hashable {
 
 /// `details` eines Eintrags: die rohen Werte (zum Zurückschicken) und daraus die Texte (zur Anzeige).
 /// Ein abweichender Wert macht die Antwort nicht unlesbar; ohne Text wird er nur nicht angezeigt.
-struct StringMap: Codable, Hashable {
+nonisolated struct StringMap: Codable, Hashable {
     let raw: [String: JSONValue]
     var values: [String: String] { raw.compactMapValues(\.text) }
 
@@ -206,17 +208,17 @@ struct StringMap: Codable, Hashable {
 
 // MARK: - KI-Status und Reisetag-Abfrage
 
-struct AIStatus: Codable {
+nonisolated struct AIStatus: Codable {
     let enabled: Bool?
     let placeLookup: Bool?
 }
 
-struct PlaceLookupSource: Codable, Hashable {
+nonisolated struct PlaceLookupSource: Codable, Hashable {
     let title: String?
     let url: String?
 }
 
-struct PlaceLookupFinding: Codable, Hashable {
+nonisolated struct PlaceLookupFinding: Codable, Hashable {
     let key: String
     let label: String
     let value: String
@@ -226,7 +228,7 @@ struct PlaceLookupFinding: Codable, Hashable {
     let note: String?
 }
 
-struct PlaceLookup: Codable, Hashable {
+nonisolated struct PlaceLookup: Codable, Hashable {
     /// pending, done, failed
     let status: String
     let startedAt: String?
@@ -238,13 +240,13 @@ struct PlaceLookup: Codable, Hashable {
     let findings: [PlaceLookupFinding]?
 }
 
-struct PlaceLookupResponse: Codable {
+nonisolated struct PlaceLookupResponse: Codable {
     let lookup: PlaceLookup?
 }
 
 // MARK: - Timeline
 
-struct TimelineEntry: Codable, Hashable {
+nonisolated struct TimelineEntry: Codable, Hashable {
     let itemId: String
     /// start oder end (zweiter Auftritt eines mehrtägigen Eintrags)
     let role: String
@@ -253,13 +255,13 @@ struct TimelineEntry: Codable, Hashable {
     let item: Item
 }
 
-struct TimelineDay: Codable, Hashable {
+nonisolated struct TimelineDay: Codable, Hashable {
     let date: String
     let cruiseDay: CruiseDay?
     let entries: [TimelineEntry]
 }
 
-struct TimelinePhase: Codable, Hashable {
+nonisolated struct TimelinePhase: Codable, Hashable {
     let kind: String
     let title: String
     let cruiseId: String?
@@ -268,12 +270,12 @@ struct TimelinePhase: Codable, Hashable {
     let days: [TimelineDay]
 }
 
-struct WarningAck: Codable, Hashable {
+nonisolated struct WarningAck: Codable, Hashable {
     let by: String?
     let at: String?
 }
 
-struct TimelineWarning: Codable, Hashable {
+nonisolated struct TimelineWarning: Codable, Hashable {
     /// error, warning, info
     let level: String
     let code: String?
@@ -287,19 +289,35 @@ struct TimelineWarning: Codable, Hashable {
     let ack: WarningAck?
 }
 
-struct Pace: Codable, Hashable {
+nonisolated struct Pace: Codable, Hashable {
     let enabled: Bool?
     let factor: Double?
     let extraMinutes: Int?
 }
 
-struct Timeline: Codable {
+nonisolated struct Timeline: Codable {
     let tripId: String
     let updatedAt: String?
     let defaultTimezone: String?
     let pace: Pace?
     let phases: [TimelinePhase]
     let warnings: [TimelineWarning]
+}
+
+// MARK: - Benachrichtigungen (APNs)
+
+nonisolated struct APNsStatus: Decodable {
+    let enabled: Bool
+}
+
+nonisolated struct PushTestResponse: Decodable {
+    struct Result: Decodable {
+        let deviceName: String?
+        let kind: String?
+        let ok: Bool
+        let error: String?
+    }
+    let results: [Result]
 }
 
 // ENDE Models.swift

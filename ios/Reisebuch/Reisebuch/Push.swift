@@ -14,20 +14,6 @@ import Observation
 import UIKit
 import UserNotifications
 
-struct APNsStatus: Decodable {
-    let enabled: Bool
-}
-
-struct PushTestResponse: Decodable {
-    struct Result: Decodable {
-        let deviceName: String?
-        let kind: String?
-        let ok: Bool
-        let error: String?
-    }
-    let results: [Result]
-}
-
 /// Reine Hilfsfunktionen, getestet in PushTests.
 enum PushLogic {
     /// Geräte-Token als Hex-Text, klein geschrieben.
@@ -212,9 +198,11 @@ final class PushController {
         busy = false
     }
 
-    /// Antippen einer Nachricht: "/trips/<id>" öffnet die Reise wie das Widget, sonst nur die App.
-    func open(path: String?) {
+    /// Antippen einer Nachricht: "/trips/<id>" öffnet die Reise wie das Widget, sonst nur die App. Mit `documentId`
+    /// (Dokument gelesen) zeigt die Reise danach die Vorschläge dieses Dokuments.
+    func open(path: String?, documentId: String? = nil) {
         guard let id = PushLogic.tripId(fromPath: path), let url = PushLogic.appURL(forTripId: id) else { return }
+        session.pendingDocumentId = documentId
         session.handle(url: url)
     }
 }
@@ -289,7 +277,8 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     /// Antippen: Reise öffnen (gleicher Weg wie das Widget).
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
-        push.open(path: response.notification.request.content.userInfo["url"] as? String)
+        let info = response.notification.request.content.userInfo
+        push.open(path: info["url"] as? String, documentId: DocumentStatus.documentId(from: info))
         completionHandler()
     }
 }

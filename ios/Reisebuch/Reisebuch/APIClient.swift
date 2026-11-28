@@ -4,11 +4,12 @@
 //
 //  Zugriff auf die REST-API von Reisebuch (docs/API.md). Jede Anfrage außer Anmeldung und Version
 //  trägt "Authorization: Bearer <token>". Fehlermeldungen sind deutsch und für Philip verständlich.
+//  Gehört zu App und ReisebuchShare (darum nonisolated).
 //
 
 import Foundation
 
-enum APIError: LocalizedError, Equatable {
+nonisolated enum APIError: LocalizedError, Equatable {
     case invalidAddress
     case unreachable
     case insecureBlocked
@@ -38,7 +39,7 @@ enum APIError: LocalizedError, Equatable {
     }
 }
 
-struct APIClient {
+nonisolated struct APIClient {
     let baseURL: URL
     var token: String?
 
@@ -57,6 +58,15 @@ struct APIClient {
     private static let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 15
+        config.waitsForConnectivity = false
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(configuration: config)
+    }()
+
+    /// Für Hochladen, erneutes Lesen und Übernehmen (dauert bis etwa eine Minute).
+    private static let longSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 120
         config.waitsForConnectivity = false
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         return URLSession(configuration: config)
@@ -172,6 +182,56 @@ struct APIClient {
         }
     }
 
+    // MARK: Dokumente (0.7.0)
+
+    /// Datei eines Anhangs (mit Token).
+    func downloadAttachment(id: String) async throws -> Data {
+        try await perform("GET", "/api/attachments/\(Self.pathID(id))", body: nil, long: true)
+    }
+
+    func deleteAttachment(id: String) async throws {
+        let _: EmptyResponse = try await send("DELETE", "/api/attachments/\(Self.pathID(id))")
+    }
+
+    func analysis(attachmentId: String) async throws -> AnalysisView {
+        try await send("GET", "/api/attachments/\(Self.pathID(attachmentId))/analysis")
+    }
+
+    func applyAnalysis(attachmentId: String, _ body: JSONBody) async throws {
+        let data = try JSONEncoder().encode(body)
+        _ = try await perform("POST", "/api/attachments/\(Self.pathID(attachmentId))/apply", body: data, long: true)
+    }
+
+    func dismissAnalysis(attachmentId: String) async throws {
+        let _: EmptyResponse = try await send("POST", "/api/attachments/\(Self.pathID(attachmentId))/dismiss", body: EmptyBody())
+    }
+
+    /// Erneut lesen; dauert bis etwa eine Minute.
+    func reanalyze(attachmentId: String) async throws {
+        _ = try await perform("POST", "/api/attachments/\(Self.pathID(attachmentId))/analyze", body: Data("{}".utf8), long: true)
+    }
+
+    /// Lädt eine Datei hoch (POST /trips/:id/documents?background=1), Body aus einer Datei gestreamt.
+    func uploadDocument(tripId: String, itemId: String? = nil, file: URL, filename: String) async throws -> Upload.Outcome {
+        guard Upload.fileSize(file) <= Upload.maxBytes else {
+            throw APIError.other("„\(filename)“ ist größer als 25 MB.")
+        }
+        var path = "/api/trips/\(Self.pathID(tripId))/documents?background=1"
+        if let itemId { path += "&itemId=\(Self.pathID(itemId))" }
+        guard let url = URL(string: baseURL.absoluteString + path) else { throw APIError.invalidAddress }
+        let boundary = "Reisebuch-\(UUID().uuidString)"
+        let body = try Upload.writeBody(from: file, filename: filename, mime: Upload.mime(for: filename), boundary: boundary)
+        defer { try? FileManager.default.removeItem(at: body) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        let (data, response) = try await Self.mapErrors { try await Self.longSession.upload(for: request, fromFile: body) }
+        let http = try Self.check(response, data)
+        return Upload.outcome(status: http.statusCode, response: try? JSONDecoder().decode(UploadResponse.self, from: data))
+    }
+
     // MARK: Benachrichtigungen (APNs)
 
     /// Ob der Server an die iPhone-App senden kann (APNs-Schlüssel eingerichtet).
@@ -223,7 +283,7 @@ struct APIClient {
     }
 
     /// Führt die Anfrage aus und gibt die rohe Antwort zurück; Fehler werden zu APIError.
-    private func perform(_ method: String, _ path: String, body: Data?, authorized: Bool = true) async throws -> Data {
+    private func perform(_ method: String, _ path: String, body: Data?, authorized: Bool = true, long: Bool = false) async throws -> Data {
         guard let url = URL(string: baseURL.absoluteString + path) else { throw APIError.invalidAddress }
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -236,10 +296,16 @@ struct APIClient {
             request.httpBody = body
         }
 
-        let data: Data
-        let response: URLResponse
+        let session = long ? Self.longSession : Self.session
+        let (data, response) = try await Self.mapErrors { try await session.data(for: request) }
+        _ = try Self.check(response, data)
+        return data
+    }
+
+    /// Netzwerkfehler → APIError.
+    private static func mapErrors(_ work: () async throws -> (Data, URLResponse)) async throws -> (Data, URLResponse) {
         do {
-            (data, response) = try await Self.session.data(for: request)
+            return try await work()
         } catch let error as URLError {
             switch error.code {
             case .appTransportSecurityRequiresSecureConnection:
@@ -253,14 +319,17 @@ struct APIClient {
                 throw APIError.other("Verbindungsfehler: \(error.localizedDescription)")
             }
         }
+    }
 
+    /// Statuscode prüfen: 401 → abgemeldet, sonst Fehlertext des Servers.
+    private static func check(_ response: URLResponse, _ data: Data) throws -> HTTPURLResponse {
         guard let http = response as? HTTPURLResponse else { throw APIError.other("Keine gültige Antwort vom Server.") }
         if http.statusCode == 401 { throw APIError.unauthorized }
         guard (200..<300).contains(http.statusCode) else {
             let message = (try? JSONDecoder().decode(APIErrorBody.self, from: data))?.error
             throw APIError.server(status: http.statusCode, message: message)
         }
-        return data
+        return http
     }
 
     /// Liest eine Antwort; auch für gespeicherte Antworten aus dem Zwischenspeicher.
