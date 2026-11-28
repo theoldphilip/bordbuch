@@ -20,6 +20,7 @@ struct TripListView: View {
     @State private var startedUp = false
     /// Geöffnete Reisen; das Widget kann über reisebuch://trip/<id> eine Reise öffnen.
     @State private var path: [TripSummary] = []
+    @State private var showNewTrip = false
 
     private var today: String { Fmt.todayISO() }
 
@@ -53,7 +54,7 @@ struct TripListView: View {
                 }
                 if loaded && trips.isEmpty && errorText == nil {
                     Section {
-                        Text("Noch keine Reisen. Reisen legst du in der Web-App an.")
+                        Text("Noch keine Reisen. Mit + legst du eine neue an.")
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -80,6 +81,14 @@ struct TripListView: View {
                 TripTimelineView(trip: trip)
             }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showNewTrip = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Neue Reise")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showSettings = true
@@ -91,6 +100,18 @@ struct TripListView: View {
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            .sheet(isPresented: $showNewTrip) {
+                TripFormView { info in
+                    let summary = TripSummary(id: info.id, title: info.title, kind: info.kind, startDate: info.startDate,
+                                              endDate: info.endDate, effectiveStartDate: info.startDate,
+                                              effectiveEndDate: info.endDate, role: "owner", ships: [], memberCount: 1,
+                                              updatedAt: nil)
+                    path = [summary]
+                }
+            }
+            .onChange(of: session.tripsVersion) { _, _ in
+                if let cached = session.cachedTrips() { trips = cached.value }
             }
             .refreshable { await load() }
             .task {

@@ -2,8 +2,9 @@
 //  TripTimelineView.swift
 //  Reisebuch
 //
-//  Ablauf einer Reise (nur lesen): Hinweise des Puffer-Checks oben, dann Abschnitte → Tage → Einträge.
-//  Aufbau wie GET /api/trips/:id/timeline (docs/API.md „Timeline“).
+//  Ablauf einer Reise: Hinweise des Puffer-Checks oben (mit Quittieren), dann Abschnitte → Tage → Einträge.
+//  Aufbau wie GET /api/trips/:id/timeline (docs/API.md „Timeline“). Seit 0.6.0 mit Bearbeiten für owner/editor und
+//  Ansichtsmodus wie in der Web-App (ab dem ersten begonnenen Punkt gesperrt, bis zum Beenden der App entsperrbar).
 //
 
 import SwiftUI
@@ -11,9 +12,18 @@ import SwiftUI
 struct TripTimelineView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dismiss) private var dismiss
     let trip: TripSummary
 
     @State private var timeline: Timeline?
+    @State private var detail: TripDetail?
+    @State private var showTripForm = false
+    @State private var showNewItem = false
+    @State private var confirmDeleteTrip = false
+    @State private var confirmUnlock = false
+    @State private var cruiseToEdit: CruiseSummary?
+    @State private var cruiseForNewDay: CruiseSummary?
+    @State private var actionError: String?
     @State private var errorText: String?
     /// Gesetzt, solange der gespeicherte Ablauf gezeigt wird, weil der Server nicht erreichbar ist.
     @State private var offlineSince: Date?
@@ -23,54 +33,104 @@ struct TripTimelineView: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            List {
-                if let offlineSince {
-                    OfflineBanner(savedAt: offlineSince)
+            dialogs(sheets(list))
+                .refreshable { await load() }
+                .task {
+                    if !startedUp {
+                        startedUp = true
+                        if let cached = session.cachedTimeline(tripId: trip.id) {
+                            timeline = cached.value
+                            await scrollToNowOnce(proxy)
+                        }
+                    }
+                    await load()
+                    await scrollToNowOnce(proxy)
                 }
-                if let errorText {
-                    Section {
-                        Label(errorText, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+                .task {
+                    // „Jetzt“ jede Minute neu berechnen.
+                    while !Task.isCancelled {
+                        try? await Task.sleep(for: .seconds(60))
+                        now = Date()
                     }
                 }
-                if let timeline {
-                    let context = TimelineContext(timeline: timeline, now: now, tripRole: trip.role,
-                                                  warningsByItem: openWarningsByItem(timeline.warnings),
-                                                  reload: { await load() })
-                    WarningsSection(warnings: timeline.warnings)
-                    ForEach(Array(timeline.phases.enumerated()), id: \.offset) { _, phase in
-                        PhaseSection(phase: phase, context: context)
-                    }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active { now = Date() }
+                }
+        }
+    }
+
+    private var list: some View {
+        List {
+            if let offlineSince {
+                OfflineBanner(savedAt: offlineSince)
+            }
+            if let errorText {
+                Section {
+                    Label(errorText, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
                 }
             }
-            .listStyle(.insetGrouped)
-            .overlay {
-                if timeline == nil && errorText == nil { ProgressView() }
-            }
-            .navigationTitle(trip.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .refreshable { await load() }
-            .task {
-                if !startedUp {
-                    startedUp = true
-                    if let cached = session.cachedTimeline(tripId: trip.id) {
-                        timeline = cached.value
-                        await scrollToNowOnce(proxy)
-                    }
-                }
-                await load()
-                await scrollToNowOnce(proxy)
-            }
-            .task {
-                // „Jetzt“ jede Minute neu berechnen.
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(60))
-                    now = Date()
+            if let actionError {
+                Section {
+                    Label(actionError, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
                 }
             }
-            .onChange(of: scenePhase) { _, phase in
-                if phase == .active { now = Date() }
+            if let timeline {
+                timelineContent(timeline)
             }
         }
+        .listStyle(.insetGrouped)
+        .overlay {
+            if timeline == nil && errorText == nil { ProgressView() }
+        }
+        .navigationTitle(detail?.trip?.title ?? trip.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { toolbar }
+    }
+
+    @ViewBuilder
+    private func timelineContent(_ timeline: Timeline) -> some View {
+        let context = TimelineContext(timeline: timeline, now: now, tripRole: role,
+                                      warningsByItem: openWarningsByItem(timeline.warnings),
+                                      reload: { await load() }, edit: editContext(timeline))
+        if isEditor && started(timeline) {
+            ViewModeRow(locked: locked(timeline), onUnlock: { confirmUnlock = true },
+                        onLock: { session.unlockedTrips.remove(trip.id) })
+        }
+        WarningsSection(warnings: timeline.warnings, canAck: isEditor, onAck: { key, ack in await self.ack(key, ack) })
+        ForEach(Array(timeline.phases.enumerated()), id: \.offset) { _, phase in
+            PhaseSection(phase: phase, context: context)
+        }
+    }
+
+    private func sheets(_ content: some View) -> some View {
+        content
+            .sheet(isPresented: $showTripForm) {
+                TripFormView(trip: tripInfo) { _ in Task { await load() } }
+            }
+            .sheet(isPresented: $showNewItem) {
+                if let timeline { ItemFormView(ctx: editContext(timeline)) { _ in } }
+            }
+            .sheet(item: $cruiseToEdit) { cruise in
+                if let timeline { CruiseFormView(cruise: cruise, ctx: editContext(timeline)) }
+            }
+            .sheet(item: $cruiseForNewDay) { cruise in
+                if let timeline { CruiseDayFormView(cruise: cruise, ctx: editContext(timeline)) }
+            }
+    }
+
+    private func dialogs(_ content: some View) -> some View {
+        content
+            .confirmationDialog("„\(detail?.trip?.title ?? trip.title)“ löschen?", isPresented: $confirmDeleteTrip,
+                                titleVisibility: .visible) {
+                Button("Reise löschen", role: .destructive) { Task { await deleteTrip() } }
+            } message: {
+                Text("Alle Einträge, Kreuzfahrten und Dokumente dieser Reise werden mit gelöscht. Das lässt sich nicht rückgängig machen.")
+            }
+            .confirmationDialog("Ansichtsmodus verlassen?", isPresented: $confirmUnlock, titleVisibility: .visible) {
+                Button("Bearbeiten entsperren") { session.unlockedTrips.insert(trip.id) }
+            } message: {
+                Text("Die Reise läuft. Änderungen sind bis zum Beenden der App wieder möglich.")
+            }
     }
 
     /// Beim Öffnen einer laufenden Reise einmal zur Markierung scrollen, nicht bei jeder Aktualisierung.
@@ -89,7 +149,91 @@ struct TripTimelineView: View {
         return result
     }
 
+    // MARK: Rechte und Bearbeiten
+
+    private var role: String? { detail?.role ?? trip.role }
+    private var isEditor: Bool { ViewMode.isEditor(role) }
+    private var isOwner: Bool { role == "owner" }
+    private func started(_ t: Timeline) -> Bool { ViewMode.started(t, now: now) }
+    private func locked(_ t: Timeline) -> Bool {
+        ViewMode.locked(isEditor: isEditor, started: started(t), unlocked: session.unlockedTrips.contains(trip.id))
+    }
+
+    private var tripInfo: TripInfo {
+        detail?.trip ?? TripInfo(id: trip.id, title: trip.title, kind: trip.kind, startDate: trip.startDate,
+                                 endDate: trip.endDate, notes: nil)
+    }
+
+    private func editContext(_ t: Timeline) -> EditContext {
+        let defaultTz = t.defaultTimezone ?? "Europe/Zurich"
+        let lastTz = t.phases.flatMap(\.days).flatMap(\.entries).last?.timezone
+        return EditContext(tripId: trip.id, tripKind: detail?.trip?.kind ?? trip.kind, cruises: detail?.cruises ?? [],
+                           defaultTz: defaultTz, suggestedTz: lastTz ?? defaultTz, isEditor: isEditor, isOwner: isOwner,
+                           canEdit: isEditor && !locked(t), reload: { await load() })
+    }
+
+    @ToolbarContentBuilder
+    private var toolbar: some ToolbarContent {
+        if isEditor, let timeline {
+            if locked(timeline) {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { confirmUnlock = true } label: { Image(systemName: "lock.fill") }
+                        .accessibilityLabel("Bearbeiten entsperren")
+                }
+            } else {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Reise bearbeiten", systemImage: "pencil") { showTripForm = true }
+                        ForEach(detail?.cruises ?? []) { c in
+                            Button("Kreuzfahrt \(c.shipName ?? "") bearbeiten", systemImage: "ferry") { cruiseToEdit = c }
+                            Button("Reisetag hinzufügen (\(c.shipName ?? "Kreuzfahrt"))", systemImage: "calendar.badge.plus") {
+                                cruiseForNewDay = c
+                            }
+                        }
+                        if isOwner {
+                            Divider()
+                            Button("Reise löschen", systemImage: "trash", role: .destructive) { confirmDeleteTrip = true }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel("Reise bearbeiten")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showNewItem = true } label: { Image(systemName: "plus") }
+                        .accessibilityLabel("Eintrag hinzufügen")
+                }
+            }
+        }
+    }
+
+    /// Hinweis quittieren oder zurücknehmen; 404 heißt: nicht mehr aktuell, Ablauf neu laden.
+    private func ack(_ key: String, _ ack: Bool) async {
+        actionError = nil
+        do {
+            try await session.call { try await $0.ackWarning(tripId: trip.id, key: key, ack: ack) }
+        } catch APIError.server(404, _) {
+            // nicht mehr aktuell
+        } catch {
+            actionError = SaveError.text(error)
+        }
+        await load()
+    }
+
+    private func deleteTrip() async {
+        actionError = nil
+        do {
+            try await session.call { try await $0.deleteTrip(tripId: trip.id) }
+            _ = try? await session.fetchTrips()
+            dismiss()
+        } catch {
+            actionError = SaveError.text(error)
+        }
+    }
+
     private func load() async {
+        if detail == nil { detail = session.cachedTripDetail(tripId: trip.id) }
+        if let fresh = try? await session.fetchTripDetail(tripId: trip.id) { detail = fresh }
         do {
             timeline = try await session.fetchTimeline(tripId: trip.id)
             errorText = nil
@@ -121,6 +265,7 @@ struct TimelineContext {
     let tripRole: String?
     let warningsByItem: [String: [TimelineWarning]]
     let reload: () async -> Void
+    let edit: EditContext
 
     var defaultTz: String { timeline.defaultTimezone ?? "Europe/Zurich" }
     var nowElement: NowLogic.Element? { NowLogic.nowElement(timeline, now: now) }
@@ -183,9 +328,38 @@ struct WarningStyle {
     }
 }
 
+/// Band „Ansichtsmodus“ bzw. „Bearbeiten ist aktiv“ (wie in der Web-App).
+private struct ViewModeRow: View {
+    let locked: Bool
+    let onUnlock: () -> Void
+    let onLock: () -> Void
+
+    var body: some View {
+        Section {
+            if locked {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Ansichtsmodus: Die Reise läuft, Änderungen sind gesperrt.", systemImage: "lock.fill")
+                        .font(.subheadline)
+                    Button("Bearbeiten entsperren", action: onUnlock).font(.subheadline)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Bearbeiten ist aktiv. Bis du die App beendest.", systemImage: "lock.open.fill")
+                        .font(.subheadline)
+                    Button("Ansichtsmodus einschalten", action: onLock).font(.subheadline)
+                }
+            }
+        }
+        .listRowBackground(locked ? Color.secondary.opacity(0.12) : Color.green.opacity(0.12))
+    }
+}
+
 private struct WarningsSection: View {
     let warnings: [TimelineWarning]
+    let canAck: Bool
+    let onAck: (String, Bool) async -> Void
     @State private var expanded: Bool?
+    @State private var busyKey: String?
     @State private var ackExpanded = false
 
     private var open: [TimelineWarning] {
@@ -194,6 +368,25 @@ private struct WarningsSection: View {
     private var acked: [TimelineWarning] { warnings.filter { $0.ack != nil } }
 
     private var worstLevel: String { open.first?.level ?? "info" }
+
+    @ViewBuilder
+    private func ackButton(_ w: TimelineWarning, ack: Bool) -> some View {
+        if canAck, let key = w.key {
+            if busyKey == key {
+                ProgressView()
+            } else {
+                Button(ack ? "Quittieren" : "Quittierung zurücknehmen") {
+                    Task {
+                        busyKey = key
+                        await onAck(key, ack)
+                        busyKey = nil
+                    }
+                }
+                .font(.caption)
+                .buttonStyle(.borderless)
+            }
+        }
+    }
 
     var body: some View {
         if !warnings.isEmpty {
@@ -206,12 +399,21 @@ private struct WarningsSection: View {
                         Text("Keine offenen Hinweise.").foregroundStyle(.secondary)
                     }
                     ForEach(Array(open.enumerated()), id: \.offset) { _, w in
-                        WarningRow(warning: w)
+                        VStack(alignment: .leading, spacing: 4) {
+                            WarningRow(warning: w)
+                            ackButton(w, ack: true)
+                        }
                     }
                     if !acked.isEmpty {
                         DisclosureGroup("Quittiert (\(acked.count))", isExpanded: $ackExpanded) {
                             ForEach(Array(acked.enumerated()), id: \.offset) { _, w in
-                                WarningRow(warning: w).opacity(0.6)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    WarningRow(warning: w).opacity(0.6)
+                                    if let by = w.ack?.by {
+                                        Text("quittiert von \(by)").font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    ackButton(w, ack: false)
+                                }
                             }
                         }
                     }
@@ -285,7 +487,7 @@ private struct PhaseSection: View {
                     }
                     NavigationLink {
                         ItemDetailView(item: entry.item, warnings: context.warningsByItem[entry.itemId] ?? [],
-                                       tripRole: context.tripRole, onChanged: context.reload)
+                                       tripRole: context.tripRole, onChanged: context.reload, edit: context.edit)
                     } label: {
                         EntryRow(entry: entry, warnings: context.warningsByItem[entry.itemId] ?? [])
                             .opacity(context.isPast(entry) ? 0.45 : 1)
@@ -313,7 +515,7 @@ private struct DayHeaderRow: View {
     var body: some View {
         if let cd = day.cruiseDay {
             NavigationLink {
-                CruiseDayDetailView(day: cd)
+                CruiseDayDetailView(day: cd, edit: context.edit)
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(Fmt.dayHeader(day.date)).font(.headline)

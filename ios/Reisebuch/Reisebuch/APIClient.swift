@@ -117,6 +117,61 @@ struct APIClient {
         return try await send("PATCH", "/api/items/\(Self.pathID(itemId))", body: Body(details: details))
     }
 
+    // MARK: Bearbeiten (0.6.0)
+
+    /// JSON-Körper aus beliebigen Werten (Teil-Updates schicken nur die geänderten Felder).
+    typealias JSONBody = [String: JSONValue]
+
+    func createTrip(_ body: JSONBody) async throws -> TripDetail {
+        try await send("POST", "/api/trips", body: body)
+    }
+
+    func patchTrip(tripId: String, _ body: JSONBody) async throws {
+        let _: EmptyResponse = try await send("PATCH", "/api/trips/\(Self.pathID(tripId))", body: body)
+    }
+
+    func deleteTrip(tripId: String) async throws {
+        let _: EmptyResponse = try await send("DELETE", "/api/trips/\(Self.pathID(tripId))")
+    }
+
+    func createItem(tripId: String, _ body: JSONBody) async throws -> Item {
+        try await send("POST", "/api/trips/\(Self.pathID(tripId))/items", body: body)
+    }
+
+    func patchItem(itemId: String, _ body: JSONBody) async throws -> Item {
+        try await send("PATCH", "/api/items/\(Self.pathID(itemId))", body: body)
+    }
+
+    func deleteItem(itemId: String) async throws {
+        let _: EmptyResponse = try await send("DELETE", "/api/items/\(Self.pathID(itemId))")
+    }
+
+    func patchCruise(cruiseId: String, _ body: JSONBody) async throws {
+        let _: EmptyResponse = try await send("PATCH", "/api/cruises/\(Self.pathID(cruiseId))", body: body)
+    }
+
+    func addCruiseDay(cruiseId: String, _ body: JSONBody) async throws {
+        let _: EmptyResponse = try await send("POST", "/api/cruises/\(Self.pathID(cruiseId))/days", body: body)
+    }
+
+    func patchCruiseDay(dayId: String, _ body: JSONBody) async throws {
+        let _: EmptyResponse = try await send("PATCH", "/api/cruise-days/\(Self.pathID(dayId))", body: body)
+    }
+
+    func deleteCruiseDay(dayId: String) async throws {
+        let _: EmptyResponse = try await send("DELETE", "/api/cruise-days/\(Self.pathID(dayId))")
+    }
+
+    /// Hinweis quittieren bzw. zurücknehmen (Rolle editor). 404: Hinweis nicht mehr aktuell.
+    func ackWarning(tripId: String, key: String, ack: Bool) async throws {
+        let path = "/api/trips/\(Self.pathID(tripId))/warnings/\(Self.pathID(key))/ack"
+        if ack {
+            let _: EmptyResponse = try await send("PUT", path, body: EmptyBody())
+        } else {
+            let _: EmptyResponse = try await send("DELETE", path)
+        }
+    }
+
     // MARK: Benachrichtigungen (APNs)
 
     /// Ob der Server an die iPhone-App senden kann (APNs-Schlüssel eingerichtet).

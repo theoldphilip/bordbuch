@@ -2,7 +2,8 @@
 //  DetailViews.swift
 //  Reisebuch
 //
-//  Detailansichten (nur lesen) für Eintrag und Kreuzfahrt-Tag, dazu die Zusatzinfos mit Anruf-Links.
+//  Detailansichten für Eintrag und Kreuzfahrt-Tag, dazu die Zusatzinfos mit Anruf-Links. Seit 0.6.0 mit „Bearbeiten“ und
+//  „Löschen“ für Bearbeiter (nicht im Ansichtsmodus).
 //
 
 import SwiftUI
@@ -11,18 +12,28 @@ import SwiftUI
 
 struct ItemDetailView: View {
     @Environment(AppSession.self) private var session
-    /// Lokal veränderbar: Nach „Übernehmen“ der Reisetag-Abfrage zeigt die Ansicht gleich den neuen Stand.
+    @Environment(\.dismiss) private var dismiss
+    /// Lokal veränderbar: Nach „Übernehmen“ der Reisetag-Abfrage oder dem Bearbeiten zeigt die Ansicht gleich den neuen Stand.
     @State private var item: Item
     let warnings: [TimelineWarning]
     let tripRole: String?
     let onChanged: () async -> Void
+    let edit: EditContext?
+    @State private var showForm = false
+    @State private var confirmDelete = false
+    @State private var deleteError: String?
+    @State private var deleting = false
 
-    init(item: Item, warnings: [TimelineWarning], tripRole: String? = nil, onChanged: @escaping () async -> Void = {}) {
+    init(item: Item, warnings: [TimelineWarning], tripRole: String? = nil, onChanged: @escaping () async -> Void = {},
+         edit: EditContext? = nil) {
         _item = State(initialValue: item)
         self.warnings = warnings
         self.tripRole = tripRole
         self.onChanged = onChanged
+        self.edit = edit
     }
+
+    private var canEdit: Bool { edit?.canEdit == true }
 
     /// Reisetag-Abfrage nur für Flug, Zug, Mietwagen, wenn der Server sie anbietet und man in der Reise bearbeiten darf.
     private var showsPlaceLookup: Bool {
@@ -100,9 +111,51 @@ struct ItemDetailView: View {
                     Text(notes).textSelection(.enabled)
                 }
             }
+
+            if canEdit {
+                Section {
+                    if let deleteError {
+                        Label(deleteError, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+                    }
+                    Button(role: .destructive) { confirmDelete = true } label: {
+                        if deleting { ProgressView() } else { Text("Eintrag löschen") }
+                    }
+                    .disabled(deleting)
+                }
+            }
         }
         .navigationTitle(type.label)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if canEdit {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Bearbeiten") { showForm = true }
+                }
+            }
+        }
+        .sheet(isPresented: $showForm) {
+            if let edit {
+                ItemFormView(ctx: edit, item: item) { saved in item = saved }
+            }
+        }
+        .confirmationDialog("„\(item.title)“ wirklich löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Löschen", role: .destructive) { Task { await deleteItem() } }
+        } message: {
+            Text("Angehängte Dokumente werden mit gelöscht.")
+        }
+    }
+
+    private func deleteItem() async {
+        deleteError = nil
+        deleting = true
+        defer { deleting = false }
+        do {
+            try await session.call { try await $0.deleteItem(itemId: item.id) }
+            await onChanged()
+            dismiss()
+        } catch {
+            deleteError = SaveError.text(error)
+        }
     }
 
     private var bookingRows: [(String, String)] {
@@ -156,7 +209,15 @@ private struct TimeRow: View {
 // MARK: - Kreuzfahrt-Tag
 
 struct CruiseDayDetailView: View {
+    @Environment(\.dismiss) private var dismiss
     let day: CruiseDay
+    var edit: EditContext? = nil
+    @State private var showForm = false
+
+    /// Kreuzfahrt, zu der der Tag gehört (zum Bearbeiten nötig).
+    private var cruise: CruiseSummary? {
+        edit?.cruises.first { $0.id == day.cruiseId } ?? edit?.cruises.first { ($0.days ?? []).contains { $0.id == day.id } }
+    }
 
     var body: some View {
         let kind = Labels.dayKind(day.kind)
@@ -195,6 +256,22 @@ struct CruiseDayDetailView: View {
         }
         .navigationTitle(kind.label)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if edit?.canEdit == true, cruise != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Bearbeiten") { showForm = true }
+                }
+            }
+        }
+        .sheet(isPresented: $showForm, onDismiss: {}) {
+            if let edit, let cruise {
+                // Nach dem Speichern oder Löschen zurück zum Ablauf, der den neuen Stand zeigt.
+                CruiseDayFormView(cruise: cruise, day: day, ctx: EditContext(
+                    tripId: edit.tripId, tripKind: edit.tripKind, cruises: edit.cruises, defaultTz: edit.defaultTz,
+                    suggestedTz: edit.suggestedTz, isEditor: edit.isEditor, isOwner: edit.isOwner, canEdit: edit.canEdit,
+                    reload: { await edit.reload(); dismiss() }))
+            }
+        }
     }
 }
 

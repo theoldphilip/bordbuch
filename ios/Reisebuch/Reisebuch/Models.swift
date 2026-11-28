@@ -52,17 +52,36 @@ struct TripSummary: Codable, Identifiable, Equatable {
 
 // MARK: - Reise im Detail (GET /trips/:id)
 
-/// Schiffsdaten einer Kreuzfahrt; nur was die App braucht.
+/// Kreuzfahrt mit Schiffsdaten, Preis und Tagen (aus `TripDetail.cruises`).
 struct CruiseSummary: Codable, Hashable, Identifiable {
     let id: String
     let shipName: String?
     let cruiseLine: String?
     let cabin: String?
     let bookingRef: String?
+    var notes: String? = nil
+    var cost: Double? = nil
+    var currency: String? = nil
+    var paymentStatus: String? = nil
+    var paidAmount: Double? = nil
+    var dueDate: String? = nil
+    var infos: [Info]? = nil
+    var days: [CruiseDay]? = nil
+}
+
+/// Stammdaten der Reise (aus `TripDetail.trip`).
+struct TripInfo: Codable, Hashable {
+    let id: String
+    let title: String
+    let kind: String?
+    let startDate: String?
+    let endDate: String?
+    let notes: String?
 }
 
 /// Ausschnitt aus `TripDetail`; weitere Felder werden ignoriert.
 struct TripDetail: Codable {
+    var trip: TripInfo? = nil
     let role: String?
     let cruises: [CruiseSummary]?
 }

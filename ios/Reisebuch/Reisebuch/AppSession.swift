@@ -29,6 +29,10 @@ final class AppSession {
     private(set) var isOffline = false
     /// Server bietet die Reisetag-Abfrage an (GET /api/ai/status); offline gilt der letzte bekannte Wert.
     private(set) var placeLookupAvailable: Bool
+    /// Reisen, deren Ansichtsmodus aufgehoben ist; nur im Speicher, gilt bis zum Beenden der App.
+    var unlockedTrips: Set<String> = []
+    /// Zählt hoch, wenn die Reiseliste im Zwischenspeicher neu ist (die Liste zeigt sie dann).
+    private(set) var tripsVersion = 0
     /// Reise, die geöffnet werden soll (Antippen des Widgets, reisebuch://trip/<id>); die Reiseliste setzt sie zurück.
     var pendingTripId: String?
     /// Wird beim lokalen Abmelden gerufen (auch nach 401), z. B. um den Schalter für Mitteilungen zurückzusetzen.
@@ -119,6 +123,7 @@ final class AppSession {
         let result = try await call { try await $0.tripsRaw() }
         ResponseCache.save(result.data, as: ResponseCache.tripsFile)
         ResponseCache.pruneTimelines(keeping: result.trips.map(\.id))
+        tripsVersion += 1
         refreshWidget()
         return result.trips
     }
