@@ -185,6 +185,8 @@ Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
    prüfen, Teilen-Erweiterung `ReisebuchShare` (Token per App Group im Schlüsselbund, Upload mit `?background=1`, braucht Server 0.12.0).
    0.5.0 bis 0.7.0 geliefert, Server 0.12.0 eingespielt (28.11.). Danach bestellt: `ios/AUFTRAG-0.8.0.md` KI-Funktionen wie Web (Reise
    prüfen, Vorschläge bearbeiten, Recherche, zusammen auswerten, neue Reise aus Dokumenten, KI-Status/Test), braucht Server 0.13.0.
+   Danach `ios/AUFTRAG-0.9.0.md`: alle Reiter (Kreuzfahrt, Kosten, Teilen/Mitglieder) und Einstellungen wie Web inkl. Benutzerverwaltung
+   (Familie, Einladung), damit die App alles kann, was die Web-App kann.
    Philip will **keine Prüfung im Simulator** in den Aufträgen (nur Build und Unit-Tests). Philip installiert IPAs selbst mit
    `scripts/mint/reisebuch-ipa.sh`.
 4. Kleinere Wünsche: Dokument an mehrere Einträge hängen, „automatisch übernehmen wenn sicher“, Bordzeit vs. Ortszeit, Packliste (siehe README-Roadmap).
