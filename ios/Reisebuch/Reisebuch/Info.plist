@@ -15,5 +15,15 @@
 			</array>
 		</dict>
 	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>de.theoldphilip.Reisebuch.refresh</string>
+	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Reisebuch erinnert dich am Flughafen, Bahnhof oder Hafen an Gate, Gleis und Zeiten. Dein Standort verlässt das iPhone nicht.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
 </dict>
 </plist>

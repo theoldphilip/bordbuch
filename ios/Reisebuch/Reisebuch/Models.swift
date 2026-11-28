@@ -50,6 +50,23 @@ struct TripSummary: Codable, Identifiable, Equatable {
     let updatedAt: String?
 }
 
+// MARK: - Reise im Detail (GET /trips/:id)
+
+/// Schiffsdaten einer Kreuzfahrt; nur was die App braucht.
+struct CruiseSummary: Codable, Hashable, Identifiable {
+    let id: String
+    let shipName: String?
+    let cruiseLine: String?
+    let cabin: String?
+    let bookingRef: String?
+}
+
+/// Ausschnitt aus `TripDetail`; weitere Felder werden ignoriert.
+struct TripDetail: Codable {
+    let role: String?
+    let cruises: [CruiseSummary]?
+}
+
 // MARK: - Zusatzinfos
 
 struct Info: Codable, Hashable {

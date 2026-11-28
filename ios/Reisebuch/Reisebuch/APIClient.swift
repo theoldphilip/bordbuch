@@ -91,6 +91,12 @@ struct APIClient {
         return (data, try Self.decode(Timeline.self, from: data))
     }
 
+    /// Reise im Detail als rohe Antwort (für den Zwischenspeicher) und gelesen.
+    func tripDetailRaw(tripId: String) async throws -> (data: Data, detail: TripDetail) {
+        let data = try await perform("GET", "/api/trips/\(Self.pathID(tripId))", body: nil)
+        return (data, try Self.decode(TripDetail.self, from: data))
+    }
+
     func aiStatus() async throws -> AIStatus {
         try await send("GET", "/api/ai/status")
     }

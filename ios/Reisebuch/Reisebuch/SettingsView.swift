@@ -2,7 +2,7 @@
 //  SettingsView.swift
 //  Reisebuch
 //
-//  Kleine Einstellungsseite: angemeldet als, Server, Benachrichtigungen, Versionen, Abmelden.
+//  Kleine Einstellungsseite: angemeldet als, Server, Benachrichtigungen (Push, Erinnerungen am Ort), Versionen, Abmelden.
 //
 
 import SwiftUI
@@ -10,6 +10,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppSession.self) private var session
     @Environment(PushController.self) private var push
+    @Environment(PlaceReminderController.self) private var places
     @Environment(\.dismiss) private var dismiss
 
     @State private var serverVersion: String?
@@ -58,6 +59,7 @@ struct SettingsView: View {
             }
             .task { await loadVersion() }
             .task { await push.loadServerStatus() }
+            .task { if places.isOn { await places.plan() } }
         }
     }
 
@@ -89,13 +91,55 @@ struct SettingsView: View {
             if let message = push.message {
                 Text(message).font(.footnote).foregroundStyle(.red)
             }
+            Toggle("Erinnerungen am Ort", isOn: Binding(
+                get: { places.isOn },
+                set: { on in Task { if on { await places.turnOn() } else { await places.turnOff() } } }
+            ))
+            .disabled(places.busy)
+            if let message = places.message {
+                Text(message).font(.footnote).foregroundStyle(.red)
+            }
+            if places.isOn {
+                placesList
+            }
         } header: {
             Text("Benachrichtigungen")
         } footer: {
-            if push.serverEnabled == true {
-                Text("Wann und wofür erinnert wird (Vorlauf, Gate-Änderungen), stellst du in der Web-App unter Einstellungen → Erinnerungen ein.")
+            VStack(alignment: .leading, spacing: 6) {
+                if push.serverEnabled == true {
+                    Text("Wann und wofür erinnert wird (Vorlauf, Gate-Änderungen), stellst du in der Web-App unter Einstellungen → Erinnerungen ein.")
+                }
+                Text("Erinnerungen am Ort funktionieren, wenn die App in den letzten Stunden vor der Abreise einmal geöffnet war oder iOS sie im Hintergrund aktualisieren durfte.")
             }
         }
+    }
+
+    /// Orte der nächsten 36 h: geplant und nicht gefunden.
+    @ViewBuilder
+    private var placesList: some View {
+        if places.geplant.isEmpty && places.nichtGefunden.isEmpty {
+            Text("Geplant: nichts in den nächsten 36 Stunden.")
+                .font(.footnote).foregroundStyle(.secondary)
+        }
+        if !places.geplant.isEmpty {
+            Text("Geplant").font(.footnote.bold()).foregroundStyle(.secondary)
+            ForEach(places.geplant) { g in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(g.kandidat.titel).font(.subheadline)
+                    Text([g.ortName, Self.zeit(g.kandidat)].compactMap { $0 }.joined(separator: " · "))
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+        }
+        ForEach(places.nichtGefunden) { k in
+            Text(k.suche.isEmpty ? "Kein Ort eingetragen: \(k.titel)" : "Ort nicht gefunden: \(k.titel) (\(k.suche[0].text))")
+                .font(.footnote).foregroundStyle(.orange)
+        }
+    }
+
+    /// „Sa. 09:40“ in der Zeitzone des Anlasses.
+    private static func zeit(_ k: OrtKandidat) -> String {
+        "\(WidgetAuswahl.wochentag(k.zeit, tz: k.tz)) \(WidgetAuswahl.uhrzeit(k.zeit, tz: k.tz))"
     }
 
     private func loadVersion() async {

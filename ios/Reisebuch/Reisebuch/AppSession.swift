@@ -33,6 +33,8 @@ final class AppSession {
     var pendingTripId: String?
     /// Wird beim lokalen Abmelden gerufen (auch nach 401), z. B. um den Schalter für Mitteilungen zurückzusetzen.
     @ObservationIgnored var onLocalLogout: (() -> Void)?
+    /// Wird gerufen, wenn neue Daten im Zwischenspeicher liegen (Erinnerungen am Ort neu planen).
+    @ObservationIgnored var onCacheChanged: (() -> Void)?
 
     var isLoggedIn: Bool { token != nil }
 
@@ -142,6 +144,36 @@ final class AppSession {
             cachedTimeline(tripId: trip.id).map { (trip: trip, timeline: $0.value) }
         }
         WidgetFeed.publish(WidgetFeed.termine(pairs, now: now), now: now)
+        onCacheChanged?()
+    }
+
+    func cachedTripDetail(tripId: String) -> TripDetail? {
+        guard let entry = ResponseCache.load(ResponseCache.tripFile(tripId)) else { return nil }
+        return try? APIClient.decode(TripDetail.self, from: entry.data)
+    }
+
+    /// Reise im Detail laden und speichern (Schiff und Kabine für Erinnerungen am Ort).
+    @discardableResult
+    func fetchTripDetail(tripId: String) async throws -> TripDetail {
+        let result = try await call { try await $0.tripDetailRaw(tripId: tripId) }
+        ResponseCache.save(result.data, as: ResponseCache.tripFile(tripId))
+        onCacheChanged?()
+        return result.detail
+    }
+
+    /// Laufende und kommende Reisen mit gespeichertem Ablauf (und Detail, falls vorhanden).
+    func cachedActiveTrips(now: Date = Date()) -> [(trip: TripSummary, timeline: Timeline, detail: TripDetail?)] {
+        guard isLoggedIn, let trips = cachedTrips()?.value else { return [] }
+        let today = Fmt.todayISO()
+        return trips.filter { !TripDates.isPast($0, today: today) }.compactMap { trip in
+            cachedTimeline(tripId: trip.id).map { (trip: trip, timeline: $0.value, detail: cachedTripDetail(tripId: trip.id)) }
+        }
+    }
+
+    /// Hintergrund-Aktualisierung: Liste, Abläufe und Details laufender und kommender Reisen neu laden.
+    func refreshAll() async {
+        guard isLoggedIn, let trips = try? await fetchTrips() else { return }
+        await prefetchTimelines(for: trips)
     }
 
     /// Öffnet eine Reise aus einer URL reisebuch://trip/<id>; andere URLs öffnen nur die App.
@@ -151,7 +183,7 @@ final class AppSession {
         if let id, !id.isEmpty { pendingTripId = id }
     }
 
-    /// Lädt die Abläufe laufender und kommender Reisen vor, höchstens 5 gleichzeitig. Fehler bleiben still.
+    /// Lädt Abläufe und Details laufender und kommender Reisen vor, höchstens 5 Reisen gleichzeitig. Fehler bleiben still.
     func prefetchTimelines(for trips: [TripSummary], today: String? = nil) async {
         let today = today ?? Fmt.todayISO()
         let ids = trips.filter { !TripDates.isPast($0, today: today) }.map(\.id)
@@ -161,7 +193,10 @@ final class AppSession {
                 guard next < ids.count else { return }
                 let id = ids[next]
                 next += 1
-                group.addTask { [self] in _ = try? await self.fetchTimeline(tripId: id) }
+                group.addTask { [self] in
+                    _ = try? await self.fetchTimeline(tripId: id)
+                    _ = try? await self.fetchTripDetail(tripId: id)
+                }
             }
             for _ in 0..<min(5, ids.count) { addNext() }
             while await group.next() != nil { addNext() }

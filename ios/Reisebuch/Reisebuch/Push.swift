@@ -8,6 +8,7 @@
 //  außer Schalter und letztem Token (kein Geheimnis) in UserDefaults.
 //
 
+import BackgroundTasks
 import Foundation
 import Observation
 import UIKit
@@ -221,15 +222,50 @@ final class PushController {
 /// App-Delegate für Token und Mitteilungen; besitzt Session und PushController, damit sie auch beim Kaltstart
 /// durch Antippen einer Nachricht schon da sind.
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    static let refreshTaskId = "de.theoldphilip.Reisebuch.refresh"
+
     let session = AppSession()
     lazy var push = PushController(session: session)
+    lazy var places = PlaceReminderController(session: session)
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
-        session.onLocalLogout = { [weak self] in self?.push.reset() }
+        session.onLocalLogout = { [weak self] in
+            self?.push.reset()
+            self?.places.reset()
+        }
+        session.onCacheChanged = { [weak self] in self?.places.schedulePlan() }
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.refreshTaskId, using: .main) { [weak self] task in
+            MainActor.assumeIsolated { self?.handleRefresh(task) }
+        }
         Task { await push.registerOnLaunch() }
+        places.schedulePlan()
         return true
+    }
+
+    /// Nächste Hintergrund-Aktualisierung in etwa 4 Stunden anmelden. Wann sie läuft, entscheidet iOS.
+    func scheduleRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: Self.refreshTaskId)
+        request.earliestBeginDate = Date().addingTimeInterval(4 * 3600)
+        try? BGTaskScheduler.shared.submit(request)
+    }
+
+    /// Hintergrund: Liste und Abläufe neu laden, Widget und Erinnerungen am Ort aktualisieren, nächste Aufgabe anmelden.
+    private func handleRefresh(_ task: BGTask) {
+        scheduleRefresh()
+        let work = Task {
+            await session.refreshAll()
+            await places.plan()
+            task.setTaskCompleted(success: !Task.isCancelled)
+        }
+        task.expirationHandler = { work.cancel() }
+    }
+
+    /// Beim Wechsel in den Hintergrund.
+    func didEnterBackground() {
+        scheduleRefresh()
+        Task { await places.plan() }
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
