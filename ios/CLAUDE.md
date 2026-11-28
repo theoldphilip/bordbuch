@@ -175,3 +175,9 @@ als reine Funktion `OrtAuswahl` (Tests `PlaceReminderTests.swift`), Ortssuche `O
 `de.theoldphilip.Reisebuch.refresh` (Info.plist). Reise-Detail `GET /trips/:id` wird beim Vorladen gespeichert (`cache/trip-<id>.json`,
 `TripDetail`). `AppSession.onCacheChanged` löst das Planen aus. IPAs werden nur noch am Ende einer Auftragsreihe committet (Push der IPA
 wird von der Sicherheitsprüfung blockiert, Philip pusht sie).
+
+**Neu in 0.6.0** (Build 6, Auftrag in `ios/Auftraege/AUFTRAG-0.6.0.md`): Bearbeiten. `EditLogic.swift` (rein, Tests `EditLogicTests.swift`):
+Felder je Art wie `ItemForm.tsx` (`ItemKinds`), `EditMerge.details` (details verlustfrei), `EditMerge.changed` (PATCH nur mit geänderten
+Feldern), `LocalTime` (Ortszeit-Text, DatePicker über UTC-Kalender), `MoneyInput` (wie `MoneyFields.tsx`), `ViewMode` (wie `Trip.tsx`).
+`EditForms.swift`: Formulare Eintrag/Reise/Kreuzfahrt/Reisetag, Zeitzonen-Auswahl mit Suche, Zusatzinfos. Rolle und Kreuzfahrten aus
+`TripDetail` (`GET /trips/:id`). Entsperren nur im Speicher (`AppSession.unlockedTrips`). Quittieren im Hinweis-Kasten.
