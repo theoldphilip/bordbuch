@@ -23,8 +23,9 @@ import { registerPlaceLookupRoutes } from './routes/placeLookup.ts';
 import { createWebPushSender, loadVapid, type PushSender } from './push.ts';
 import { apnsConfigFromEnv, createApnsSender, type ApnsSender } from './apns.ts';
 import { runReminderTick } from './reminderRunner.ts';
-import { createAnthropicExtractor } from './ai/anthropic.ts';
 import type { Extractor } from './ai/types.ts';
+import { buildChain, chainExtractor, defaultFactory, PROVIDER_LABEL, type ChainMember, type ExtractorFactory } from './ai/providers.ts';
+import { registerAiConfigRoutes } from './routes/aiConfig.ts';
 
 export { VERSION };
 
@@ -32,24 +33,45 @@ export interface Ctx {
   db: DB;
   config: AppConfig;
   uploadDir: string;
-  /** null = document analysis is not set up (no API key). */
-  extractor: Extractor | null;
+  /** The AI: current() is null when no provider has a key. reload() after the admin changed keys or providers. */
+  ai: AiHub;
   sender: PushSender;
   /** Native iPhone app push; null when no APNs key is configured. */
   apns: ApnsSender | null;
 }
 
-export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFile?: string; backups?: number; extractor?: Extractor | null; pushSender?: PushSender; apnsSender?: ApnsSender | null; scheduler?: boolean } = {}) {
+export interface AiHub {
+  current(): Extractor | null;
+  /** The providers in the order they are tried (empty when tests inject a fixed extractor). */
+  chain(): ChainMember[];
+  reload(): void;
+  /** false when tests inject a fixed extractor: then settings do not change it. */
+  readonly configurable: boolean;
+  readonly factory: ExtractorFactory;
+}
+
+export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFile?: string; backups?: number; extractor?: Extractor | null; aiFactory?: ExtractorFactory; pushSender?: PushSender; apnsSender?: ApnsSender | null; scheduler?: boolean } = {}) {
   fs.mkdirSync(config.dataDir, { recursive: true });
   const uploadDir = path.join(config.dataDir, 'uploads');
   fs.mkdirSync(uploadDir, { recursive: true });
   const db = openDb(opts.dbFile ?? path.join(config.dataDir, 'bordbuch.db'));
-  const extractor =
+  const factory = opts.aiFactory ?? defaultFactory();
+  let current: Extractor | null = null;
+  let members: ChainMember[] = [];
+  const ai: AiHub =
     opts.extractor !== undefined
-      ? opts.extractor
-      : config.anthropicApiKey
-        ? createAnthropicExtractor({ apiKey: config.anthropicApiKey, model: config.aiModel })
-        : null;
+      ? { current: () => opts.extractor ?? null, chain: () => [], reload: () => {}, configurable: false, factory }
+      : {
+          current: () => current,
+          chain: () => members,
+          reload: () => {
+            members = buildChain(db, config, factory);
+            current = chainExtractor(members);
+          },
+          configurable: true,
+          factory,
+        };
+  ai.reload();
   const sender = opts.pushSender ?? createWebPushSender(loadVapid(db, process.env.PUSH_SUBJECT?.trim() || 'mailto:bordbuch@example.com'));
   // APNs: tests pass their own sender (or null); otherwise from the environment. A broken key must not stop the server.
   let apns: ApnsSender | null = null;
@@ -63,7 +85,7 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
       apnsProblem = `APNs-Schlüssel unbrauchbar, Push für die iPhone-App ist aus: ${(err as Error).message}`;
     }
   }
-  const ctx: Ctx = { db, config, uploadDir, extractor, sender, apns };
+  const ctx: Ctx = { db, config, uploadDir, ai, sender, apns };
 
   const app: FastifyInstance = Fastify({
     logger: opts.logger ?? false,
@@ -71,6 +93,10 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
     trustProxy: true,
   });
 
+  if (ai.configurable) {
+    const chain = ai.chain();
+    app.log.info(chain.length ? `KI aktiv: ${chain.map((m) => `${PROVIDER_LABEL[m.id]} (${m.extractor.model})`).join(' → ')}` : 'KI aus (kein Schlüssel in Einstellungen oder .env)');
+  }
   if (apnsProblem) app.log.warn(apnsProblem);
   else if (apns && opts.apnsSender === undefined) app.log.info('APNs eingerichtet: Push für die iPhone-App ist an.');
 
@@ -117,6 +143,7 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
   registerPushRoutes(app, ctx);
   registerCertificateRoutes(app, ctx);
   registerPlaceLookupRoutes(app, ctx);
+  registerAiConfigRoutes(app, ctx);
 
   // Web app (PWA) with SPA fallback.
   const webDir = config.webDir;

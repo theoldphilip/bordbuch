@@ -14,7 +14,7 @@ import { readSettings } from '../settings.ts';
 
 type Row = Record<string, any>;
 
-export function registerReviewRoutes(app: FastifyInstance, { db, config, extractor }: Ctx) {
+export function registerReviewRoutes(app: FastifyInstance, { db, config, ai }: Ctx) {
   // A restart can interrupt a running review; don't leave it "pending" forever.
   for (const r of db.prepare(`SELECT trip_id, data FROM trip_reviews WHERE data LIKE '%"status":"pending"%'`).all() as Row[]) {
     const d = JSON.parse(r.data) as ReviewData;
@@ -43,7 +43,8 @@ export function registerReviewRoutes(app: FastifyInstance, { db, config, extract
     const user = requireUser(req);
     const { tripId } = req.params;
     requireTripRole(db, tripId, user.id, 'editor');
-    if (!extractor?.review) throw new HttpError(409, 'Die KI-Prüfung ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
+    const extractor = ai.current();
+    if (!extractor?.review) throw new HttpError(409, 'Die KI-Prüfung ist nicht eingerichtet. Keine KI eingerichtet (Einstellungen → KI und Dokumente).');
     if (read(tripId)?.status === 'pending') throw new HttpError(409, 'Die Prüfung läuft bereits.');
     const trip = loadTrip(db, tripId);
     const cruises = loadCruises(db, tripId);

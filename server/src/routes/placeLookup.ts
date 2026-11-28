@@ -32,7 +32,7 @@ function nowIn(tz: string): string {
   }
 }
 
-export function registerPlaceLookupRoutes(app: FastifyInstance, { db, extractor, config }: Ctx) {
+export function registerPlaceLookupRoutes(app: FastifyInstance, { db, ai, config }: Ctx) {
   // Kept in memory: a lookup is only interesting for minutes; after a restart it is simply started again.
   const jobs = new Map<string, PlaceLookupState>();
 
@@ -53,8 +53,9 @@ export function registerPlaceLookupRoutes(app: FastifyInstance, { db, extractor,
     const user = requireUser(req);
     const item = loadItem(req.params.itemId);
     requireTripRole(db, item.tripId, user.id, 'editor');
+    const extractor = ai.current();
     const lookup = extractor?.lookupPlace?.bind(extractor);
-    if (!lookup) throw new HttpError(409, 'Die Abfrage ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
+    if (!lookup) throw new HttpError(409, 'Die Abfrage ist nicht eingerichtet. Keine KI eingerichtet (Einstellungen → KI und Dokumente).');
     const fields = PLACE_FIELDS[item.type];
     if (!fields?.length) throw new HttpError(400, 'Für diese Art von Eintrag gibt es keine Angaben wie Gate, Schalter oder Gleis.');
     if (jobs.get(item.id)?.status === 'pending') throw new HttpError(409, 'Die Abfrage läuft bereits.');

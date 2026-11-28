@@ -520,3 +520,8 @@ a.btn { text-decoration: none; }
 .place-finding { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; cursor: pointer; }
 .place-finding input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; }
 .place-finding small { display: block; }
+
+/* KI-Einstellungen */
+.plain-list { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 4px; }
+.text-error { color: var(--error); }
+.row-buttons { display: flex; flex-wrap: wrap; gap: 8px; }

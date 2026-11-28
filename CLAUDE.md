@@ -3,7 +3,7 @@
 > **Claude Code auf dem Mac (iPhone-App unter `ios/`): Diese Datei ist nicht dein Briefing.** Für dich gilt `ios/CLAUDE.md`. Server, Web,
 > SSH zur Synology und Updates sind nicht deine Aufgabe; alles außerhalb von `ios/` ist für dich nur zum Lesen.
 
-Stand: 28.11.2026, App-Version 0.13.0, Datenbank-Stand 10, 160 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
+Stand: 28.11.2026, App-Version 0.14.0, Datenbank-Stand 10, 179 Server-Tests grün. Diese Datei ist die vollständige Übergabe aus
 einer früheren Claude-Code-Sitzung (Cloud, Web). Wer sie liest, setzt die Arbeit dort fort, wo sie aufgehört hat. Lies sie ganz,
 bevor du etwas änderst, und prüfe Aussagen über Code im Repo nach, statt dich auf diese Datei zu verlassen (Code gewinnt).
 
@@ -132,6 +132,10 @@ ohne API.md und beide Clients mitzuziehen. `GET /api/version` und `/api/health` 
   Funde nur mit Quelle aus der Suche, kein Durchforsten allgemeiner Seiten. An die KI gehen nur Flug-/Zugnummer, Airline, Von/Nach, Datum und
   bisherige Ortsfelder. Ergebnis nur im Speicher; gespeichert wird per `PATCH` erst mit „Übernehmen“ (löst den Push aus). Für Bearbeiter, auch im
   Ansichtsmodus (wie Quittieren). Philip will das ausdrücklich so: am Reisetag gezielt abfragen, nicht das Internet durchforsten.
+- **KI-Anbieter** (`ai/providers.ts`, `ai/generic.ts`, `ai/openai.ts`, `ai/gemini.ts`, `routes/aiConfig.ts`): Claude über das SDK (`anthropic.ts`),
+  ChatGPT und Gemini über `fetch` mit denselben Prompts auf zwei Grundfunktionen (strukturierte Antwort, Suche mit Quellen). `ctx.ai.current()`
+  liefert eine Kette: Hauptanbieter, mit Ausweich danach die anderen mit Schlüssel; Fehlermeldung nennt jeden Anbieter. Neue Schlüssel werden vor
+  dem Speichern getestet, nie ausgeliefert (nur `…abcd`).
 - **Währung:** keine Annahme „CHF“. Ohne Währung zeigt die App nur den Betrag; neue Einträge starten mit der zuletzt benutzten Währung.
   Die KI setzt `currency` nur aus dem Dokument (€ → EUR …), sonst null.
 - **Kosten** (`server/src/costs.ts`, Reiter „Kosten“ in `web/src/components/CostsTab.tsx`, `GET /api/trips/:id/costs`): Summen je Währung, nie
@@ -163,7 +167,8 @@ Zahlungsstand aus Dokumenten, Reisetag-Abfrage für Gate/Schalter/Kofferband/Gle
 groß, Zahlungsstand nur noch bei Einträgen über details) · 0.11 Push für die iPhone-App über APNs (Server-Teil) · 0.11.1 Linux-Tool `scripts/mint/reisebuch-ipa.sh` (neueste IPA
 laden, SHA-256 prüfen, per USB installieren, README-Abschnitt) · 0.12 Dokument-Analyse im Hintergrund (`?background=1`, 202, danach Mitteilung
 mit `documentId` an den Hochladenden) für die Teilen-Erweiterung der iPhone-App · 0.13 dasselbe für „zusammen auswerten“
-(`documents/group?background=1`). Details in der
+(`documents/group?background=1`) · 0.14 KI-Anbieter Claude, ChatGPT, Gemini mit Hauptanbieter und Ausweich, Schlüssel in den
+Einstellungen (Admin). Details in der
 Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
 
 ## 6. Offene Punkte (Reihenfolge nach Philips Wünschen)
@@ -211,7 +216,8 @@ Tabelle „Seit der ersten Fassung neu“ des PDFs und in `git log`.
 
 ## 8. Konfiguration (Umgebungsvariablen, Container)
 
-`ANTHROPIC_API_KEY` (leer = KI aus), `AI_MODEL` (Standard `claude-opus-5-5`; Fallback-Beta `server-side-fallback-2026-07-01` außer bei Haiku),
+`ANTHROPIC_API_KEY`, `AI_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `GEMINI_API_KEY`, `GEMINI_MODEL` (alle optional; Schlüssel aus den Einstellungen, Tabelle
+`meta` Schlüssel `ai_config`, gehen vor; ohne jeden Schlüssel ist die KI aus). Für `AI_MODEL` (Standard `claude-opus-5-5`; Fallback-Beta `server-side-fallback-2026-07-01` außer bei Haiku),
 `DEFAULT_TZ` (Europe/Zurich), `MAX_UPLOAD_MB` (25), `BACKUP_KEEP` (14), `DATA_DIR`, `WEB_DIR`, `PORT`, `HOST`, `PUSH_SUBJECT`
 (Standard `mailto:bordbuch@example.com`), `APP_VERSION`/`BUILD_TIME` (aus dem Image). **APNs** für die iPhone-App (seit 0.11.0, `server/src/apns.ts`):
 `APNS_KEY` (`.p8` als base64 oder PEM), `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_TOPIC` (Standard `de.theoldphilip.Reisebuch`), `APNS_SANDBOX=1` nur für
@@ -228,6 +234,10 @@ aufmerksam nachfragen und Philips Rückmeldung (Screenshots) ernst nehmen:
 - echter Web-Push auf dem iPhone (inkl. Push bei Gate-Änderung), Zertifikatsvertrauen unter iOS,
 - Verhalten über mehrere Tage/Zeitzonen (Jetzt-Markierung, Ansichtsmodus),
 - ob die KI den Gesamtpreis einer Kreuzfahrt und den Zahlungsstand (Anzahlung, Fälligkeit) aus echten Buchungsbestätigungen richtig liest,
+- **ChatGPT und Gemini (seit 0.14.0) nie echt aufgerufen**: Anfrageformat (Responses API mit `web_search`, `json_schema` strict mit Rückfall;
+  Gemini `generateContent` mit `responseJsonSchema`, `googleSearch`, `urlContext`, Auflösen der Google-Weiterleitungen) nur mit nachgebauten
+  Antworten getestet. Voreingestellte Modelle `gpt-5` und `gemini-2.5-pro` konnten nicht gegen aktuelle Listen geprüft werden (keine Websuche);
+  „Verbindung testen“ prüft Schlüssel und Modell. Bei Problemen zuerst dort und im Server-Log nachsehen (`ai/openai.ts`, `ai/gemini.ts`).
 - ob die Reisetag-Abfrage echte Live-Seiten findet und lesen kann (Abflugtafeln sind oft per JavaScript geladen; dann findet sie nichts),
   und wie lange sie mit echtem Modell dauert.
 Bekannte Eigenheiten: Der Ansichtsmodus ist nur Oberfläche; Notrufnummern aus KI-Wissen sind unzuverlässig und gekennzeichnet; Erinnerungen werden
@@ -236,5 +246,5 @@ nach 5 Minuten Verspätung nicht mehr gesendet.
 ## 10. Erste Schritte in einer neuen Sitzung
 
 1. `git pull`, diese Datei und `README.md` lesen, `git log --oneline -10` ansehen.
-2. `npm run install:all`, `cd server && npm test` (sollte 160 grün sein), `cd web && npm run build`.
-3. Philip begrüßen, kurz den Stand nennen (Server 0.13.0; iPhone-App siehe `ios/STAND.md`) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.
+2. `npm run install:all`, `cd server && npm test` (sollte 179 grün sein), `cd web && npm run build`.
+3. Philip begrüßen, kurz den Stand nennen (Server 0.14.0; iPhone-App siehe `ios/STAND.md`) und fragen, was als Nächstes dran ist. Ohne Auftrag nichts ändern.

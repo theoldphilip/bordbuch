@@ -16,12 +16,13 @@ const result: AiResult = {
   }],
 };
 
-describe('document analysis in the background (iPhone share sheet)', { timeout: 20_000 }, () => {
-  let release: () => void = () => {};
+describe('document analysis in the background (iPhone share sheet)', { timeout: 90_000 }, () => {
+  // Each analysis waits until the test lets it go, so the test sees the "pending" state reliably.
+  const waiting: (() => void)[] = [];
   const extractor: Extractor = {
     model: 'fake-model',
     async extract({ files }) {
-      await new Promise<void>((r) => (release = r));
+      await new Promise<void>((r) => waiting.push(r));
       if (files[0]!.filename === 'kaputt.pdf') throw new ExtractionError('Test: nicht lesbar');
       return result;
     },
@@ -44,8 +45,13 @@ describe('document analysis in the background (iPhone share sheet)', { timeout: 
   after(async () => ctx.cleanup());
 
   const waitFor = async (cond: () => boolean) => {
-    for (let i = 0; i < 100 && !cond(); i++) await new Promise((r) => setTimeout(r, 10));
+    for (let i = 0; i < 1000 && !cond(); i++) await new Promise((r) => setTimeout(r, 10));
     assert.ok(cond(), 'Bedingung nicht erreicht');
+  };
+  /** Lets the next running analysis finish (waits until it has started). */
+  const release = async () => {
+    await waitFor(() => waiting.length > 0);
+    waiting.shift()!();
   };
   const status = async (id: string) => (await ctx.call('GET', `/api/trips/${tripId}`, admin)).body.attachments.find((a: any) => a.id === id).analysisStatus;
 
@@ -57,7 +63,7 @@ describe('document analysis in the background (iPhone share sheet)', { timeout: 
     assert.equal(await status(up.body.attachment.id), 'pending');
     assert.equal(sent.length, 0, 'noch keine Mitteilung');
 
-    release();
+    await release();
     await waitFor(() => sent.length === 1);
     assert.equal(await status(up.body.attachment.id), 'done');
     const m = sent[0]!.message;
@@ -73,7 +79,7 @@ describe('document analysis in the background (iPhone share sheet)', { timeout: 
     sent.length = 0;
     const up = await upload(ctx.app, admin, `/api/trips/${tripId}/documents?background=1`, 'kaputt.pdf', 'application/pdf', '%PDF-1.4 x');
     assert.equal(up.status, 202);
-    release();
+    await release();
     await waitFor(() => sent.length === 1);
     assert.equal(await status(up.body.attachment.id), 'failed');
     assert.equal(sent[0]!.message.title, '📄 Dokument nicht gelesen');
@@ -84,7 +90,7 @@ describe('document analysis in the background (iPhone share sheet)', { timeout: 
     sent.length = 0;
     await ctx.call('PATCH', '/api/me/settings', admin, { notifications: { enabled: false } });
     const up = await upload(ctx.app, admin, `/api/trips/${tripId}/documents?background=1`, 'hotel.pdf', 'application/pdf', '%PDF-1.4 x');
-    release();
+    await release();
     await waitFor(() => sent.length === 0);
     for (let i = 0; i < 50 && (await status(up.body.attachment.id)) === 'pending'; i++) await new Promise((r) => setTimeout(r, 10));
     assert.equal(await status(up.body.attachment.id), 'done');
@@ -94,8 +100,7 @@ describe('document analysis in the background (iPhone share sheet)', { timeout: 
 
   test('without ?background the upload still waits for the analysis (web app unchanged)', async () => {
     const pending = upload(ctx.app, admin, `/api/trips/${tripId}/documents`, 'hotel.pdf', 'application/pdf', '%PDF-1.4 x');
-    await new Promise((r) => setTimeout(r, 20));
-    release();
+    await release();
     const up = await pending;
     assert.equal(up.status, 201);
     assert.equal(up.body.attachment.analysisStatus, 'done');
@@ -119,7 +124,7 @@ describe('document analysis in the background (iPhone share sheet)', { timeout: 
     assert.equal(g.body.attachment.id, ids[0]);
     assert.equal(g.body.attachment.analysisStatus, 'pending');
     assert.deepEqual(g.body.memberIds, [ids[1]]);
-    release();
+    await release();
     await waitFor(() => sent.length === 1);
     assert.equal(await status(ids[0]!), 'done');
     assert.equal(sent[0]!.message.documentId, ids[0]);

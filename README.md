@@ -113,29 +113,32 @@ oder die Route einer Kreuzfahrt. Du kannst jeden Vorschlag bearbeiten, überspri
 bevor du bestätigst.** Das Dokument hängt danach am ersten übernommenen Eintrag. Unlesbare oder fehlgeschlagene Dokumente bleiben
 im Posteingang (*Dokumente → Zu prüfen*) und lassen sich erneut analysieren.
 
-**Einrichten**
-1. Auf https://console.anthropic.com einen API-Schlüssel erzeugen (Abrechnung nach Verbrauch).
-2. Auf der Syno per SSH die Datei `.env` neben der `docker-compose.yml` anlegen. Der Schlüssel wird dabei nicht angezeigt und landet
-   nicht im Shell-Verlauf:
+**Einrichten (seit 0.14 in der App):** Als Admin unter *Einstellungen → KI und Dokumente* für **Claude**, **ChatGPT** und/oder **Gemini**
+einen API-Schlüssel eintragen und **Prüfen und speichern** tippen. Der Server testet den Schlüssel sofort; ein ungültiger wird nicht
+gespeichert. Danach zeigt die Seite nur noch die letzten vier Zeichen.
+
+- Schlüssel bekommst du bei Anthropic (https://console.anthropic.com → API Keys), OpenAI (https://platform.openai.com → API keys) und
+  Google (https://aistudio.google.com → Get API key). Alle rechnen nach Verbrauch ab; setze dort jeweils ein Ausgabenlimit.
+- **Hauptanbieter** wählen. Mit **Ausweich** (Standard an) springen die anderen Anbieter mit Schlüssel ein, wenn der Hauptanbieter einen
+  Fehler meldet (Schlüssel, Limit, kein Guthaben, Störung). Bei einem Fehler aller Anbieter nennt die Meldung jeden Grund.
+- **Modell** je Anbieter, leer = Standard (`claude-opus-5-5`, `gpt-5`, `gemini-2.5-pro`). Günstiger sind z. B. `claude-sonnet-5-5`; die
+  Modellnamen der Anbieter ändern sich, **Verbindung testen** prüft auch das Modell.
+- Schlüssel aus den Einstellungen liegen in der Datenbank (auch in den täglichen Backups unter `data/backups`). Eingeben nur über VPN oder
+  `https://…:8444`, nicht unverschlüsselt im Heimnetz.
+- Alle drei lesen PDFs, Bilder und Text, können im Internet suchen (Recherche, Reisetag-Abfrage) und die Reise prüfen. Regeln und Prompts sind
+  gleich; die Qualität kann je Anbieter und Modell abweichen. Funde aus dem Internet zählen nur mit einer Seite, die die Suche wirklich
+  geliefert hat (bei Gemini werden die Google-Weiterleitungen dafür aufgelöst).
+
+**Alternativ über die `.env`** (wie bisher): `ANTHROPIC_API_KEY`, `AI_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `GEMINI_API_KEY`,
+`GEMINI_MODEL`. Ein Schlüssel aus den Einstellungen gilt vor dem aus der `.env`; „Schlüssel entfernen“ fällt auf die `.env` zurück. Anlegen
+ohne Anzeige des Schlüssels:
 
 ```bash
-read -rsp "API-Schlüssel: " K; echo; printf 'ANTHROPIC_API_KEY=%s\n' "$K" | sudo tee /volume1/docker/bordbuch/.env >/dev/null; sudo chmod 600 /volume1/docker/bordbuch/.env; unset K
-```
-
-3. Container neu starten, damit er den Schlüssel liest:
-
-```bash
+read -rsp "API-Schlüssel: " K; echo; printf 'ANTHROPIC_API_KEY=%s\n' "$K" | sudo tee -a /volume1/docker/bordbuch/.env >/dev/null; sudo chmod 600 /volume1/docker/bordbuch/.env; unset K
 cd /volume1/docker/bordbuch && sudo docker compose up -d
 ```
 
-4. In Reisebuch unter *Einstellungen → KI und Dokumente* auf **Verbindung testen** tippen.
-
-Die Datei `.env` ist von Git und aus dem Docker-Image ausgeschlossen. Der Schlüssel gehört nie ins Repository.
-
-**Modell wählen:** Standard ist `claude-opus-5-5` (am genauesten). Günstiger sind `claude-sonnet-5-5` und `claude-haiku-5-5`. Zum Ändern in
-der `.env` eine Zeile `AI_MODEL=claude-sonnet-5-5` ergänzen und den Container neu starten. Die Listenpreise stehen bei Anthropic;
-pro Dokument ist mit einigen Cent zu rechnen (Schätzung, abhängig von Seitenzahl und Modell). Auf https://console.anthropic.com kannst du
-ein Ausgabenlimit setzen.
+Die Datei `.env` ist von Git und aus dem Docker-Image ausgeschlossen. Kein Schlüssel gehört ins Repository.
 
 **Unterstützte Dateien:** PDF (bis 20 MB), Fotos als JPG, PNG, WebP, GIF (bis 5 MB) und E-Mails oder Text (`.eml`, `.txt`, `.html`).
 Nicht lesbar sind HEIC-Fotos, Apple-Wallet-Dateien (`.pkpass`) und Word-Dokumente. Sie werden trotzdem gespeichert, nur nicht analysiert.
@@ -285,8 +288,10 @@ Für Hyper Backup reicht es, `data/backups/` und `data/uploads/` zu sichern.
 | `DEFAULT_TZ` | `Europe/Zurich` | Zeitzone für Einträge ohne eigene Zeitzone |
 | `MAX_UPLOAD_MB` | `25` | maximale Dateigröße |
 | `BACKUP_KEEP` | `14` | Anzahl aufbewahrter Tages-Backups |
-| `ANTHROPIC_API_KEY` | leer | Schlüssel für die KI-Dokumentanalyse (aus `.env`) |
-| `AI_MODEL` | `claude-opus-5-5` | Modell für die Dokumentanalyse |
+| `ANTHROPIC_API_KEY` | leer | Schlüssel für Claude (aus `.env`; Einstellungen gehen vor) |
+| `AI_MODEL` | `claude-opus-5-5` | Modell für Claude |
+| `OPENAI_API_KEY`, `OPENAI_MODEL` | leer, `gpt-5` | ChatGPT |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | leer, `gemini-2.5-pro` | Gemini |
 
 ## Entwicklung
 

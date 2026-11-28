@@ -840,10 +840,10 @@ function DocsTab({ detail, canEdit, onChanged, onReview, onReviewMany }: { detai
           {progress && <p className="muted wide-line">Datei {progress}.</p>}
           {ai?.enabled && !progress && (
             <p className="privacy-note wide-line">
-              <strong>Mit KI zuordnen</strong> liest Bestätigungen, Tickets, Screenshots und Text und legt die Einträge nach deiner Bestätigung an. Der Inhalt geht dabei an die Claude-API von Anthropic. <strong>Nur ablegen</strong> speichert die Dateien, ohne sie zu lesen.
+              <strong>Mit KI zuordnen</strong> liest Bestätigungen, Tickets, Screenshots und Text und legt die Einträge nach deiner Bestätigung an. Der Inhalt geht dabei an den eingestellten KI-Anbieter. <strong>Nur ablegen</strong> speichert die Dateien, ohne sie zu lesen.
             </p>
           )}
-          {ai && !ai.enabled && <p className="privacy-note wide-line">Die automatische Zuordnung ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt auf dem Server).</p>}
+          {ai && !ai.enabled && <p className="privacy-note wide-line">Die automatische Zuordnung ist nicht eingerichtet (kein KI-Schlüssel, Einstellungen → KI und Dokumente).</p>}
         </section>
       )}
       {canEdit && inbox.length > 0 && (

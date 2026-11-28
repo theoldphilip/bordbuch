@@ -154,12 +154,14 @@ Transfer `mode, from, to, phone` · Hotel `room, phone, breakfast` · Parkplatz 
 
 ### Dokument-Analyse (KI)
 
-Setzt `ANTHROPIC_API_KEY` auf dem Server voraus. `GET /ai/status` zeigt, ob sie aktiv ist.
+Setzt einen KI-Schlüssel voraus (Claude, ChatGPT oder Gemini; Einstellungen oder `.env`). `GET /ai/status` zeigt, ob sie aktiv ist.
 
 | Methode | Pfad | Rolle | Beschreibung |
 |---|---|---|---|
-| GET | `/ai/status` | – | `{enabled, model}` |
-| POST | `/ai/check` | Admin | Testanfrage an die Claude-API; 502 mit Klartext bei Schlüssel-/Netzwerkproblem |
+| GET | `/ai/status` | – | `{enabled, model, providers[], research, review, placeLookup}`. `model` = Anbieter und Modell, die zuletzt geantwortet haben, z. B. `Claude (claude-opus-5-5)`; `providers` = Reihenfolge der Anbieter (`["Claude", "ChatGPT"]`) |
+| POST | `/ai/check` | Admin | Testet jeden eingerichteten Anbieter: `{ok, model, results: [{id, label, model, ok, error}]}`; 502 mit allen Gründen, wenn keiner geht |
+| GET | `/ai/config` | Admin | `{configurable, primary, fallback, providers: [{id: anthropic\|openai\|gemini, label, configured, source: settings\|env\|null, keyHint: "…abcd", model, defaultModel}], active: [{id, label, model}]}`. Schlüssel werden nie ausgeliefert |
+| PUT | `/ai/config` | Admin | `{primary?, fallback?, providers?: {anthropic?\|openai?\|gemini?: {key?: string\|null, model?: string\|null}}}`. Ein neuer `key` wird vorher getestet (400 mit Grund, nichts gespeichert); `null` entfernt den Schlüssel aus den Einstellungen (ein `.env`-Schlüssel gilt dann wieder); `model` leer = Standard. Gilt sofort. Antwort wie `GET` |
 | POST | `/trips/:id/documents?itemId=` | editor | `multipart/form-data` (Feld `file`), speichert und analysiert. Antwort: `{attachment, aiEnabled, analyzable}`; die Anfrage dauert bis zum Ende der Analyse (bis ca. 1 Minute). Mit `&background=1` (bzw. `?background=1`) antwortet der Server sofort mit **202** und `analysisStatus: "pending"`, wertet im Hintergrund aus und schickt dem Hochladenden danach eine Mitteilung („📄 Dokument gelesen: n Vorschläge zum Prüfen“ bzw. „nicht gelesen“ mit Grund; `url` = Reise, `documentId`), sofern `notifications.enabled`. Für die Teilen-Erweiterung der iPhone-App. Ist die Datei nicht analysierbar oder die KI aus: 201 wie ohne den Schalter |
 | POST | `/trips/:id/documents/group` | editor | `{attachmentIds: [2..10]}` bereits hochgeladener Dateien (über `POST /trips/:id/attachments`) als **eine** Unterlage auswerten. Die erste ID führt: sie trägt die Vorschläge, die übrigen haben `analysisStatus: "grouped"`, folgen beim Übernehmen oder Verwerfen und erscheinen nicht im Posteingang. Antwort `{attachment, memberIds}`. Mit `?background=1` sofort **202**, Auswertung im Hintergrund und Mitteilung wie beim einzelnen Hochladen |
 | POST | `/attachments/:id/analyze` | editor | Analyse erneut starten (bei einer Gruppe weiterhin mit allen Dateien) |

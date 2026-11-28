@@ -42,7 +42,7 @@ export function AiImportDialog({ tripId, onClose, onReady, onNotice }: { tripId:
         <p className="muted">Buchungsbestätigungen, Tickets, Reisepläne, Screenshots oder kopierter Text. Die KI legt die Einträge an oder ergänzt vorhandene. Du prüfst alles, bevor es gespeichert wird.</p>
         <InputCollector inputs={inputs} setInputs={setInputs} grouped={grouped} setGrouped={setGrouped} disabled={busy} />
         {progress && <p className="muted">{progress}. Das kann pro Unterlage bis zu einer Minute dauern.</p>}
-        <p className="privacy-note">Der Inhalt wird zur Analyse an die Claude-API von Anthropic gesendet.</p>
+        <p className="privacy-note">Der Inhalt wird zur Analyse an den eingestellten KI-Anbieter gesendet (Claude, ChatGPT oder Gemini, siehe Einstellungen).</p>
       </div>
       <ErrorBox error={error} />
     </Modal>

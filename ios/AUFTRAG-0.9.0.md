@@ -54,7 +54,7 @@ Die Einstellungen der App werden eine Liste mit denselben Bereichen wie die Web-
    - **Löschen** (`DELETE /users/:id`) mit Bestätigung und dem Satz aus der Web-App, dass Reisen, die nur diesem Konto gehören, an den Admin
      übergehen. Das eigene Konto ist nicht löschbar.
    - Passwörter nie speichern oder protokollieren; sie stehen nur im Formular und im Einladungstext.
-6. **KI und Dokumente** (aus 0.8.0, hier eingeordnet, Admin wie Web).
+6. **KI und Dokumente** (aus 0.8.0 Teil F mit Claude, ChatGPT, Gemini, hier eingeordnet, Admin wie Web).
 7. **Über Reisebuch** (`About.tsx`): Version und Build der App, Server-Version, Build-Zeit und Datenbank-Stand (`GET /api/version`),
    Hinweis, wenn der Server älter ist als die App erwartet, sofern die Web-App so etwas zeigt.
 

@@ -3,9 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { buildApp } from '../src/app.ts';
 
-export async function setup(opts: Parameters<typeof buildApp>[1] = {}) {
+export async function setup(opts: Parameters<typeof buildApp>[1] = {}, overrides: Partial<Parameters<typeof buildApp>[0]> = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bordbuch-test-'));
-  const app = await buildApp({ dataDir, webDir: null, defaultTz: 'Europe/Zurich', maxUploadMb: 1, anthropicApiKey: null, aiModel: 'test-model' }, opts);
+  const app = await buildApp({ dataDir, webDir: null, defaultTz: 'Europe/Zurich', maxUploadMb: 1, anthropicApiKey: null, aiModel: 'test-model', ...overrides }, opts);
   const call = async (method: string, url: string, token?: string, payload?: unknown) => {
     const res = await app.inject({
       method: method as 'GET',

@@ -5,7 +5,7 @@ Er vermisst in der App die KI-Funktionen der Web-App. Dieser Auftrag holt sie na
 `<repo>/web/src/components/TripReviewDialog.tsx`, `DocReview.tsx`, `ResearchPanel.tsx`, `AiImportDialog.tsx`, `InputCollector.tsx`,
 `<repo>/web/src/aiImport.ts`, `<repo>/web/src/pages/Trips.tsx` (Neue Reise mit KI), `<repo>/web/src/pages/settings/Ai.tsx`.
 Vertrag: `<repo>/docs/API.md` „Dokument-Analyse (KI)“ und „KI-Prüfung der ganzen Reise“. Server **0.13.0** (Architekt) bringt
-`POST /trips/:id/documents/group?background=1` (202, Mitteilung wie beim einzelnen Hochladen).
+`POST /trips/:id/documents/group?background=1` (202, Mitteilung wie beim einzelnen Hochladen), Server **0.14.0** die Auswahl der KI-Anbieter (Teil F).
 
 Welche Knöpfe erscheinen, richtet sich nach `GET /ai/status` (`enabled`, `research`, `review`, `placeLookup`), wie in der Web-App.
 Bearbeiten nur mit Rolle owner/editor; der Ansichtsmodus sperrt die KI-Knöpfe **nicht** (wie Quittieren und Reisetag-Abfrage).
@@ -54,16 +54,26 @@ Trennungsprüfung, `git pull --rebase origin main`, `git config user.email` = no
 - Ohne Namen: Sobald die erste Analyse `done` ist und `suggestedTripTitle` liefert und der Titel noch „Neue Reise“ lautet, Titel per
   `PATCH /trips/:id` setzen (wie Web). Prüfen beim Laden der Dokumente der Reise und beim Öffnen der Vorschläge.
 
-## Teil F: Einstellungen „KI“
-- Bereich „KI“: Status aus `/ai/status` (an/aus, Modell; welche Funktionen: Dokumente, Recherche, Prüfen, Reisetag-Abfrage).
-- Nur für Admins (`user.isAdmin` bzw. wie Web `pages/settings/Ai.tsx`): Knopf „Verbindung testen“ → `POST /ai/check`, Ergebnis oder Klartext
-  des Fehlers (502).
+## Teil F: Einstellungen „KI und Dokumente“ (Claude, ChatGPT, Gemini)
+Seit Server **0.14.0** gibt es drei KI-Anbieter mit Hauptanbieter und Ausweich. Vorbild: `<repo>/web/src/pages/settings/Ai.tsx`,
+Vertrag: `<repo>/docs/API.md` (`/ai/status`, `/ai/check`, `/ai/config`).
+- Für alle: Status aus `/ai/status` (an/aus, `providers` in Reihenfolge, z. B. „Claude → ChatGPT“; welche Funktionen: Dokumente,
+  Recherche, Prüfen, Reisetag-Abfrage).
+- Nur Admin (`user.isAdmin`), aus `GET /ai/config`:
+  - Hauptanbieter (Auswahl, „(kein Schlüssel)“ kennzeichnen) und Schalter **„Ausweich“** → `PUT /ai/config {primary}` bzw. `{fallback}`.
+  - Je Anbieter: Stand („eingerichtet, endet auf abcd“, Quelle `.env` nennen), Feld **API-Schlüssel** als `SecureField`, Knopf
+    „Prüfen und speichern“ → `PUT /ai/config {providers: {<id>: {key}}}` (400 = Grund anzeigen, Feld bleibt gefüllt), „Schlüssel entfernen“
+    (nur bei Quelle `settings`, Bestätigung) → `{key: null}`, Modell (leer = Standard) → `{model}`. Das Schlüsselfeld nach Erfolg leeren.
+  - **Der Schlüssel nie speichern** (nicht in `UserDefaults`, nicht im Schlüsselbund, nicht im Cache, nicht im Log); er steht nur im Feld,
+    bis er gesendet ist. Hinweis aus der Web-App übernehmen (Datenbank, Backups, nur über VPN oder HTTPS eingeben).
+  - „Verbindung testen“ → `POST /ai/check`, je Anbieter eine Zeile mit ✓/✗ und Grund.
+- Datenschutz-Sätze der App („… an die Claude-API“) neutral formulieren: „an den eingestellten KI-Anbieter“ (wie Web 0.14.0).
 
 ## Teil G: Prüfen
 - Build grün für alle Targets, keine Warnungen (auch Archiv-Log).
 - Unit-Tests: Sichtbarkeit der Knöpfe nach `ai/status` und Rolle, Sortierung/Farbe der Funde, Polling stoppt bei `done`/`failed`,
   Ersetzen von `data` eines Vorschlags (andere unverändert, `details` verlustfrei), Vorbelegung wie Web, Body von `research/accept` und
-  `documents/group`, Titel-Übernahme nur bei „Neue Reise“. Gegenprobe.
+  `documents/group`, Titel-Übernahme nur bei „Neue Reise“, Bodies von `PUT /ai/config` (nur geänderte Teile, `key: null` beim Entfernen). Gegenprobe.
 - **IPA ist freigegeben** nach `ios/Installation/0.8.0-b8/`, letzte drei behalten, Profile wie bisher.
 - `STAND.md` mit „Was Philip testen soll“ (Reise prüfen, Vorschlag bearbeiten, Recherche, drei Screenshots zusammen auswerten aus Fotos und
   aus dem Teilen-Menü, neue Reise aus Dokumenten mit automatischem Namen, KI-Test), „Neu in 0.8.0“ in `ios/CLAUDE.md`, Auftrag nach

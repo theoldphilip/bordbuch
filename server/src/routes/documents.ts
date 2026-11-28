@@ -14,7 +14,8 @@ import { normalizeExtraction } from '../ai/normalize.ts';
 import { acceptSuggestions } from '../ai/research.ts';
 import { buildProposals, findDay, mergeItem } from '../ai/proposals.ts';
 import { ExtractionError, type ExtractionContext, type ItemData, type NormalizedExtraction, type ResearchData } from '../ai/types.ts';
-import { requireAdmin, requireTripRole, requireUser } from '../auth.ts';
+import { requireTripRole, requireUser } from '../auth.ts';
+import { PROVIDER_LABEL } from '../ai/providers.ts';
 import { tx } from '../db.ts';
 import { attachmentFromRow, itemFromRow, loadCruises, loadItems, loadTrip, touchTrip } from '../model.ts';
 import { cruiseCreateInput, cruiseDayInput, cruiseInput, infoList, itemInput, mergeInfos } from '../schemas.ts';
@@ -62,7 +63,7 @@ const researchStartInput = z.object({
 type Row = Record<string, any>;
 
 export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
-  const { db, uploadDir, extractor, config, sender, apns } = ctx;
+  const { db, uploadDir, config, sender, apns, ai } = ctx;
 
   // A restart can interrupt a running analysis; don't leave it "pending" forever.
   db.prepare(
@@ -114,6 +115,7 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
   /** Runs the analysis and stores the result. Never throws: failures are stored on the attachment. */
   async function analyze(id: string): Promise<void> {
     const row = attachmentRow(id);
+    const extractor = ai.current();
     if (!extractor) return;
     if (!classifyFile(row.mime, row.filename)) return;
     setStatus(id, 'pending');
@@ -121,8 +123,8 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
       const rows = [row, ...groupMembers(id, row.trip_id)];
       const files = rows.map((r) => ({ data: fs.readFileSync(path.join(uploadDir, r.stored_name)), mime: r.mime as string, filename: r.filename as string }));
       const context = contextFor(row.trip_id);
-      const ai = await extractor.extract({ files, context });
-      const normalized = normalizeExtraction(ai, context, extractor.model);
+      const result = await extractor.extract({ files, context });
+      const normalized = normalizeExtraction(result, context, extractor.model);
       db.prepare("UPDATE attachments SET analysis = ?, analysis_status = 'done', analysis_error = NULL WHERE id = ?").run(
         JSON.stringify(normalized),
         id,
@@ -179,18 +181,12 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
   }
 
   // ----- status & key check -----
-  app.get('/api/ai/status', async () => ({ enabled: !!extractor, model: extractor?.model ?? null, research: typeof extractor?.research === 'function', review: typeof extractor?.review === 'function', placeLookup: typeof extractor?.lookupPlace === 'function' }));
-
-  app.post('/api/ai/check', async (req) => {
-    requireAdmin(req);
-    if (!extractor) throw new HttpError(409, 'Die Dokument-Analyse ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
-    try {
-      await extractor.check();
-    } catch (err) {
-      throw new HttpError(502, describeAiError(err));
-    }
-    return { ok: true, model: extractor.model };
+  app.get('/api/ai/status', async () => {
+    const extractor = ai.current();
+    return { enabled: !!extractor, model: extractor?.model ?? null, providers: ai.chain().map((m) => PROVIDER_LABEL[m.id]), research: typeof extractor?.research === 'function', review: typeof extractor?.review === 'function', placeLookup: typeof extractor?.lookupPlace === 'function'  };
   });
+
+  // POST /api/ai/check is in aiConfig.ts (checks every provider).
 
   // ----- upload + analyse -----
   app.post<{ Params: { tripId: string }; Querystring: { itemId?: string; background?: string } }>('/api/trips/:tripId/documents', async (req, reply) => {
@@ -202,6 +198,7 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
       throw new HttpError(400, 'Eintrag gehört nicht zu dieser Reise');
     }
     const id = await receiveUpload(ctx, req, tripId, user.id, itemId);
+    const extractor = ai.current();
     const row = attachmentRow(id);
     const analyzable = classifyFile(row.mime, row.filename) !== null;
     // ?background=1: answer at once (the iPhone share sheet cannot wait a minute) and report the result as a notification.
@@ -223,7 +220,8 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
     const user = requireUser(req);
     const { tripId } = req.params;
     requireTripRole(db, tripId, user.id, 'editor');
-    if (!extractor) throw new HttpError(409, 'Die Dokument-Analyse ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
+    const extractor = ai.current();
+    if (!extractor) throw new HttpError(409, 'Die Dokument-Analyse ist nicht eingerichtet. Keine KI eingerichtet (Einstellungen → KI und Dokumente).');
     const { attachmentIds } = z.object({ attachmentIds: z.array(z.string()).min(2).max(10) }).parse(req.body);
     const ids = [...new Set(attachmentIds)];
     const rows = ids.map((id) => {
@@ -255,7 +253,8 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
     const user = requireUser(req);
     const row = attachmentRow(req.params.id);
     requireTripRole(db, row.trip_id, user.id, 'editor');
-    if (!extractor) throw new HttpError(409, 'Die Dokument-Analyse ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
+    const extractor = ai.current();
+    if (!extractor) throw new HttpError(409, 'Die Dokument-Analyse ist nicht eingerichtet. Keine KI eingerichtet (Einstellungen → KI und Dokumente).');
     if (!classifyFile(row.mime, row.filename)) throw new HttpError(400, 'Dieser Dateityp kann nicht automatisch gelesen werden.');
     if (row.analysis_status === 'pending') throw new HttpError(409, 'Die Analyse läuft bereits.');
     await analyze(req.params.id);
@@ -304,7 +303,8 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
     const user = requireUser(req);
     const row = attachmentRow(req.params.id);
     requireTripRole(db, row.trip_id, user.id, 'editor');
-    if (!extractor?.research) throw new HttpError(409, 'Die Recherche ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt).');
+    const extractor = ai.current();
+    if (!extractor?.research) throw new HttpError(409, 'Die Recherche ist nicht eingerichtet. Keine KI eingerichtet (Einstellungen → KI und Dokumente).');
     const analysis = readAnalysis(row);
     if (analysis.research?.status === 'pending') throw new HttpError(409, 'Die Recherche läuft bereits.');
     const { mode, url } = researchStartInput.parse(req.body ?? {});

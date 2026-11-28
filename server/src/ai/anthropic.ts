@@ -100,7 +100,7 @@ Regeln:
 
 type Client = Pick<Anthropic, 'beta' | 'messages'>;
 
-const KIND_LABEL = { cruise: 'Kreuzfahrt', city: 'Städtetrip / Urlaub', roundtrip: 'Rundreise' } as const;
+export const KIND_LABEL = { cruise: 'Kreuzfahrt', city: 'Städtetrip / Urlaub', roundtrip: 'Rundreise' } as const;
 
 /** Newer models take the dynamic-filtering web search; others the basic variant. */
 export const webSearchTool = (model: string) => ({
@@ -135,7 +135,7 @@ export function collectSources(content: unknown[], into: Map<string, ResearchSou
   walk(content);
 }
 
-function contextText(input: ExtractInput): string {
+export function contextText(input: ExtractInput): string {
   const c = input.context;
   const days = c.cruiseDays.length
     ? c.cruiseDays
@@ -158,10 +158,10 @@ function contextText(input: ExtractInput): string {
 export function describeAiError(err: unknown): string {
   if (err instanceof ExtractionError) return err.message;
   if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
-    return 'Der API-Schlüssel wurde abgelehnt. Bitte ANTHROPIC_API_KEY prüfen.';
+    return 'Der API-Schlüssel von Claude wurde abgelehnt. Bitte den Schlüssel prüfen.';
   }
   if (err instanceof Anthropic.RateLimitError) return 'Anfragelimit der Claude-API erreicht. Bitte später erneut versuchen.';
-  if (err instanceof Anthropic.NotFoundError) return 'Das eingestellte KI-Modell (AI_MODEL) wurde nicht gefunden.';
+  if (err instanceof Anthropic.NotFoundError) return 'Das eingestellte Claude-Modell wurde nicht gefunden.';
   if (err instanceof Anthropic.BadRequestError) return `Die Claude-API hat die Anfrage abgelehnt: ${err.message}`;
   if (err instanceof Anthropic.APIConnectionError) return 'Keine Verbindung zur Claude-API (api.anthropic.com). Hat der Server Internetzugang?';
   if (err instanceof Anthropic.APIError) return `Fehler der Claude-API (${err.status ?? '?'}): ${err.message}`;

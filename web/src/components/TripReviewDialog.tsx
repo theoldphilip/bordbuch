@@ -118,7 +118,7 @@ export function TripReviewDialog({ detail, canEdit, onClose, onOpenItem, onOpenD
             <p className="muted">
               Die KI sieht sich die ganze Reise an und sucht nach Lücken und Widersprüchen, zum Beispiel fehlende Rückreise, kein Transfer zum Hafen, Hotelnächte, die nicht passen, oder Einträge außerhalb der Reise. Sie ändert nichts, du bekommst nur eine Liste.
             </p>
-            <p className="privacy-note">Dafür gehen Titel, Zeiten und Orte der Einträge an die Claude-API von Anthropic. Buchungsnummern, Preise, Telefonnummern und die Dokumente selbst werden nicht gesendet.</p>
+            <p className="privacy-note">Dafür gehen Titel, Zeiten und Orte der Einträge an den eingestellten KI-Anbieter. Buchungsnummern, Preise, Telefonnummern und die Dokumente selbst werden nicht gesendet.</p>
             {canEdit ? <button className="btn btn-primary" onClick={start} disabled={busy}>🔍 Reise jetzt prüfen</button> : <p className="muted">Nur Bearbeiter können die Prüfung starten.</p>}
           </>
         )}

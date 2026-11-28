@@ -16,7 +16,7 @@ const SECTIONS = [
   { id: 'erinnerungen', icon: '🔔', title: 'Erinnerungen', sub: 'Benachrichtigungen aufs iPhone' },
   { id: 'geraet', icon: '📱', title: 'Dieses Gerät einrichten', sub: 'Zertifikat, Home-Bildschirm' },
   { id: 'familie', icon: '👪', title: 'Familie', sub: 'Konten verwalten', admin: true },
-  { id: 'ki', icon: '✨', title: 'KI und Dokumente', sub: 'Verbindung zur Claude-API', admin: true },
+  { id: 'ki', icon: '✨', title: 'KI und Dokumente', sub: 'Claude, ChatGPT, Gemini', admin: true },
   { id: 'ueber', icon: 'ℹ️', title: 'Über Reisebuch', sub: 'Version und Stand' },
 ] as const;
 

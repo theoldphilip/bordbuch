@@ -8,6 +8,11 @@ export interface AppConfig {
   /** Enables document analysis when set. Never logged or sent to clients. */
   anthropicApiKey: string | null;
   aiModel: string;
+  /** Optional further AI providers from the environment; keys can also be set in the settings (admin). */
+  openaiApiKey?: string | null;
+  openaiModel?: string | null;
+  geminiApiKey?: string | null;
+  geminiModel?: string | null;
 }
 
 export function configFromEnv(): AppConfig & { port: number; host: string } {
@@ -20,5 +25,9 @@ export function configFromEnv(): AppConfig & { port: number; host: string } {
     maxUploadMb: Number(process.env.MAX_UPLOAD_MB ?? 25),
     anthropicApiKey: process.env.ANTHROPIC_API_KEY?.trim() || null,
     aiModel: process.env.AI_MODEL?.trim() || 'claude-opus-5-5',
+    openaiApiKey: process.env.OPENAI_API_KEY?.trim() || null,
+    openaiModel: process.env.OPENAI_MODEL?.trim() || null,
+    geminiApiKey: process.env.GEMINI_API_KEY?.trim() || null,
+    geminiModel: process.env.GEMINI_MODEL?.trim() || null,
   };
 }

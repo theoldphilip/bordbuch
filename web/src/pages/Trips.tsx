@@ -161,7 +161,7 @@ function NewTripModal({ onClose }: { onClose: () => void }) {
               Lade die <strong>Buchungen</strong> oder den Reiseplan hoch (Kreuzfahrt, Flüge, Hotels, Mietwagen, Parkplatz, Transfers, Programm einer Rundreise). Dateien, Fotos, eingefügte Screenshots und Text sind möglich. Die KI baut daraus die Reise auf. Du prüfst alles, bevor etwas gespeichert wird, und kannst danach jederzeit selbst ändern, ergänzen oder löschen.
             </p>
             <InputCollector inputs={inputs} setInputs={setInputs} grouped={grouped} setGrouped={setGrouped} disabled={busy} />
-            <p className="privacy-note">Die Dokumente werden zur Analyse an die Claude-API von Anthropic gesendet.</p>
+            <p className="privacy-note">Die Dokumente werden zur Analyse an den eingestellten KI-Anbieter gesendet.</p>
           </div>
         )}
 
