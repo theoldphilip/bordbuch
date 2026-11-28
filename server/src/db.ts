@@ -186,6 +186,17 @@ const migrations: string[] = [
   );
   CREATE INDEX apns_devices_user ON apns_devices(user_id);
   `,
+  `
+  -- Live flight status from a flight data service, one row per flight entry. Planned times stay in items;
+  -- this is what the airport reports right now (revised times, gate, belt, status).
+  CREATE TABLE flight_status (
+    item_id       TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+    data          TEXT,
+    checked_at    TEXT,
+    next_check_at INTEGER NOT NULL DEFAULT 0,
+    error         TEXT
+  );
+  `,
 ];
 
 export function openDb(file: string): DB {

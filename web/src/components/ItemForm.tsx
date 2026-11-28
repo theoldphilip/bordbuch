@@ -19,6 +19,7 @@ const DETAIL_FIELDS: Partial<Record<ItemType, DetailField[]>> = {
     { key: 'gate', label: 'Gate', placeholder: 'B12' },
     { key: 'baggageBelt', label: 'Kofferband (Ankunft)' },
     { key: 'seat', label: 'Sitzplatz' },
+    { key: 'checkinHours', label: 'Online-Check-in ab (Stunden vor Abflug)', placeholder: '24' },
   ],
   train: [
     { key: 'trainNumber', label: 'Zugnummer', placeholder: 'EC 15' },

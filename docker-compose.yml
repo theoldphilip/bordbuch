@@ -19,6 +19,8 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-}
+      # Live-Flugstatus (AeroDataBox über RapidAPI), optional; auch als Admin in den Einstellungen eintragbar.
+      FLIGHTDATA_API_KEY: ${FLIGHTDATA_API_KEY:-}
       # Push für die iPhone-App (APNs). Werte aus der .env, siehe README. Ohne Schlüssel ist nur dieser Push aus.
       APNS_KEY: ${APNS_KEY:-}
       APNS_KEY_ID: ${APNS_KEY_ID:-}

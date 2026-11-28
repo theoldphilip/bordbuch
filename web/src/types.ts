@@ -411,6 +411,8 @@ export interface NotificationPrefs {
   flightLead: number;
   /** Somebody else changed gate, desk, belt or platform of an entry that is about to happen. */
   infoChange: boolean;
+  checkin: boolean;
+  flightStatus: boolean;
 }
 
 export interface UserSettings {
@@ -436,4 +438,22 @@ export interface TripReview {
   findings: ReviewFinding[];
   model?: string;
   basedOn: string;
+}
+
+/** Live status of one flight (GET /api/trips/:id/flight-status). Local times "YYYY-MM-DDTHH:MM". */
+export interface FlightLive {
+  status: string;
+  cancelled: boolean;
+  diverted: boolean;
+  depScheduled: string | null;
+  depRevised: string | null;
+  arrScheduled: string | null;
+  arrRevised: string | null;
+  delayMinutes: number | null;
+  terminal: string | null;
+  checkinDesk: string | null;
+  gate: string | null;
+  baggageBelt: string | null;
+  checkedAt: string;
+  error: string | null;
 }

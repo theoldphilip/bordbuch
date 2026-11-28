@@ -47,7 +47,7 @@ describe('reminders (pure)', () => {
     assert.match(byKey('exc:').body, /Treffpunkt: Theater, Deck 5/);
     assert.equal(byKey('tr:f').fireAt, byKey('tr:f').eventAt - 180 * 60_000, 'flights: 3 h');
     assert.equal(byKey('tr:x').eventAt - byKey('tr:x').fireAt, 90 * 60_000);
-    assert.equal(r.length, 4, 'no reminder for notes, hotels or entries without a time');
+    assert.equal(r.length, 5, 'no reminder for notes, hotels or entries without a time; the flight also gets its check-in reminder');
   });
 
   test('the personal time need lengthens the lead and says so', () => {

@@ -6,6 +6,7 @@ import { AboutSettings } from './settings/About.tsx';
 import { AiAdmin } from './settings/Ai.tsx';
 import { DeviceSettings } from './settings/Device.tsx';
 import { FamilyAdmin } from './settings/Family.tsx';
+import { FlightStatusAdmin } from './settings/FlightStatus.tsx';
 import { NotificationSettings } from './settings/Notifications.tsx';
 import { PaceSettings } from './settings/Pace.tsx';
 import { ProfileSettings } from './settings/Profile.tsx';
@@ -17,6 +18,7 @@ const SECTIONS = [
   { id: 'geraet', icon: '📱', title: 'Dieses Gerät einrichten', sub: 'Zertifikat, Home-Bildschirm' },
   { id: 'familie', icon: '👪', title: 'Familie', sub: 'Konten verwalten', admin: true },
   { id: 'ki', icon: '✨', title: 'KI und Dokumente', sub: 'Claude, ChatGPT, Gemini', admin: true },
+  { id: 'flugstatus', icon: '🛫', title: 'Live-Flugstatus', sub: 'Verspätung, Gate (AeroDataBox)', admin: true },
   { id: 'ueber', icon: 'ℹ️', title: 'Über Reisebuch', sub: 'Version und Stand' },
 ] as const;
 
@@ -29,6 +31,7 @@ const VIEWS: Record<SectionId, () => React.ReactElement> = {
   geraet: () => <DeviceSettings />,
   familie: () => <FamilyAdmin />,
   ki: () => <AiAdmin />,
+  flugstatus: () => <FlightStatusAdmin />,
   ueber: () => <AboutSettings />,
 };
 

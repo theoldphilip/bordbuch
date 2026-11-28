@@ -22,6 +22,13 @@ export interface Reminder {
 const MIN = 60_000;
 const TRANSPORT = ['flight', 'train', 'bus', 'ferry', 'transfer'] as const;
 const hasTime = (l: string | null | undefined): l is string => !!l && /T\d{2}:\d{2}/.test(l);
+const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
+
+/** Hours before departure the online check-in opens: details.checkinHours (1 to 96), otherwise 24. */
+export function checkinHours(v: unknown): number {
+  const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v.replace(',', '.').replace(/\s*h$/i, '')) : NaN;
+  return Number.isFinite(n) && n >= 1 && n <= 96 ? Math.round(n) : 24;
+}
 
 function minusMinutes(hhmm: string, minutes: number): string {
   const [h, m] = hhmm.split(':').map(Number) as [number, number];
@@ -94,6 +101,22 @@ export function buildReminders(input: {
         eventAt,
         title: `${isFlight ? '✈️' : '🚌'} ${item.title} in ${formatDuration(need.used)}`,
         body: `${isFlight ? 'Abflug' : 'Abfahrt'} um ${time} (Ortszeit).${placeInfo(item, 'departure').length ? ` ${placeInfo(item, 'departure').join(', ')}.` : ''}${note(need)}`,
+        tripId,
+        url,
+      });
+    }
+
+    // Online check-in opens: by default 24 h before departure; a flight can say otherwise (details.checkinHours).
+    if (prefs.checkin && item.type === 'flight') {
+      const hours = checkinHours(item.details.checkinHours);
+      const airline = text(item.details.airline) || text(item.provider);
+      const flightNo = text(item.details.flightNumber);
+      out.push({
+        key: `ci:${item.id}:${eventAt}:${hours}`,
+        fireAt: eventAt - hours * 60 * MIN,
+        eventAt,
+        title: `🛂 Online-Check-in ${flightNo || item.title}`,
+        body: `Der Check-in${airline ? ` bei ${airline}` : ''} ist jetzt in der Regel offen (${hours} h vor Abflug). Abflug am ${item.startLocal.slice(8, 10)}.${item.startLocal.slice(5, 7)}. um ${time} (Ortszeit).`,
         tripId,
         url,
       });

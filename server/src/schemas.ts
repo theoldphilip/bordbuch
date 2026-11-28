@@ -90,11 +90,15 @@ export const notificationInput = z.object({
   flightLead: lead(180),
   /** Somebody else changed gate, desk, belt or platform of an entry that is about to happen. */
   infoChange: z.boolean().default(true),
+  /** Online check-in of a flight opens (by default 24 h before departure, per flight in details.checkinHours). */
+  checkin: z.boolean().default(true),
+  /** Live flight status: delay, cancellation, new gate from the flight data service. */
+  flightStatus: z.boolean().default(true),
 });
 export const userSettingsInput = z.object({
   pace: paceInput.default({ enabled: false, factor: 1.5, extraMinutes: 0 }),
   notifications: notificationInput.default({
-    enabled: false, boarding: true, boardingLead: 60, excursion: true, excursionLead: 45, transport: true, transportLead: 90, flightLead: 180, infoChange: true,
+    enabled: false, boarding: true, boardingLead: 60, excursion: true, excursionLead: 45, transport: true, transportLead: 90, flightLead: 180, infoChange: true, checkin: true, flightStatus: true,
   }),
 });
 export type UserSettings = z.infer<typeof userSettingsInput>;

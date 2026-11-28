@@ -295,6 +295,24 @@ Die Suche sieht nur Flug- bzw. Zugnummer, Airline, Von/Nach, Datum und die bishe
 nimmt nur Werte von Seiten für genau diesen Termin, jeder Fund hat eine Quelle aus der Suche. Gespeichert wird nichts: Der Client übernimmt
 die gewählten Werte mit `PATCH /items/:id` (`details`), das löst wie oben den Push an die anderen aus. Das Ergebnis liegt nur im Speicher des Servers.
 
+**Live-Flugstatus** (seit 0.15.0, optional, AeroDataBox über RapidAPI; Schlüssel als Admin in den Einstellungen oder `FLIGHTDATA_API_KEY`):
+Für jeden Flug mit `details.flightNumber` und Uhrzeit fragt der Server von 24 h vor Abflug bis 1 h nach der Ankunft ab (weit vorher stündlich,
+in den letzten 6 h alle 15 min, um den Abflug alle 5 min, danach alle 20 min für das Kofferband; höchstens `monthlyLimit` Abfragen im Monat).
+Gesendet werden nur Flugnummer, Datum und Abflughafen. Neue Werte für `terminal`, `checkinDesk`, `gate`, `baggageBelt` schreibt er in `details`
+(wie eine Änderung von Hand, Push an alle Mitglieder mit `infoChange`, Text „Laut Live-Flugstatus.“). Verspätungen ab 15 min, jede weitere
+Änderung um 15 min, „wieder planmäßig“, Annullierung und Umleitung gehen an alle Mitglieder mit `notifications.flightStatus` (Standard an).
+Die geplanten Zeiten im Eintrag bleiben unverändert.
+
+| Methode | Pfad | Rolle | Beschreibung |
+|---|---|---|---|
+| GET | `/trips/:id/flight-status` | viewer | `{enabled, flights: {<itemId>: {status, cancelled, diverted, depScheduled, depRevised, arrScheduled, arrRevised, delayMinutes, terminal, checkinDesk, gate, baggageBelt, arrTerminal, arrGate, depAirport, arrAirport, checkedAt, error}}}`. Zeiten als Ortszeit `YYYY-MM-DDTHH:MM`. Nur Flüge, die schon abgefragt wurden; nur `error` gesetzt = Abfrage fehlgeschlagen |
+| GET | `/flight-status/config` | Admin | `{configurable, configured, source: settings\|env\|null, keyHint, host, defaultHost, monthlyLimit, usedThisMonth}` |
+| PUT | `/flight-status/config` | Admin | `{key?: string\|null, host?, monthlyLimit?}`. Ein neuer Schlüssel wird vorher getestet (400 mit Grund). Nie ausgeliefert |
+
+**Online-Check-in-Erinnerung** (seit 0.15.0): Für jeden Flug mit Uhrzeit eine Mitteilung „🛂 Online-Check-in LX 1726“ 24 h vor Abflug, oder
+`details.checkinHours` Stunden vorher (1 bis 96; die KI liest den Wert aus der Buchung, wenn er dort steht). Pro Person mit
+`notifications.checkin` (Standard an). Ohne Buchungsnummer im Text.
+
 ### Kosten
 
 Preis und Zahlung gibt es an Einträgen und an der Kreuzfahrt (Gesamtpreis der Buchung), mit denselben Feldern:

@@ -58,24 +58,25 @@ const bulkDeleteInput = z.object({ ids: z.array(z.string()).min(1).max(500) });
  * tell the other members of the trip, so nobody waits at the wrong gate. Only for members who switched
  * these messages on; the person who made the change is not notified about their own edit.
  */
-async function announcePlaceChange(
+export async function announcePlaceChange(
   { db, sender, apns, defaultTz }: { db: DB; defaultTz: string } & Senders,
   item: ReturnType<typeof itemFromRow>,
   changes: PlaceChange[],
-  by: { id: string; displayName: string },
+  /** null = the live flight status changed it, nobody in the trip */
+  by: { id: string; displayName: string } | null,
+  now = Date.now(),
 ): Promise<number> {
-  const now = Date.now();
   const start = toInstant(item.startLocal, item.startTz ?? defaultTz);
   const end = toInstant(item.endLocal ?? item.startLocal, item.endTz ?? item.startTz ?? defaultTz);
   if (start > now + 36 * 3_600_000 || end < now - 8 * 3_600_000) return 0;
-  const members = db.prepare('SELECT user_id FROM trip_members WHERE trip_id = ? AND user_id <> ?').all(item.tripId, by.id) as { user_id: string }[];
+  const members = db.prepare('SELECT user_id FROM trip_members WHERE trip_id = ? AND user_id <> ?').all(item.tripId, by?.id ?? '') as { user_id: string }[];
   let sent = 0;
   for (const { user_id: userId } of members) {
     const prefs = readSettings(db, userId).notifications;
     if (!prefs.enabled || !prefs.infoChange) continue;
     const results = await deliverToUser(db, { sender, apns }, userId, {
       title: `${item.type === 'flight' ? '✈️' : item.type === 'train' ? '🚆' : '📍'} ${item.title}`,
-      body: `${describeChanges(changes)}. Eingetragen von ${by.displayName}.`,
+      body: `${describeChanges(changes)}. ${by ? `Eingetragen von ${by.displayName}.` : 'Laut Live-Flugstatus.'}`,
       url: `/trips/${item.tripId}`,
       tag: `info:${item.id}`,
     });

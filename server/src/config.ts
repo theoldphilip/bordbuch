@@ -13,6 +13,9 @@ export interface AppConfig {
   openaiModel?: string | null;
   geminiApiKey?: string | null;
   geminiModel?: string | null;
+  /** Live flight status (AeroDataBox via RapidAPI); can also be set in the settings (admin). */
+  flightDataKey?: string | null;
+  flightDataHost?: string | null;
 }
 
 export function configFromEnv(): AppConfig & { port: number; host: string } {
@@ -29,5 +32,7 @@ export function configFromEnv(): AppConfig & { port: number; host: string } {
     openaiModel: process.env.OPENAI_MODEL?.trim() || null,
     geminiApiKey: process.env.GEMINI_API_KEY?.trim() || null,
     geminiModel: process.env.GEMINI_MODEL?.trim() || null,
+    flightDataKey: process.env.FLIGHTDATA_API_KEY?.trim() || null,
+    flightDataHost: process.env.FLIGHTDATA_HOST?.trim() || null,
   };
 }

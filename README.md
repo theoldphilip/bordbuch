@@ -269,6 +269,16 @@ bash /tmp/reisebuch-ipa.sh --einrichten   # kopiert nach ~/.local/bin, Eintrag �
 Danach im Startmenü „Reisebuch-IPA“ starten, iPhone per Kabel anschließen und entsperren. Weitere Aufrufe: `--terminal` (ohne Fenster),
 `--nur-laden` (nur laden und prüfen). Das Tool aktualisiert sich nicht selbst; eine neue Fassung holt der `gh api`-Befehl oben.
 
+### Live-Flugstatus und Check-in-Erinnerung
+
+- **Check-in-Erinnerung:** 24 h vor jedem Flug (oder so viele Stunden, wie im Flug unter `checkinHours` steht) kommt „🛂 Online-Check-in …“.
+  Abschaltbar unter *Einstellungen → Erinnerungen*.
+- **Live-Flugstatus:** Als Admin unter *Einstellungen → Live-Flugstatus* einen Schlüssel von **AeroDataBox** eintragen: auf rapidapi.com ein
+  Konto anlegen, die API „AeroDataBox“ abonnieren (es gibt ein Gratis-Kontingent; Preise dort prüfen), den „X-RapidAPI-Key“ kopieren. Der
+  Server prüft ihn vor dem Speichern. Danach fragt er für Flüge mit Flugnummer ab 24 h vor Abflug Verspätung, Terminal, Schalter, Gate und
+  Kofferband ab, trägt neue Angaben ein und meldet Verspätungen ab 15 min und Annullierungen. Ein Flug braucht etwa 50 bis 70 Abfragen; die
+  Grenze pro Monat (Standard 500) ist einstellbar. Alternativ `FLIGHTDATA_API_KEY` in der `.env`.
+
 ### Daten & Backup
 
 | Pfad | Inhalt |
@@ -292,6 +302,7 @@ Für Hyper Backup reicht es, `data/backups/` und `data/uploads/` zu sichern.
 | `AI_MODEL` | `claude-opus-5-5` | Modell für Claude |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | leer, `gpt-5` | ChatGPT |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | leer, `gemini-2.5-pro` | Gemini |
+| `FLIGHTDATA_API_KEY`, `FLIGHTDATA_HOST` | leer, `aerodatabox.p.rapidapi.com` | Live-Flugstatus |
 
 ## Entwicklung
 

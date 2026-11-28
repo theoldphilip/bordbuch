@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode, Fragment } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, Fragment } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AiImportDialog } from '../components/AiImportDialog.tsx';
 import { api, errorMessage } from '../api.ts';
@@ -20,7 +20,10 @@ import {
   tripKindInfo,
   tzLabel,
 } from '../format.ts';
-import type { Attachment, Cruise, CruiseDay, Item, ItemType, Role, Timeline, TimelineEntry, TimelinePhase, TimelineWarning, TripDetail, User, TripKind } from '../types.ts';
+import type { Attachment, Cruise, CruiseDay, FlightLive, Item, ItemType, Role, Timeline, TimelineEntry, TimelinePhase, TimelineWarning, TripDetail, User, TripKind } from '../types.ts';
+
+/** Live flight status by item id, shown in the flight entries of the timeline. */
+const FlightLiveContext = createContext<Record<string, FlightLive>>({});
 import { Empty, ErrorBox, Field, Modal, Spinner } from '../components/ui.tsx';
 import { ItemForm } from '../components/ItemForm.tsx';
 import { KindPicker } from '../components/KindPicker.tsx';
@@ -45,6 +48,7 @@ export function TripPage() {
   const { tripId } = useParams<{ tripId: string }>();
   const [detail, setDetail] = useState<TripDetail | null>(null);
   const [timeline, setTimeline] = useState<Timeline | null>(null);
+  const [flightLive, setFlightLive] = useState<Record<string, FlightLive>>({});
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('timeline');
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -99,10 +103,23 @@ export function TripPage() {
       setDetail(d);
       setTimeline(t);
       setError(null);
+      if (d.items.some((i) => i.type === 'flight')) {
+        api.get<{ flights: Record<string, FlightLive> }>(`/api/trips/${tripId}/flight-status`).then((r) => setFlightLive(r.flights)).catch(() => {});
+      }
     } catch (err) {
       setError(errorMessage(err));
     }
   }, [tripId]);
+
+  // While the trip is open, refresh the live flight status every two minutes (the server asks the airline data on its own schedule).
+  useEffect(() => {
+    if (!detail?.items.some((i) => i.type === 'flight')) return;
+    const id = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      api.get<{ flights: Record<string, FlightLive> }>(`/api/trips/${tripId}/flight-status`).then((r) => setFlightLive(r.flights)).catch(() => {});
+    }, 120_000);
+    return () => clearInterval(id);
+  }, [detail, tripId]);
 
   /** Acknowledge a hint of the buffer check or take it back. Shared by everyone on the trip. */
   const ackWarning = useCallback(
@@ -176,6 +193,7 @@ export function TripPage() {
     ) : null;
 
   return (
+    <FlightLiveContext.Provider value={flightLive}>
     <div className="page">
       <div className="trip-hero" style={{ ['--trip-color' as string]: detail.trip.color ?? '#14385c' }}>
         <div>
@@ -298,6 +316,7 @@ export function TripPage() {
       {dialog?.kind === 'trip' && <TripSettings detail={detail} onClose={close} onSaved={saved} />}
       {dialog?.kind === 'review' && <DocReview key={dialog.attachmentId} attachmentId={dialog.attachmentId} tripId={detail.trip.id} tripKind={detail.trip.kind} cruises={detail.cruises} position={{ index: queueTotal - queue.length + 1, total: queueTotal }} onClose={saved} onApplied={reviewDone} />}
     </div>
+    </FlightLiveContext.Provider>
   );
 }
 
@@ -663,8 +682,28 @@ function PortCard({ day, past, defaultTz, warnings, onClick }: { day: CruiseDay;
   );
 }
 
+/** "Live: +45 min, Abflug 10:25 · Stand 07:42" */
+function liveLine(l: FlightLive): string {
+  const at = new Date(l.checkedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+  const state = l.cancelled
+    ? 'annulliert'
+    : l.diverted
+      ? 'umgeleitet'
+      : l.delayMinutes !== null && l.delayMinutes >= 5
+        ? `+${l.delayMinutes} min, Abflug ${l.depRevised?.slice(11, 16) ?? '?'}`
+        : /landed|arrived/i.test(l.status)
+          ? `gelandet${l.arrRevised ? ` ${l.arrRevised.slice(11, 16)}` : ''}`
+          : /departed|enroute/i.test(l.status)
+            ? 'gestartet'
+            : 'planmäßig';
+  return `Live: ${state} · Stand ${at}`;
+}
+
 function EntryRow({ entry, past, defaultTz, attachments, warnings, onClick }: { entry: TimelineEntry; past?: boolean; defaultTz: string; attachments: number; warnings: Timeline['warnings']; onClick: () => void }) {
+  const liveAll = useContext(FlightLiveContext);
   const { item } = entry;
+  const liveData = item.type === 'flight' && !past ? liveAll[item.id] : undefined;
+  const live = liveData?.checkedAt ? liveData : undefined;
   const info = itemTypeInfo(item.type);
   const isEnd = entry.role === 'end';
   const endTime = !isEnd && item.endLocal && item.endLocal.slice(0, 10) === item.startLocal.slice(0, 10) && item.endLocal.length > 10 ? item.endLocal.slice(11, 16) : null;
@@ -683,6 +722,7 @@ function EntryRow({ entry, past, defaultTz, attachments, warnings, onClick }: { 
         <strong>{isEnd ? `${endLabel[item.type] ?? 'Ende'}: ${item.title}` : item.title}</strong>
         {!isEnd && <small>{itemSubtitle(item)}</small>}
         {!isEnd && placeLine(item) && <small className="entry-where">{placeLine(item)}</small>}
+        {!isEnd && live && <small className={`entry-live${live.cancelled || (live.delayMinutes ?? 0) >= 15 ? ' late' : ''}`}>{liveLine(live)}</small>}
         {arrivesOtherDay && <small>Ankunft {fmtDate(item.endLocal, { weekday: 'short', day: 'numeric', month: 'short' })} {item.endLocal!.slice(11, 16)}</small>}
         {warnings.filter((w) => w.level !== 'info').map((w, i) => <small key={i} className={`inline-warn ${w.level}`}>{w.personal ? 'Für dich knapp: ' : ''}{w.message}</small>)}
       </span>

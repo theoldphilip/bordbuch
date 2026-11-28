@@ -26,6 +26,9 @@ import { runReminderTick } from './reminderRunner.ts';
 import type { Extractor } from './ai/types.ts';
 import { buildChain, chainExtractor, defaultFactory, PROVIDER_LABEL, type ChainMember, type ExtractorFactory } from './ai/providers.ts';
 import { registerAiConfigRoutes } from './routes/aiConfig.ts';
+import { createAeroDataBox, DEFAULT_HOST, readFlightConfig, type FlightDataClient, type FlightDataConfig } from './flightdata.ts';
+import { runFlightTick } from './flightStatus.ts';
+import { registerFlightStatusRoutes } from './routes/flightStatus.ts';
 
 export { VERSION };
 
@@ -35,6 +38,8 @@ export interface Ctx {
   uploadDir: string;
   /** The AI: current() is null when no provider has a key. reload() after the admin changed keys or providers. */
   ai: AiHub;
+  /** Live flight status service: client() is null when no key is set. */
+  flight: FlightHub;
   sender: PushSender;
   /** Native iPhone app push; null when no APNs key is configured. */
   apns: ApnsSender | null;
@@ -50,7 +55,18 @@ export interface AiHub {
   readonly factory: ExtractorFactory;
 }
 
-export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFile?: string; backups?: number; extractor?: Extractor | null; aiFactory?: ExtractorFactory; pushSender?: PushSender; apnsSender?: ApnsSender | null; scheduler?: boolean } = {}) {
+export interface FlightHub {
+  client(): FlightDataClient | null;
+  effective(): { key: string | null; host: string; monthlyLimit: number };
+  reload(): void;
+  readonly configurable: boolean;
+  readonly factory: (c: FlightDataConfig) => FlightDataClient;
+}
+
+/** Default monthly cap of requests to the flight data service (free plans are small). */
+export const DEFAULT_FLIGHT_LIMIT = 500;
+
+export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFile?: string; backups?: number; extractor?: Extractor | null; aiFactory?: ExtractorFactory; flightClient?: FlightDataClient | null; flightFactory?: (c: FlightDataConfig) => FlightDataClient; pushSender?: PushSender; apnsSender?: ApnsSender | null; scheduler?: boolean } = {}) {
   fs.mkdirSync(config.dataDir, { recursive: true });
   const uploadDir = path.join(config.dataDir, 'uploads');
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -72,6 +88,27 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
           factory,
         };
   ai.reload();
+
+  const flightFactory = opts.flightFactory ?? ((c: FlightDataConfig) => createAeroDataBox(c));
+  const flightEffective = () => {
+    const s = readFlightConfig(db);
+    return { key: s.key || config.flightDataKey || null, host: s.host || config.flightDataHost || DEFAULT_HOST, monthlyLimit: s.monthlyLimit ?? DEFAULT_FLIGHT_LIMIT };
+  };
+  let flightClient: FlightDataClient | null = null;
+  const flight: FlightHub =
+    opts.flightClient !== undefined
+      ? { client: () => opts.flightClient ?? null, effective: flightEffective, reload: () => {}, configurable: false, factory: flightFactory }
+      : {
+          client: () => flightClient,
+          effective: flightEffective,
+          reload: () => {
+            const e = flightEffective();
+            flightClient = e.key ? flightFactory({ key: e.key, host: e.host }) : null;
+          },
+          configurable: true,
+          factory: flightFactory,
+        };
+  flight.reload();
   const sender = opts.pushSender ?? createWebPushSender(loadVapid(db, process.env.PUSH_SUBJECT?.trim() || 'mailto:bordbuch@example.com'));
   // APNs: tests pass their own sender (or null); otherwise from the environment. A broken key must not stop the server.
   let apns: ApnsSender | null = null;
@@ -85,7 +122,7 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
       apnsProblem = `APNs-Schlüssel unbrauchbar, Push für die iPhone-App ist aus: ${(err as Error).message}`;
     }
   }
-  const ctx: Ctx = { db, config, uploadDir, ai, sender, apns };
+  const ctx: Ctx = { db, config, uploadDir, ai, flight, sender, apns };
 
   const app: FastifyInstance = Fastify({
     logger: opts.logger ?? false,
@@ -144,6 +181,7 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
   registerCertificateRoutes(app, ctx);
   registerPlaceLookupRoutes(app, ctx);
   registerAiConfigRoutes(app, ctx);
+  registerFlightStatusRoutes(app, ctx);
 
   // Web app (PWA) with SPA fallback.
   const webDir = config.webDir;
@@ -171,8 +209,29 @@ export async function buildApp(config: AppConfig, opts: { logger?: boolean; dbFi
       }, 30_000)
     : null;
   reminderTimer?.unref();
+  // Live flight status: checked every minute; each flight has its own next time, so most ticks ask nothing.
+  let flightTicking = false;
+  const flightLogged = new Map<string, number>();
+  // The same warning at most once a day (e.g. monthly limit reached).
+  const flightWarn = (m: string) => {
+    if ((flightLogged.get(m) ?? 0) > Date.now() - 24 * 3_600_000) return;
+    flightLogged.set(m, Date.now());
+    app.log.warn(m);
+  };
+  const flightTimer = opts.scheduler
+    ? setInterval(() => {
+        if (flightTicking || !flight.client()) return;
+        flightTicking = true;
+        runFlightTick({ db, defaultTz: config.defaultTz, client: flight.client(), senders: { sender, apns }, monthlyLimit: flight.effective().monthlyLimit, log: flightWarn })
+          .catch((err) => app.log.warn({ err }, 'Live-Flugstatus fehlgeschlagen'))
+          .finally(() => (flightTicking = false));
+      }, 60_000)
+    : null;
+  flightTimer?.unref();
+  if (flight.configurable && flight.client()) app.log.info('Live-Flugstatus eingerichtet (AeroDataBox).');
   app.addHook('onClose', async () => {
     if (reminderTimer) clearInterval(reminderTimer);
+    if (flightTimer) clearInterval(flightTimer);
     stopBackup();
     apns?.close?.();
     db.close();

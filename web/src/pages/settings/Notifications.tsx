@@ -163,6 +163,20 @@ export function NotificationSettings() {
             <small className="muted">Wenn jemand anderes aus der Reise eine dieser Angaben einträgt oder ändert, kurz vor oder nach dem Termin.</small>
           </div>
           <div className="notify-rule">
+            <label className="check">
+              <input type="checkbox" checked={n.checkin} onChange={(e) => patch({ checkin: e.target.checked })} />
+              Online-Check-in ist offen
+            </label>
+            <small className="muted">Bei Flügen 24 h vor Abflug (oder wann der Check-in laut Buchung öffnet, Angabe „checkinHours“ im Flug).</small>
+          </div>
+          <div className="notify-rule">
+            <label className="check">
+              <input type="checkbox" checked={n.flightStatus} onChange={(e) => patch({ flightStatus: e.target.checked })} />
+              Live-Flugstatus: Verspätung, Annullierung
+            </label>
+            <small className="muted">Ab 15 Minuten Verspätung und bei jeder Änderung um 15 Minuten. Nur wenn der Admin den Flugstatus eingerichtet hat.</small>
+          </div>
+          <div className="notify-rule">
             <span className="field-label">Abflug</span>
             <select value={n.flightLead} onChange={(e) => patch({ flightLead: Number(e.target.value) })} aria-label="Vorlauf Abflug">
               {[...new Set([...LEADS, n.flightLead])].sort((a, b) => a - b).map((m) => <option key={m} value={m}>{m >= 60 && m % 60 === 0 ? `${m / 60} h` : `${m} min`} vorher</option>)}

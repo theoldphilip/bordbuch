@@ -525,3 +525,5 @@ a.btn { text-decoration: none; }
 .plain-list { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 4px; }
 .text-error { color: var(--error); }
 .row-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.entry-live { color: var(--muted); font-weight: 600; }
+.entry-live.late { color: var(--error); }
