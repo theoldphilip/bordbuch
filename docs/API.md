@@ -62,7 +62,8 @@ Der Download ist öffentlich, weil Safari einen Link ohne das Token der App öff
 **iPhone-App (APNs):** Dieselben Erinnerungen, Gate-Änderungen und Testnachrichten wie beim Web-Push gehen auch an angemeldete iPhone-Apps.
 Es gelten dieselben Einstellungen unter `notifications` (insbesondere `enabled`). Inhalt: `aps.alert` mit `title` und `body`, `sound: default`,
 dazu `url` (z. B. `/trips/<id>`), die die App zum Öffnen der Reise nutzt. Gültig 15 Minuten (`apns-expiration`); ein Token, das Apple als
-ungültig meldet (410, `BadDeviceToken`, `Unregistered`), wird gelöscht.
+ungültig meldet (410, `BadDeviceToken`, `Unregistered`), wird gelöscht. Mitteilungen zu einem Dokument (Analyse im Hintergrund fertig, siehe
+„Dokument-Analyse“) tragen zusätzlich `documentId`; die App öffnet dann die Vorschläge dieses Dokuments.
 
 Einstellungen unter `GET|PATCH /me/settings` → `notifications`: `enabled`, `boarding`/`boardingLead` (Minuten, Standard 60), `excursion`/`excursionLead` (45),
 `transport`/`transportLead` (90), `flightLead` (180). Der Server prüft alle 30 Sekunden, welche Erinnerungen fällig sind, und sendet sie einmal
@@ -159,7 +160,7 @@ Setzt `ANTHROPIC_API_KEY` auf dem Server voraus. `GET /ai/status` zeigt, ob sie 
 |---|---|---|---|
 | GET | `/ai/status` | – | `{enabled, model}` |
 | POST | `/ai/check` | Admin | Testanfrage an die Claude-API; 502 mit Klartext bei Schlüssel-/Netzwerkproblem |
-| POST | `/trips/:id/documents?itemId=` | editor | `multipart/form-data` (Feld `file`), speichert und analysiert. Antwort: `{attachment, aiEnabled, analyzable}`; die Anfrage dauert bis zum Ende der Analyse (bis ca. 1 Minute) |
+| POST | `/trips/:id/documents?itemId=` | editor | `multipart/form-data` (Feld `file`), speichert und analysiert. Antwort: `{attachment, aiEnabled, analyzable}`; die Anfrage dauert bis zum Ende der Analyse (bis ca. 1 Minute). Mit `&background=1` (bzw. `?background=1`) antwortet der Server sofort mit **202** und `analysisStatus: "pending"`, wertet im Hintergrund aus und schickt dem Hochladenden danach eine Mitteilung („📄 Dokument gelesen: n Vorschläge zum Prüfen“ bzw. „nicht gelesen“ mit Grund; `url` = Reise, `documentId`), sofern `notifications.enabled`. Für die Teilen-Erweiterung der iPhone-App. Ist die Datei nicht analysierbar oder die KI aus: 201 wie ohne den Schalter |
 | POST | `/trips/:id/documents/group` | editor | `{attachmentIds: [2..10]}` bereits hochgeladener Dateien (über `POST /trips/:id/attachments`) als **eine** Unterlage auswerten. Die erste ID führt: sie trägt die Vorschläge, die übrigen haben `analysisStatus: "grouped"`, folgen beim Übernehmen oder Verwerfen und erscheinen nicht im Posteingang. Antwort `{attachment, memberIds}` |
 | POST | `/attachments/:id/analyze` | editor | Analyse erneut starten (bei einer Gruppe weiterhin mit allen Dateien) |
 | GET | `/attachments/:id/analysis` | viewer | Vorschläge: `{status, attachment, documentKind, summary, warnings, items[], cruise, research}` |

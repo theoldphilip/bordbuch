@@ -231,8 +231,9 @@ Die native iPhone-App (unter `ios/`) bekommt Erinnerungen über den Push-Dienst 
 Schlüssel aus dem Apple-Developer-Account. Ohne ihn läuft alles andere normal, nur die App bekommt keine Benachrichtigungen.
 
 1. [developer.apple.com](https://developer.apple.com/account) → *Certificates, Identifiers & Profiles* → *Keys* → `+`. Name z. B. „Reisebuch Push“,
-   Häkchen bei **Apple Push Notifications service (APNs)**, *Continue*, *Register*. **Key ID** notieren und die Datei `AuthKey_<KeyID>.p8`
-   herunterladen (geht nur einmal). Die **Team ID** steht oben rechts im Account.
+   Häkchen bei **Apple Push Notifications service (APNs)**, bei *Configure* als Umgebung **Production** (oder „Sandbox & Production“)
+   wählen, *Continue*, *Register*. Ein reiner Sandbox-Schlüssel führt bei der installierten App zu `BadEnvironmentKeyInToken`.
+   **Key ID** notieren und die Datei `AuthKey_<KeyID>.p8` herunterladen (geht nur einmal). Die **Team ID** steht oben rechts im Account.
 2. Die `.p8`-Datei auf die Syno kopieren (z. B. per File Station in einen Ordner, auf den nur du Zugriff hast) und per SSH in die `.env` übernehmen.
    Der Schlüssel erscheint dabei nicht auf dem Bildschirm:
 

@@ -55,6 +55,7 @@ export function apnsPayload(message: PushMessage): string {
   return JSON.stringify({
     aps: { alert: { title: message.title, body: message.body }, sound: 'default', ...(message.tag ? { 'thread-id': message.tag.slice(0, 64) } : {}) },
     url: message.url,
+    ...(message.documentId ? { documentId: message.documentId } : {}),
   });
 }
 

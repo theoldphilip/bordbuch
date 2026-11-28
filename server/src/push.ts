@@ -17,6 +17,8 @@ export interface PushMessage {
   /** Opened when the notification is tapped. */
   url: string;
   tag?: string;
+  /** Set when the message is about one document (analysis finished); the iPhone app opens its proposals. */
+  documentId?: string;
 }
 export interface PushResult {
   ok: boolean;

@@ -23,6 +23,8 @@ import { receiveUpload } from './attachments.ts';
 import { normalizePayment } from '../costs.ts';
 import { insertCruise, insertDay, updateCruise } from './cruises.ts';
 import { checkCruiseDay } from './items.ts';
+import { deliverToUser } from '../push.ts';
+import { readSettings } from '../settings.ts';
 
 const applyInput = z.object({
   items: z
@@ -60,7 +62,7 @@ const researchStartInput = z.object({
 type Row = Record<string, any>;
 
 export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
-  const { db, uploadDir, extractor, config } = ctx;
+  const { db, uploadDir, extractor, config, sender, apns } = ctx;
 
   // A restart can interrupt a running analysis; don't leave it "pending" forever.
   db.prepare(
@@ -134,6 +136,33 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
   const view = (id: string) => attachmentFromRow(attachmentRow(id));
 
   /**
+   * After a background analysis (upload from the iPhone share sheet): tell the uploader that the proposals are ready
+   * or what went wrong. Only to the uploader and only when notifications are on for the account. Never throws.
+   */
+  async function announceAnalysis(id: string, userId: string): Promise<void> {
+    try {
+      if (!readSettings(db, userId).notifications.enabled) return;
+      const row = attachmentRow(id);
+      let message: { title: string; body: string };
+      if (row.analysis_status === 'done') {
+        const a = JSON.parse(row.analysis) as NormalizedExtraction;
+        const n = a.items.length + (a.cruise ? 1 : 0);
+        message = {
+          title: '📄 Dokument gelesen',
+          body: n === 0 ? `${row.filename}: nichts zum Übernehmen gefunden.` : `${row.filename}: ${n} ${n === 1 ? 'Vorschlag' : 'Vorschläge'} zum Prüfen.`,
+        };
+      } else if (row.analysis_status === 'failed') {
+        message = { title: '📄 Dokument nicht gelesen', body: `${row.filename}: ${String(row.analysis_error ?? 'Fehler').slice(0, 150)}` };
+      } else {
+        return;
+      }
+      await deliverToUser(db, { sender, apns }, userId, { ...message, url: `/trips/${row.trip_id}`, tag: `doc:${id}`, documentId: id });
+    } catch (err) {
+      app.log.warn({ err }, 'Mitteilung zur Dokument-Analyse fehlgeschlagen');
+    }
+  }
+
+  /**
    * Excursions without a port day are linked to the one port day on their date. Documents arrive in any
    * order (an excursion voucher can be applied before the cruise itself), so this runs after every apply.
    */
@@ -164,7 +193,7 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
   });
 
   // ----- upload + analyse -----
-  app.post<{ Params: { tripId: string }; Querystring: { itemId?: string } }>('/api/trips/:tripId/documents', async (req, reply) => {
+  app.post<{ Params: { tripId: string }; Querystring: { itemId?: string; background?: string } }>('/api/trips/:tripId/documents', async (req, reply) => {
     const user = requireUser(req);
     const { tripId } = req.params;
     requireTripRole(db, tripId, user.id, 'editor');
@@ -175,6 +204,12 @@ export function registerDocumentRoutes(app: FastifyInstance, ctx: Ctx) {
     const id = await receiveUpload(ctx, req, tripId, user.id, itemId);
     const row = attachmentRow(id);
     const analyzable = classifyFile(row.mime, row.filename) !== null;
+    // ?background=1: answer at once (the iPhone share sheet cannot wait a minute) and report the result as a notification.
+    if (extractor && analyzable && req.query.background === '1') {
+      setStatus(id, 'pending');
+      void analyze(id).then(() => announceAnalysis(id, user.id));
+      return reply.status(202).send({ attachment: view(id), aiEnabled: true, analyzable });
+    }
     if (extractor && analyzable) await analyze(id);
     return reply.status(201).send({ attachment: view(id), aiEnabled: !!extractor, analyzable });
   });
