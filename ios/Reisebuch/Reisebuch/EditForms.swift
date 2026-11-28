@@ -701,7 +701,8 @@ struct CruiseFormView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
 
-    let cruise: CruiseSummary
+    /// nil = neue Kreuzfahrt anlegen (mit Route wie CruiseForms.tsx).
+    let cruise: CruiseSummary?
     let ctx: EditContext
 
     @State private var shipName: String
@@ -713,18 +714,26 @@ struct CruiseFormView: View {
     @State private var money: MoneyState
     @State private var error: String?
     @State private var busy = false
+    // Route (nur beim Anlegen)
+    @State private var fromDate: String?
+    @State private var toDate: String?
+    @State private var fromPort = ""
+    @State private var toPort = ""
+    @State private var fromTz = ""
+    @State private var toTz = ""
 
-    init(cruise: CruiseSummary, ctx: EditContext) {
+    init(cruise: CruiseSummary?, ctx: EditContext) {
         self.cruise = cruise
         self.ctx = ctx
-        _shipName = State(initialValue: cruise.shipName ?? "")
-        _cruiseLine = State(initialValue: cruise.cruiseLine ?? "")
-        _cabin = State(initialValue: cruise.cabin ?? "")
-        _bookingRef = State(initialValue: cruise.bookingRef ?? "")
-        _notes = State(initialValue: cruise.notes ?? "")
-        _infos = State(initialValue: cruise.infos ?? [])
-        _money = State(initialValue: MoneyState(cost: cruise.cost, currency: cruise.currency, status: cruise.paymentStatus,
-                                                paid: cruise.paidAmount, due: cruise.dueDate))
+        _shipName = State(initialValue: cruise?.shipName ?? "")
+        _cruiseLine = State(initialValue: cruise?.cruiseLine ?? "")
+        _cabin = State(initialValue: cruise?.cabin ?? "")
+        _bookingRef = State(initialValue: cruise?.bookingRef ?? "")
+        _notes = State(initialValue: cruise?.notes ?? "")
+        _infos = State(initialValue: cruise?.infos ?? [])
+        _money = State(initialValue: cruise.map { MoneyState(cost: $0.cost, currency: $0.currency, status: $0.paymentStatus,
+                                                             paid: $0.paidAmount, due: $0.dueDate) }
+                       ?? { var m = MoneyState(); m.currency = MoneyInput.lastCurrency; return m }())
     }
 
     var body: some View {
@@ -744,12 +753,30 @@ struct CruiseFormView: View {
                 } footer: {
                     Text("Gesamtpreis der Kreuzfahrt-Buchung")
                 }
+                if cruise == nil {
+                    Section {
+                        OptionalDateField(label: "Einschiffung am", date: $fromDate)
+                        TextField("Hafen, z. B. Civitavecchia", text: $fromPort)
+                        TimezoneField(label: "Zeitzone Start", tz: $fromTz, placeholder: ctx.defaultTz)
+                        OptionalDateField(label: "Ausschiffung am", date: $toDate, fallback: fromDate)
+                        TextField("Hafen, z. B. Barcelona", text: $toPort)
+                        TimezoneField(label: "Zeitzone Ende", tz: $toTz, placeholder: fromTz.isEmpty ? ctx.defaultTz : fromTz)
+                    } header: {
+                        Text("Route anlegen (optional)")
+                    } footer: {
+                        if let n = CruiseRoute.nights(from: fromDate, to: toDate), n > 0 {
+                            Text("\(n) Nächte · es werden \(n + 1) Tage angelegt (Zwischentage zunächst als Seetage). Häfen kannst du danach pro Tag ergänzen.")
+                        } else {
+                            Text("Häfen kannst du danach pro Tag ergänzen.")
+                        }
+                    }
+                }
                 InfoEditorSection(title: "Zusatzinfos", infos: $infos)
                 Section("Notizen") {
                     TextField("Notizen", text: $notes, axis: .vertical).lineLimit(3...8)
                 }
             }
-            .navigationTitle("Kreuzfahrt bearbeiten")
+            .navigationTitle(cruise == nil ? "Kreuzfahrt anlegen" : "Kreuzfahrt bearbeiten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
@@ -771,17 +798,24 @@ struct CruiseFormView: View {
                                          "bookingRef": EditMerge.text(bookingRef), "notes": EditMerge.text(notes),
                                          "infos": EditMerge.infos(infos)]
         body.merge(m.json) { _, new in new }
-        var old: [String: JSONValue] = ["shipName": EditMerge.text(cruise.shipName), "cruiseLine": EditMerge.text(cruise.cruiseLine),
-                                        "cabin": EditMerge.text(cruise.cabin), "bookingRef": EditMerge.text(cruise.bookingRef),
-                                        "notes": EditMerge.text(cruise.notes), "infos": EditMerge.infos(cruise.infos ?? [])]
-        old.merge(MoneyInput.Value(cost: cruise.cost, currency: cruise.currency, paymentStatus: cruise.paymentStatus,
-                                   paidAmount: cruise.paidAmount, dueDate: cruise.dueDate).json) { _, new in new }
-        let changed = EditMerge.changed(original: old, new: body)
         MoneyInput.remember(m.currency)
         busy = true
         defer { busy = false }
         do {
-            if !changed.isEmpty { try await session.call { try await $0.patchCruise(cruiseId: cruise.id, changed) } }
+            if let cruise {
+                var old: [String: JSONValue] = ["shipName": EditMerge.text(cruise.shipName), "cruiseLine": EditMerge.text(cruise.cruiseLine),
+                                                "cabin": EditMerge.text(cruise.cabin), "bookingRef": EditMerge.text(cruise.bookingRef),
+                                                "notes": EditMerge.text(cruise.notes), "infos": EditMerge.infos(cruise.infos ?? [])]
+                old.merge(MoneyInput.Value(cost: cruise.cost, currency: cruise.currency, paymentStatus: cruise.paymentStatus,
+                                           paidAmount: cruise.paidAmount, dueDate: cruise.dueDate).json) { _, new in new }
+                let changed = EditMerge.changed(original: old, new: body)
+                if !changed.isEmpty { try await session.call { try await $0.patchCruise(cruiseId: cruise.id, changed) } }
+            } else {
+                let route = CruiseRoute.days(from: fromDate, to: toDate, fromPort: fromPort, toPort: toPort, fromTz: fromTz, toTz: toTz)
+                if let e = route.error { error = e; return }
+                body["days"] = .array(route.days)
+                try await session.call { try await $0.createCruise(tripId: ctx.tripId, body) }
+            }
             await ctx.reload()
             dismiss()
         } catch {

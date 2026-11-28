@@ -26,6 +26,7 @@ struct TripTimelineView: View {
     @State private var actionError: String?
     @State private var reviewDoc: DocumentsView.ReviewTarget?
     @State private var showTripReview = false
+    @State private var tab: TripTab = .timeline
     @State private var errorText: String?
     /// Gesetzt, solange der gespeicherte Ablauf gezeigt wird, weil der Server nicht erreichbar ist.
     @State private var offlineSince: Date?
@@ -61,7 +62,81 @@ struct TripTimelineView: View {
         }
     }
 
+    /// Reiter wie Trip.tsx; „Kreuzfahrt“ nur bei Kreuzfahrt.
+    private var tabs: [TripTab] {
+        TripTab.visible(kind: detail?.trip?.kind ?? trip.kind, hasCruises: !(detail?.cruises ?? []).isEmpty)
+    }
+
+    private func tabLabel(_ t: TripTab) -> String {
+        guard t == .docs else { return t.label }
+        let docs = DocumentStatus.visible(detail?.attachments ?? [])
+        let inbox = docs.contains { $0.analysisStatus == "done" } ? " 📥" : ""
+        return docs.isEmpty ? t.label : "\(t.label) (\(docs.count))\(inbox)"
+    }
+
+    private var tabBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(tabs) { t in
+                    Button(tabLabel(t)) { tab = t }
+                        .font(.subheadline.weight(tab == t ? .semibold : .regular))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(tab == t ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.12)))
+                        .foregroundStyle(tab == t ? Color.accentColor : Color.primary)
+                        .accessibilityAddTraits(tab == t ? .isSelected : [])
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 6)
+        }
+        .background(.bar)
+    }
+
     private var list: some View {
+        tabContent
+            .safeAreaInset(edge: .top, spacing: 0) { tabBar }
+            .navigationTitle(detail?.trip?.title ?? trip.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { toolbar }
+            .onChange(of: tabs) { _, visible in if !visible.contains(tab) { tab = .timeline } }
+    }
+
+    @ViewBuilder
+    private var tabContent: some View {
+        if tab != .timeline, let timeline {
+            let edit = editContext(timeline)
+            switch tab {
+            case .cruise:
+                CruiseTabView(detail: detail, edit: edit, itemsPerDay: itemsPerDay(timeline))
+            case .costs:
+                CostsTabView(edit: edit, items: itemMap(timeline), onOpenCruise: { tab = .cruise },
+                             version: timeline.updatedAt ?? "")
+            case .docs:
+                DocumentsView(edit: edit, itemTitles: itemTitles(timeline), initial: detail?.attachments ?? [])
+                    .id(detail?.attachments?.map(\.id).joined() ?? "")
+            case .share:
+                ShareTabView(tripId: trip.id, members: detail?.members ?? [], myRole: role, onChanged: { await load() },
+                             onLeft: { dismiss() })
+            case .timeline:
+                EmptyView()
+            }
+        } else {
+            timelineList
+        }
+    }
+
+    private func itemMap(_ t: Timeline) -> [String: Item] {
+        Dictionary(t.phases.flatMap(\.days).flatMap(\.entries).map { ($0.itemId, $0.item) }, uniquingKeysWith: { a, _ in a })
+    }
+
+    private func itemsPerDay(_ t: Timeline) -> [String: Int] {
+        var result: [String: Int] = [:]
+        for item in itemMap(t).values { if let d = item.cruiseDayId { result[d, default: 0] += 1 } }
+        return result
+    }
+
+    private var timelineList: some View {
         List {
             if let offlineSince {
                 OfflineBanner(savedAt: offlineSince)
@@ -84,9 +159,6 @@ struct TripTimelineView: View {
         .overlay {
             if timeline == nil && errorText == nil { ProgressView() }
         }
-        .navigationTitle(detail?.trip?.title ?? trip.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar { toolbar }
     }
 
     @ViewBuilder
@@ -99,9 +171,6 @@ struct TripTimelineView: View {
                         onLock: { session.unlockedTrips.remove(trip.id) })
         }
         WarningsSection(warnings: timeline.warnings, canAck: isEditor, onAck: { key, ack in await self.ack(key, ack) })
-        if detail != nil {
-            DocumentsLinkSection(attachments: detail?.attachments ?? [], edit: context.edit, itemTitles: itemTitles(timeline))
-        }
         ForEach(Array(timeline.phases.enumerated()), id: \.offset) { _, phase in
             PhaseSection(phase: phase, context: context)
         }
@@ -221,9 +290,11 @@ struct TripTimelineView: View {
                     }
                     .accessibilityLabel("Reise bearbeiten")
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showNewItem = true } label: { Image(systemName: "plus") }
-                        .accessibilityLabel("Eintrag hinzufügen")
+                if tab == .timeline {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showNewItem = true } label: { Image(systemName: "plus") }
+                            .accessibilityLabel("Eintrag hinzufügen")
+                    }
                 }
             }
         }

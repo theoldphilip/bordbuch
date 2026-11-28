@@ -23,6 +23,10 @@ enum ResponseCache {
         return "timeline-\(String(safe)).json"
     }
 
+    static func costsFile(_ tripId: String) -> String {
+        "costs-" + String(timelineFile(tripId).dropFirst("timeline-".count))
+    }
+
     static func tripFile(_ tripId: String) -> String {
         "trip-" + String(timelineFile(tripId).dropFirst("timeline-".count))
     }
@@ -66,9 +70,9 @@ enum ResponseCache {
 
     /// Entfernt Abläufe und Reise-Details von Reisen, die nicht mehr in der Liste stehen.
     static func pruneTimelines(keeping tripIds: [String]) {
-        let keep = Set(tripIds.map { timelineFile($0) } + tripIds.map { tripFile($0) })
+        let keep = Set(tripIds.map { timelineFile($0) } + tripIds.map { tripFile($0) } + tripIds.map { costsFile($0) })
         let files = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
-        for file in files where (file.hasPrefix("timeline-") || file.hasPrefix("trip-")) && !keep.contains(file) {
+        for file in files where (file.hasPrefix("timeline-") || file.hasPrefix("trip-") || file.hasPrefix("costs-")) && !keep.contains(file) {
             try? FileManager.default.removeItem(at: directory.appendingPathComponent(file))
         }
     }

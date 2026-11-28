@@ -2,7 +2,7 @@
 //  DocumentsView.swift
 //  Reisebuch
 //
-//  Dokumente einer Reise (Auftrag 0.7.0, erweitert in 0.8.0): Liste mit Status, Ansehen mit Quick Look, Hinzufügen (Dateien, Fotos,
+//  Dokumente einer Reise (Auftrag 0.7.0, erweitert in 0.8.0, seit 0.9.0 als Reiter): Liste mit Status, Ansehen mit Quick Look, Hinzufügen (Dateien, Fotos,
 //  Scanner, Text; einzeln oder zusammen ausgewertet), Löschen. Vorschläge prüfen wie DocReview.tsx: je Vorschlag übernehmen/überspringen,
 //  vor dem Übernehmen bearbeiten (nur im Speicher), Recherche im Internet wie ResearchPanel.tsx, Reisename aus dem Vorschlag der KI.
 //
@@ -11,35 +11,6 @@ import QuickLook
 import SwiftUI
 import UIKit
 import VisionKit
-
-// MARK: - Zeile im Ablauf
-
-/// Eingang zu den Dokumenten oben im Ablauf.
-struct DocumentsLinkSection: View {
-    let attachments: [Attachment]
-    let edit: EditContext
-    let itemTitles: [String: String]
-
-    var body: some View {
-        let visible = DocumentStatus.visible(attachments)
-        let review = visible.filter { $0.analysisStatus == "done" }.count
-        let pending = visible.filter { $0.analysisStatus == "pending" }.count
-        Section {
-            NavigationLink {
-                DocumentsView(edit: edit, itemTitles: itemTitles, initial: attachments)
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Label(visible.isEmpty ? "Dokumente" : "Dokumente (\(visible.count))", systemImage: "doc.on.doc")
-                    if review > 0 || pending > 0 {
-                        Text([review > 0 ? (review == 1 ? "1 mit Vorschlägen zum Prüfen" : "\(review) mit Vorschlägen zum Prüfen") : nil,
-                              pending > 0 ? "\(pending) wird gelesen" : nil].compactMap { $0 }.joined(separator: " · "))
-                            .font(.caption).foregroundStyle(review > 0 ? Color.orange : Color.secondary)
-                    }
-                }
-            }
-        }
-    }
-}
 
 /// Reisename aus dem Vorschlag der KI übernehmen, solange die Reise „Neue Reise“ heißt (wie die Web-App beim Start aus Dokumenten).
 enum TitleAdoption {
@@ -103,8 +74,6 @@ struct DocumentsView: View {
                 if edit.canEdit && !visible.isEmpty { Text("Zum Löschen nach links wischen.") }
             }
         }
-        .navigationTitle("Dokumente")
-        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if edit.canEdit {
                 ToolbarItem(placement: .topBarTrailing) {

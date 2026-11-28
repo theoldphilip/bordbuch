@@ -19,6 +19,7 @@ final class AppSession {
         static let displayName = "displayName"
         static let placeLookup = "placeLookupAvailable"
         static let isAdmin = "isAdmin"
+        static let userId = "userId"
         static let aiStatus = "aiStatus"
     }
 
@@ -35,6 +36,8 @@ final class AppSession {
     private(set) var aiStatus: AIStatus?
     /// Admin (aus Anmeldung bzw. GET /me); steuert die Admin-Bereiche der Einstellungen.
     private(set) var isAdmin: Bool
+    /// Eigene Benutzer-ID (aus Anmeldung bzw. GET /me), z. B. für „du“ und „Reise verlassen“.
+    private(set) var userId: String?
     /// Reisen, deren Ansichtsmodus aufgehoben ist; nur im Speicher, gilt bis zum Beenden der App.
     var unlockedTrips: Set<String> = []
     /// Zählt hoch, wenn die Reiseliste im Zwischenspeicher neu ist (die Liste zeigt sie dann).
@@ -57,6 +60,7 @@ final class AppSession {
         token = Keychain.readToken()
         placeLookupAvailable = defaults.bool(forKey: Keys.placeLookup)
         isAdmin = defaults.bool(forKey: Keys.isAdmin)
+        userId = defaults.string(forKey: Keys.userId)
         aiStatus = defaults.data(forKey: Keys.aiStatus).flatMap { try? JSONDecoder().decode(AIStatus.self, from: $0) }
         if token != nil { SharedStore.save(server: serverAddress, displayName: displayName) }
     }
@@ -86,6 +90,8 @@ final class AppSession {
         loginNotice = nil
         isAdmin = response.user.isAdmin == true
         UserDefaults.standard.set(isAdmin, forKey: Keys.isAdmin)
+        userId = response.user.id
+        UserDefaults.standard.set(response.user.id, forKey: Keys.userId)
         SharedStore.save(server: address, displayName: response.user.displayName)
     }
 
@@ -120,22 +126,33 @@ final class AppSession {
         WidgetFeed.clear()
         token = nil
         isAdmin = false
+        userId = nil
         UserDefaults.standard.removeObject(forKey: Keys.isAdmin)
+        UserDefaults.standard.removeObject(forKey: Keys.userId)
         onLocalLogout?()
     }
 
     // MARK: - KI-Status
 
+    /// Benutzerdaten aus GET /me bzw. PATCH /me übernehmen.
+    func applyMe(_ me: User) {
+        isAdmin = me.isAdmin == true
+        UserDefaults.standard.set(isAdmin, forKey: Keys.isAdmin)
+        userId = me.id
+        UserDefaults.standard.set(me.id, forKey: Keys.userId)
+        if me.displayName != displayName {
+            displayName = me.displayName
+            UserDefaults.standard.set(displayName, forKey: Keys.displayName)
+            SharedStore.save(server: serverAddress, displayName: displayName)
+        }
+    }
+
     func refreshAIStatus() async {
         if let me = try? await call({ try await $0.me() }) {
-            isAdmin = me.isAdmin == true
-            UserDefaults.standard.set(isAdmin, forKey: Keys.isAdmin)
-            if me.displayName != displayName {
-                displayName = me.displayName
-                UserDefaults.standard.set(displayName, forKey: Keys.displayName)
-            }
+            applyMe(me)
         }
         guard let status = try? await call({ try await $0.aiStatus() }) else { return }
+
         aiStatus = status
         UserDefaults.standard.set(try? JSONEncoder().encode(status), forKey: Keys.aiStatus)
         placeLookupAvailable = status.placeLookup == true

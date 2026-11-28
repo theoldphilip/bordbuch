@@ -86,6 +86,16 @@ nonisolated struct TripDetail: Codable {
     let role: String?
     let cruises: [CruiseSummary]?
     var attachments: [Attachment]? = nil
+    var members: [Member]? = nil
+}
+
+/// Mitglied einer Reise (owner, editor, viewer).
+nonisolated struct Member: Codable, Hashable, Identifiable {
+    let userId: String
+    let username: String?
+    let displayName: String
+    let role: String
+    var id: String { userId }
 }
 
 // MARK: - Zusatzinfos
