@@ -197,3 +197,9 @@ APIClient` für die KI-Aufrufe, nur App; Tests `AILogicTests.swift`): `AIFeature
 `TripTitle` (Name aus `suggestedTripTitle`), `AIConfigBody`. `InputCollector.swift`: Dateien/Fotos/Scan/Text sammeln, zusammen auswerten
 (`/attachments` + `/documents/group?background=1`). `AISettingsView.swift`: KI-Anbieter (Admin); API-Schlüssel nie speichern.
 `AppSession.aiStatus` und `isAdmin` (aus `/me`). Vorbelegung der Vorschläge wie `DocReview.tsx`.
+
+**Neu in 0.9.0** (Build 9, Auftrag in `ios/Auftraege/AUFTRAG-0.9.0.md`): Alles wie Web. Reiter der Reise (`TripTab`, Leiste in
+`TripTimelineView.swift`, Inhalte in `TripTabs.swift`: Kreuzfahrt mit Anlegen und Route, Kosten aus `/trips/:id/costs` mit Cache
+`costs-<id>.json`, Teilen). Einstellungen als Liste wie `Settings.tsx` (`SettingsView.swift`: Konto, Zeitbedarf, Erinnerungen, Dieses
+Gerät mit Zertifikat, Familie nur Admin mit Einladung, KI, Über). Reine Logik in `SettingsLogic.swift` (Tests `SettingsLogicTests.swift`):
+`ShareRights`, `CostLogic`, `PaceLogic`, `ReminderLogic`, `ProfileBody`, `Invite` (wie `invite.ts`), `CruiseRoute`. `AppSession.userId`.

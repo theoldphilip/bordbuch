@@ -1,7 +1,7 @@
 # STAND (iOS), 28.11.2026
 
-Auftrag: `ios/AUFTRAG-0.8.0.md` (0.8.0, Build 8), erledigt und nach `ios/Auftraege/` verschoben. Danach folgt ohne Rückfrage 0.9.0.
-Rückgabe zu 0.7.0 steht in der Git-Historie dieser Datei.
+Auftrag: `ios/AUFTRAG-0.9.0.md` (0.9.0, Build 9), erledigt und nach `ios/Auftraege/` verschoben. Rückgabe zu 0.8.0 steht in der
+Git-Historie dieser Datei.
 
 ## Trennungsprüfung (Ausgabe der Befehle, gekürzt)
 ```
@@ -13,58 +13,75 @@ git ls-files | grep -ci gym    -> 0
 ```
 Ergebnis: bestanden. `git config user.email` → `noreply@anthropic.com`. Keine neue Capability, Entitlements unverändert.
 
+## Teil 0: Vorher-Liste (Stand nach 0.8.0, verglichen mit `Trip.tsx` und `Settings.tsx`)
+| Web-App | App nach 0.8.0 | jetzt (0.9.0) |
+|---|---|---|
+| Reiter Ablauf | da | da |
+| Reiter Kreuzfahrt (Übersicht, anlegen) | nur Bearbeiten über das Menü „…“, keine Übersicht, kein Anlegen | Reiter mit Übersicht, Anlegen mit Route |
+| Reiter Kosten | fehlte | Reiter |
+| Reiter Dokumente | Knopf oben im Ablauf | Reiter |
+| Reiter Teilen (Mitglieder, Rollen, verlassen) | fehlte | Reiter |
+| Einstellungen Konto (Name, Passwort, Abmelden) | nur Anzeige und Abmelden | Name und Passwort ändern, Server, Abmelden |
+| Zeitbedarf | fehlte | da |
+| Erinnerungen (Vorlauf, Arten, Gate-Änderungen, Geräte) | nur Push-Schalter und Test, Hinweis „in der Web-App einstellen“ | alle Felder, Geräte, Push, Erinnerungen am Ort |
+| Dieses Gerät / Zertifikat | fehlte | Erlaubnisse, Offline-Daten, Zertifikat (Admin: hochladen, entfernen) |
+| Familie (Benutzerverwaltung, Einladung) | fehlte | da (nur Admin) |
+| KI und Dokumente | da (0.8.0) | eingeordnet |
+| Über Reisebuch | nur App- und Server-Version | App, Server, Build-Zeit, Datenbank-Stand, Adresse |
+
 ## Was ich getan habe
-- **KI-Status und Rolle** (`AILogic.swift` → `AIFeatures`): Die App merkt sich `GET /ai/status` (`enabled`, `research`, `review`,
-  `placeLookup`, `providers`, `model`, offline der letzte Stand) und über `GET /me`, ob das Konto Admin ist. Knöpfe erscheinen wie in der
-  Web-App; der Ansichtsmodus sperrt die KI-Knöpfe nicht.
-- **Teil A, Reise prüfen** (`TripReviewView.swift`): Knopf „🔍 Prüfen“ im Ablauf (bei `review`). Ohne Ergebnis: Text, was geprüft und was
-  **nicht** gesendet wird, „Prüfung starten“ (nur editor) → `POST /trips/:id/review`, danach alle 3 s `GET`, solange `pending` und offen.
-  Ergebnis: Zusammenfassung, Zählung („1 Fehler · 2 Warnungen · …“), Funde nach Schwere (Fehler rot, Warnung orange, Hinweis neutral) mit
-  Titel, Text, Vorschlag; Einträge/Tage eines Funds sind antippbar (Detail öffnet sich). `stale` → Band „Die Reise wurde seit der Prüfung
-  geändert“ und „Neu prüfen“; `failed` → Fehlertext und „Erneut versuchen“. Betrachter sehen nur das gespeicherte Ergebnis.
-- **Teil B, Vorschläge bearbeiten** (`DocumentsView.swift` → `DocReviewView`): je Vorschlag „Bearbeiten“ öffnet das Eintragsformular aus
-  0.6.0 mit den Daten des Vorschlags; „Fertig“ ersetzt nur die Daten dieses Vorschlags im Speicher (Felder, die das Formular nicht kennt,
-  bleiben; `details` verlustfrei), markiert ihn „bearbeitet“, blendet seine Probleme aus und schaltet „Übernehmen“ an. Gesendet wird erst mit
-  „Übernehmen“. Vorbelegung jetzt wie `DocReview.tsx` (nur Probleme → überspringen; die Abweichung bei `low` aus 0.7.0 ist
-  zurückgenommen). Der Hinweis „Ändern nach dem Übernehmen …“ ist weg.
-- **Teil C, Recherche** (Abschnitt „Im Internet ergänzen“ in den Vorschlägen, bei `research` und editor): Link optional (nur http/https),
-  „🧭 Reiseverlauf suchen“ (nur bei Kreuzfahrt) bzw. „Lücken füllen“ → `POST …/research` (202), alle 3 s `GET …/research`, solange
-  `pending`. Ergebnis: Zusammenfassung, Funde mit Häkchen, Ziel, Feldern, Details, Infos („bitte prüfen“), Reiseverlauf-Tagen und
-  antippbaren Quellen; „Ausgewählte übernehmen (n)“ → `…/research/accept` `{ids}`, danach Analyse neu laden (bei bearbeiteten
-  Vorschlägen vorher Rückfrage, dass die Änderungen verloren gehen, wie Web); „Verwerfen“ → `…/research/dismiss`. „Was wurde gesucht?“
-  aufklappbar. Satz „Funde aus dem Internet sind mit „bitte prüfen“ markiert. Nichts wird ohne „Übernehmen“ gespeichert.“
-- **Teil D, mehrere Dateien und Text** (`InputCollector.swift`): „Dokumente“ → „+“ öffnet „Dokumente hinzufügen“ mit Liste und
-  Hinzufügen aus Dateien, Fotos, Scannen und **„Text einfügen“** (als `Text.txt`). Ab zwei Einträgen Schalter „Gehören zu einer Buchung
-  (zusammen auswerten)“ (vorbelegt an, wenn alles Bilder sind). An: alle mit `POST /trips/:id/attachments`, dann
-  `POST /trips/:id/documents/group?background=1` mit den IDs (erste führt). Aus: einzeln mit `?background=1`. **Teilen-Erweiterung**:
-  derselbe Schalter ab zwei Dateien, gleiche Vorbelegung, gleicher Ablauf.
-- **Teil E, neue Reise mit KI**: „Neue Reise“ zeigt bei `enabled` die Wahl „Aus Dokumenten“ (vorbelegt) / „Von Hand“. Aus Dokumenten:
-  Name optional, Art „Automatisch erkennen“ (= `city`), Unterlagen wie Teil D, Knopf „Mit KI aufbauen“: `POST /trips` mit Titel oder
-  „Neue Reise“, dann Hochladen, dann öffnet sich die Reise. Scheitert eine Datei, bleibt das Blatt mit Fehler und „Zur Reise“ offen.
-  **Name aus dem Vorschlag:** Heißt die Reise noch „Neue Reise“ und liefert eine fertige Analyse `suggestedTripTitle`, setzt die App den
-  Namen per `PATCH /trips/:id` (beim Laden der Dokumente der Reise und beim Öffnen der Vorschläge).
-- **Teil F, Einstellungen „KI und Dokumente“** (`AISettingsView.swift`, in den Einstellungen verlinkt): für alle der Stand (an/aus,
-  Anbieter in Reihenfolge, zuletzt genutztes Modell, welche Funktionen). Nur Admin (`GET /ai/config`): aktive Kette, Hauptanbieter
-  (Anbieter ohne Schlüssel gekennzeichnet), Schalter „Ausweich“, „Verbindung testen“ (`POST /ai/check`, je Anbieter ✓/✗ mit Grund), je
-  Anbieter Stand („eingerichtet, endet auf …“, Quelle `.env` genannt), Feld API-Schlüssel (`SecureField`), „Prüfen und speichern“ (400 →
-  Grund, Feld bleibt gefüllt; Erfolg → Feld leer), „Schlüssel entfernen“ (nur Quelle `settings`, Bestätigung, `key: null`), Modell (leer =
-  Standard) mit „Modell speichern“. Hinweis zu Datenbank/Backups/VPN wie Web. **Der Schlüssel wird nirgends gespeichert**, er steht nur im
-  Feld (Zustand der Ansicht), bis er gesendet ist.
-- **Datenschutz-Sätze:** Die App nannte nirgends einen Anbieter; alle neuen Sätze sagen „an den eingestellten KI-Anbieter“ (auch der
-  Satz der Recherche, wo die Web-App noch „Websuche von Anthropic“ schreibt).
-- Technik: Die KI-Aufrufe stehen als `extension APIClient` in `AILogic.swift` (nur App), weil `APIClient.swift` mit der Erweiterung geteilt
-  ist; dafür sind `send`/`perform`/`pathID` nicht mehr `private`.
-- **Tests** (`ReisebuchTests/AILogicTests.swift`, neu, 8; `DocumentTests` an die Web-Vorbelegung angepasst): Sichtbarkeit nach Status und
-  Rolle, Sortierung/Farbe/Zählung der Funde, Polling stoppt bei done/failed, Ersetzen der Vorschlagsdaten (Rest unverändert, details
-  verlustfrei, Vorschlag ohne Datum öffnet), Bodies von Recherche-Start/-accept und Link-Prüfung, Gruppen-Body und Vorbelegung, Titel nur
-  bei „Neue Reise“, Bodies von `PUT /ai/config` (nur der geänderte Teil, `key: null`, leeres Modell = null). **50/50 grün.** Gegenprobe:
-  Funde unsortiert und leeres Modell als Text → 2 Tests rot, danach zurückgestellt.
+- **Reiter in der Reise** (`TripTimelineView.swift`, `TripTabs.swift`): Leiste unter dem Titel (waagrecht scrollbar, auf schmalen Geräten
+  lesbar): Ablauf, Kreuzfahrt (nur bei Reiseart Kreuzfahrt oder vorhandener Kreuzfahrt), Kosten, Dokumente (mit Zahl und 📥, wenn
+  Vorschläge warten), Teilen. „+“ (neuer Eintrag) nur im Ablauf; „🔍 Prüfen“ und „…“ überall.
+  - **Kreuzfahrt:** je Kreuzfahrt Schiff, Kabine, Reederei, Buchung, Preis/Zahlung/Fälligkeit, Notizen, Zusatzinfos, Route mit Datum,
+    Art, Hafen/Land, An/Ab („Von Bord bis“ bei Ausschiffung), An Bord, Tender, 📌 Zahl der Einträge am Tag. Tag antippen → Detail (mit
+    Bearbeiten). „Bearbeiten“, „+ Reisetag“, ohne Kreuzfahrt „Kreuzfahrt anlegen“, sonst „+ Weitere Kreuzfahrt (Back-to-Back)“. Anlegen wie
+    `CruiseForms.tsx` mit Route (Einschiffung/Ausschiffung mit Hafen und Zeitzone, Seetage dazwischen, höchstens 120 Nächte) →
+    `POST /trips/:id/cruises`.
+  - **Kosten** aus `GET /trips/:id/costs`: je Währung Summe, bezahlt, offen, „ohne Angabe zählt als offen“, Gruppen nach Art
+    (aufklappbar mit Einträgen), „Noch zu zahlen“ mit „überfällig seit …“ (rot) bzw. „bis …“, „Ohne Währung“, „Ohne Preis“. Nichts wird
+    umgerechnet. Antippen öffnet den Eintrag bzw. wechselt zum Reiter Kreuzfahrt. Offline aus dem Zwischenspeicher (`cache/costs-<id>.json`,
+    mit Band „Offline · Stand …“).
+  - **Dokumente:** die Liste aus 0.7.0/0.8.0 als Reiter.
+  - **Teilen:** Mitreisende mit Rolle (Besitzer, Bearbeiten, Nur ansehen; „(du)“). Besitzer: Rolle ändern (Auswahl), entfernen (wischen,
+    Bestätigung), hinzufügen aus `GET /users` (wer noch nicht dabei ist, Rolle Bearbeiten/Nur ansehen). „Reise verlassen“ für jeden außer
+    dem letzten Besitzer (Bestätigung, danach zurück zur Liste). Satz zu den Rollen.
+- **Einstellungen** (`SettingsView.swift` neu aufgebaut): Liste mit Symbol, Titel, Untertitel wie `Settings.tsx`.
+  1. **Konto:** Anzeigename, aktuelles Passwort, neues Passwort zweimal → `PATCH /me` (Passwort nur, wenn ein neues eingegeben ist;
+     vorher geprüft: gleich, mindestens 8 Zeichen); „Gespeichert. Andere Geräte wurden abgemeldet.“; Server-Adresse; Abmelden.
+  2. **Persönlicher Zeitbedarf:** Schalter, Faktor (× 1,25 … × 3), Zusatzzeit (keine … + 60 min) → `PATCH /me/settings {pace}`,
+     Beispiel „Aus einer empfohlenen Zeit von 30 min werden 45 min“ (wie Web, aufgerundet auf 5 min). Danach Abläufe neu laden.
+     Kein Name, keine Begründung im Text.
+  3. **Erinnerungen:** Push „Auf diesem iPhone“ und Testnachricht; die Regeln aus `notifications` wie die Web-App (Alle an Bord, Ausflug,
+     Abfahrt mit Vorlauf, Gate/Schalter/Kofferband/Gleis geändert, Abflug-Vorlauf; „Mit deinem persönlichen Zeitbedarf: … min vorher“),
+     nur sichtbar, wenn Benachrichtigungen fürs Konto an sind (wie Web); „Erinnerungen am Ort“ mit „Geplant“; angemeldete Geräte aus
+     `GET /push/status` (lesend). Der Satz „… in der Web-App einstellen“ ist weg.
+  4. **Dieses Gerät:** Stand der Erlaubnisse (Mitteilungen, Standort, Kamera, Hintergrundaktualisierung) mit „In iOS-Einstellungen
+     öffnen“; Offline-Stand (gespeicherte Reisen, Größe, „Offline-Daten neu laden“); Zertifikat aus `GET /certificate/info` (für wen, gültig
+     bis, Warnung unter 60 Tagen); Admin: hochladen (`.pem`/`.crt`/`.cer` → `PUT /certificate`), entfernen mit Bestätigung.
+  5. **Familie** (nur Admin): Konten mit Benutzername und Admin-Zeichen; „Neues Konto“ (Benutzername, Anzeigename, Startpasswort mit
+     „Vorschlagen“, „Ist Admin“) → `POST /users`, danach **Einladung**: Text wie `inviteText` mit Server-Adresse der App, Benutzername,
+     wahlweise Passwort, Adresse und Text bearbeitbar, „Teilen …“ (iOS-Teilen-Menü) und „Kopieren“. „Passwort“ je Konto (Vorschlag,
+     `POST /users/:id/password`, danach dieselbe Einladung). Löschen durch Wischen, Bestätigung mit dem Satz der Web-App; das eigene Konto ist
+     nicht löschbar. Passwörter stehen nur im Formular und im Einladungstext.
+  6. **KI und Dokumente:** aus 0.8.0 eingeordnet.
+  7. **Über Reisebuch:** App-Version und Build, Server-Version, Build-Zeit, Datenbank-Stand, Adresse.
+- Benutzer-ID kommt aus Anmeldung bzw. `GET /me` (`AppSession.userId`, für „du“ und „Reise verlassen“); `TripDetail` liest jetzt
+  `members`.
+- **Tests** (`ReisebuchTests/SettingsLogicTests.swift`, neu, 9): Reiter (Kreuzfahrt nur bei Kreuzfahrt), Kosten je Währung ohne
+  Zusammenzählen und „überfällig“, Rechte im Reiter Teilen (ändern, entfernen, hinzufügen, verlassen, letzter Besitzer, Kandidaten),
+  Admin-Bereiche, Zeitbedarf (wie Web inkl. Aufrunden, aus), Passwort-Vorschlag (3 × 4 Zeichen aus dem Alphabet von `invite.ts`),
+  Einladungstext mit und ohne Passwort, PATCH-Bodies für `/me` (Passwort nur bei neuem) und `/me/settings`, Route der Kreuzfahrt.
+  **59/59 grün.** Gegenprobe: letzter Besitzer darf verlassen und Zeitbedarf ohne Aufrunden → 2 Tests rot, danach zurückgestellt.
 
 ## Entscheidungen / Abweichungen
-- Je Vorschlag ein Schalter „Übernehmen“/„Aktualisieren“ statt der drei Knöpfe der Web-App („Neu anlegen“ trotz Treffer gibt es in der
-  App nicht).
-- Wird bei „zusammen auswerten“ nur eine Datei angenommen, liest die App sie einzeln (`/analyze`, wartet bis zu einer Minute).
-- Recherche-Funde zeigen den betroffenen Hafentag nur als „Hafentag“ (die Web-App nennt Datum und Hafen).
+- „KI und Dokumente“ ist für alle sichtbar (Stand), die Einrichtung nur für Admins. In der Web-App ist der ganze Bereich nur für Admins.
+- „Reise verlassen“ auch für Besitzer, solange es einen weiteren Besitzer gibt (Auftrag); die Web-App zeigt es nur Nicht-Besitzern.
+- Der Satz zu den Rollen ist neu formuliert; die Web-App hat dafür keinen Text.
+- „Über Reisebuch“ zeigt keinen Hinweis „App veraltet“: Die iPhone-App hat eine eigene Versionsnummer, ein Vergleich mit dem Server
+  ergibt keinen Sinn (die Web-App vergleicht ihr eigenes Bündel mit dem Server).
+- Server-Adresse unter „Konto“ nur angezeigt; eine andere gibt man nach dem Abmelden bei der Anmeldung ein.
+- Der Einladungstext ist der der Web-App (Anleitung für Safari/Web-App), auch aus der iPhone-App.
 
 ## Build-Ergebnis
 Grün für App, Widget, Erweiterung und Tests (Debug Simulator, Release-Archiv), keine Compiler-Warnungen, auch nicht im Archiv-Log.
@@ -72,42 +89,41 @@ Verbleibend nur `appintentsmetadataprocessor … No AppIntents.framework depende
 **Keine Prüfung im Simulator** (Philips Entscheidung), nur Build und Unit-Tests. Keine der neuen Ansichten ist gesehen.
 
 ## IPA
-- `ios/Installation/0.8.0-b8/Reisebuch-0.8.0-b8.ipa`, 1 175 937 Bytes, App, Widget und Erweiterung je 0.8.0 (8).
-- SHA256: `084f0705295b13225f996e442ab9ec8263d3659c795c17bee13cdf0a31e4b8dc`
+- `ios/Installation/0.9.0-b9/Reisebuch-0.9.0-b9.ipa`, 1 393 891 Bytes, App, Widget und Erweiterung je 0.9.0 (9).
+- SHA256: `ca3149d4c935f1f9ab4436a4cf12b5ba8bb3d3a7a213c4d1821dd52b25049acb`
 - Profile unverändert: App 22d2bb98… (`aps-environment` = `production`), Widget a8497ea0…, Erweiterung c018dd7d…, alle 2 Geräte, gültig
   bis 01.11.2027, App Group nur `group.de.theoldphilip.Reisebuch`. `project.pbxproj` nach Archiv und Export unverändert.
-- Im Ordner 0.6.0-b6, 0.7.0-b7, 0.8.0-b8; 0.5.0-b5 entfernt.
+- Im Ordner 0.7.0-b7, 0.8.0-b8, 0.9.0-b9; 0.6.0-b6 entfernt.
 
 ## Geänderte Dateien
-- `ios/Reisebuch/Reisebuch.xcodeproj/project.pbxproj` (nur Version 0.8.0 / 8, 10 Vorkommen je Schlüssel)
-- `ios/Reisebuch/Reisebuch/`: neu `AILogic.swift`, `TripReviewView.swift`, `InputCollector.swift`, `AISettingsView.swift`; geändert
-  `DocumentsView.swift`, `DocumentLogic.swift`, `EditForms.swift`, `APIClient.swift`, `Models.swift`, `AppSession.swift`,
-  `TripTimelineView.swift`, `DetailViews.swift`, `SettingsView.swift`
-- `ios/Reisebuch/ReisebuchShare/ShareView.swift`
-- `ios/Reisebuch/ReisebuchTests/AILogicTests.swift` (neu), `DocumentTests.swift`
+- `ios/Reisebuch/Reisebuch.xcodeproj/project.pbxproj` (nur Version 0.9.0 / 9, 10 Vorkommen je Schlüssel)
+- `ios/Reisebuch/Reisebuch/`: neu `SettingsLogic.swift`, `TripTabs.swift`; neu aufgebaut `SettingsView.swift`; geändert
+  `TripTimelineView.swift`, `DocumentsView.swift`, `EditForms.swift` (Kreuzfahrt anlegen), `Models.swift`, `AppSession.swift`,
+  `ResponseCache.swift`
+- `ios/Reisebuch/ReisebuchTests/SettingsLogicTests.swift` (neu)
 - `ios/Installation/`, `ios/STAND.md`, `ios/CLAUDE.md`, Auftrag verschoben
 
 ## Commits (Hashes)
-- c12e571 iOS 0.8.0: KI-Funktionen wie in der Web-App
-- folgende: STAND 0.8.0, IPA 0.8.0
+- e9ba941 iOS 0.9.0: Alle Reiter und Einstellungen wie in der Web-App
+- folgende: STAND 0.9.0, IPA 0.9.0
 
 ## Offene Fragen an den Architekten
-- Keine zwingenden. Zur Kenntnis: die drei kleinen Abweichungen oben.
+- Keine zwingenden. Zur Kenntnis: die Abweichungen oben.
 
 ## Was Philip auf dem iPhone testen soll
-Vorher: IPA 0.8.0-b8 installieren, Server 0.14.0.
-1. **Reise prüfen:** In einer Reise oben „🔍 Prüfen“ → „Prüfung starten“ → nach bis zu einer Minute die Funde. Einen Fund mit Eintrag
-   antippen → der Eintrag öffnet sich. Einen Eintrag ändern, wieder „🔍 Prüfen“ → Band „Die Reise wurde seit der Prüfung geändert“.
-2. **Vorschlag bearbeiten:** Ein Dokument hochladen → „Vorschläge prüfen“ → bei einem Vorschlag „Bearbeiten“ → z. B. Gate ändern →
-   „Fertig“ (nichts gespeichert, Vorschlag zeigt „bearbeitet“) → „Übernehmen“ → der Eintrag hat das geänderte Gate.
-3. **Recherche:** In den Vorschlägen einer Kreuzfahrt-Buchung „🧭 Reiseverlauf suchen“ (optional mit Link der Reederei) → nach ein bis zwei
-   Minuten Funde mit Quelle → Häkchen setzen → „Ausgewählte übernehmen“ → die Vorschläge oben sind ergänzt. „Was wurde gesucht?“ ansehen.
-4. **Zusammen auswerten aus Fotos:** „Dokumente“ → „+“ → „Aus Fotos“ → drei Screenshots derselben Buchung → Schalter „Gehören zu einer
-   Buchung“ ist an → „Hochladen“ → eine Mitteilung, ein Satz Vorschläge („Zusammen gelesen: …“).
-5. **Zusammen aus dem Teilen-Menü:** In Fotos drei Screenshots markieren → Teilen → „Reisebuch“ → Schalter an → Reise → „Hochladen“.
-6. **Text einfügen:** „+“ → „Text einfügen“ → kopierte Buchungsmail → „Hochladen“.
-7. **Neue Reise aus Dokumenten:** Reiseliste „+“ → „Aus Dokumenten“ → ohne Namen, Art „Automatisch erkennen“ → Unterlagen → „Mit KI
-   aufbauen“ → die Reise heißt erst „Neue Reise“; nach der Mitteilung „Dokumente“ bzw. „Vorschläge prüfen“ öffnen → der Name wechselt auf
-   den Vorschlag der KI.
-8. **KI-Einstellungen:** Einstellungen → „KI und Dokumente“: Stand stimmt? Als Admin „Verbindung testen“ (je Anbieter ✓/✗). Optional einen
-   Schlüssel eintragen, „Prüfen und speichern“ → Feld ist danach leer, Stand zeigt „endet auf …“.
+Vorher: IPA 0.9.0-b9 installieren. Für Familie ein Testkonto verwenden und danach löschen.
+1. **Reiter:** In einer Kreuzfahrt-Reise oben Ablauf · Kreuzfahrt · Kosten · Dokumente · Teilen; in einem Städtetrip ohne „Kreuzfahrt“.
+2. **Kreuzfahrt:** Übersicht prüfen (Kabine, Preis, Route mit An/Ab/An Bord, Tender). Tag antippen → Detail → „Bearbeiten“. In einer
+   Test-Reise ohne Kreuzfahrt (Art Kreuzfahrt) „Kreuzfahrt anlegen“ mit Einschiffung/Ausschiffung → die Tage erscheinen, dazwischen Seetage.
+3. **Kosten:** Summen je Währung wie in der Web-App, „Noch zu zahlen“ mit „überfällig“ (rot), „Ohne Preis“. Einen Eintrag antippen.
+   VPN aus → Kosten erscheinen mit Band „Offline · Stand …“.
+4. **Teilen:** Als Besitzer das Testkonto hinzufügen (Rolle „Nur ansehen“), Rolle ändern, entfernen (nach links wischen). Als Mitglied
+   einer fremden Reise „Reise verlassen“ → zurück zur Liste.
+5. **Konto:** Anzeigename ändern → Liste/Fußzeile zeigt ihn. Passwort ändern (aktuelles + neues zweimal).
+6. **Zeitbedarf:** Schalter an, Faktor × 1,5 → Beispiel „45 min“; im Ablauf zeigen Hinweise beide Zeiten.
+7. **Erinnerungen:** Vorlauf „Alle an Bord“ ändern; in der Web-App dieselbe Einstellung sehen. Geräteliste zeigt Browser und iPhone-App.
+8. **Dieses Gerät:** Erlaubnisse stimmen mit den iOS-Einstellungen überein; „Offline-Daten neu laden“; Zertifikat-Stand.
+9. **Familie** (Admin): Neues Konto „test“ mit „Vorschlagen“ → Einladung erscheint → „Teilen …“ (z. B. an dich selbst per Nachricht),
+   Schalter „Startpasswort“ aus → Text ändert sich. „Passwort“ beim Testkonto → neue Einladung. Testkonto löschen (wischen, Bestätigung
+   nennt die Übergabe der Reisen). Das eigene Konto hat keinen Löschen-Knopf.
+10. **Über Reisebuch:** App 0.9.0 (Build 9), Server-Version, Build-Zeit, Datenbank-Stand.
