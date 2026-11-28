@@ -70,14 +70,16 @@ nonisolated struct AnalysisView: Decodable {
     let warnings: [String]?
     let items: [ItemProposal]?
     let cruise: CruiseProposal?
+    /// Vorschlag für den Reisenamen (übernommen, solange die Reise „Neue Reise“ heißt).
+    var suggestedTripTitle: String? = nil
 }
 
 // MARK: - Vorschläge
 
 nonisolated enum DocReviewLogic {
-    /// Vorbelegung: übernehmen, außer bei Problemen oder unsicherer Erkennung.
+    /// Vorbelegung wie DocReview.tsx: übernehmen, außer bei Problemen (seit 0.8.0 auch bei unsicherer Erkennung).
     static func defaultApply(_ p: ItemProposal) -> Bool {
-        (p.problems ?? []).isEmpty && p.confidence != "low"
+        (p.problems ?? []).isEmpty
     }
 
     static func defaultApply(_ c: CruiseProposal) -> Bool {
@@ -177,6 +179,17 @@ nonisolated enum Upload {
 
     static func outcome(status: Int, response: UploadResponse?) -> Outcome {
         status == 202 ? .background : .saved
+    }
+
+    /// Body für POST /trips/:id/documents/group: erste ID führt.
+    static func groupBody(_ ids: [String]) -> [String: JSONValue] {
+        ["attachmentIds": .array(ids.map { .string($0) })]
+    }
+
+    /// Vorbelegung von „zusammen auswerten“: an bei mehreren Bildern, sonst aus.
+    static func defaultGrouped(filenames: [String]) -> Bool {
+        let images = filenames.filter { ["jpg", "jpeg", "png", "heic", "gif", "webp"].contains(($0 as NSString).pathExtension.lowercased()) }
+        return filenames.count > 1 && images.count == filenames.count
     }
 
     static func message(_ o: Outcome) -> String {

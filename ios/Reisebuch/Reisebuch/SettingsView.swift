@@ -35,6 +35,13 @@ struct SettingsView: View {
                     }
                 }
                 notificationsSection
+                Section {
+                    NavigationLink {
+                        AISettingsView()
+                    } label: {
+                        Label("KI und Dokumente", systemImage: "sparkles")
+                    }
+                }
                 Section("Versionen") {
                     LabeledContent("App", value: Fmt.appVersion())
                     if let serverVersion {

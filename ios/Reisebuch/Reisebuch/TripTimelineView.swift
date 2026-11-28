@@ -25,6 +25,7 @@ struct TripTimelineView: View {
     @State private var cruiseForNewDay: CruiseSummary?
     @State private var actionError: String?
     @State private var reviewDoc: DocumentsView.ReviewTarget?
+    @State private var showTripReview = false
     @State private var errorText: String?
     /// Gesetzt, solange der gespeicherte Ablauf gezeigt wird, weil der Server nicht erreichbar ist.
     @State private var offlineSince: Date?
@@ -120,6 +121,13 @@ struct TripTimelineView: View {
             .sheet(item: $cruiseForNewDay) { cruise in
                 if let timeline { CruiseDayFormView(cruise: cruise, ctx: editContext(timeline)) }
             }
+            .sheet(isPresented: $showTripReview) {
+                if let timeline {
+                    TripReviewView(edit: editContext(timeline),
+                                   items: Dictionary(timeline.phases.flatMap(\.days).flatMap(\.entries).map { ($0.itemId, $0.item) },
+                                                     uniquingKeysWith: { a, _ in a }))
+                }
+            }
             .sheet(item: $reviewDoc) { target in
                 if let timeline { DocReviewView(attachmentId: target.id, edit: editContext(timeline)) { Task { await load() } } }
             }
@@ -175,13 +183,19 @@ struct TripTimelineView: View {
     private func editContext(_ t: Timeline) -> EditContext {
         let defaultTz = t.defaultTimezone ?? "Europe/Zurich"
         let lastTz = t.phases.flatMap(\.days).flatMap(\.entries).last?.timezone
-        return EditContext(tripId: trip.id, tripKind: detail?.trip?.kind ?? trip.kind, cruises: detail?.cruises ?? [],
+        return EditContext(tripId: trip.id, tripTitle: detail?.trip?.title ?? trip.title, tripKind: detail?.trip?.kind ?? trip.kind, cruises: detail?.cruises ?? [],
                            defaultTz: defaultTz, suggestedTz: lastTz ?? defaultTz, isEditor: isEditor, isOwner: isOwner,
                            canEdit: isEditor && !locked(t), reload: { await load() })
     }
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
+        // KI-Prüfung: auch im Ansichtsmodus und für Betrachter (gespeichertes Ergebnis).
+        if AIFeatures(status: session.aiStatus, role: role).showReview, timeline != nil {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("🔍 Prüfen") { showTripReview = true }
+            }
+        }
         if isEditor, let timeline {
             if locked(timeline) {
                 ToolbarItem(placement: .topBarTrailing) {

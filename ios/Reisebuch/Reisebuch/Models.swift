@@ -208,9 +208,15 @@ nonisolated struct StringMap: Codable, Hashable {
 
 // MARK: - KI-Status und Reisetag-Abfrage
 
-nonisolated struct AIStatus: Codable {
-    let enabled: Bool?
-    let placeLookup: Bool?
+nonisolated struct AIStatus: Codable, Equatable {
+    var enabled: Bool? = nil
+    var placeLookup: Bool? = nil
+    var research: Bool? = nil
+    var review: Bool? = nil
+    /// Anbieter in Reihenfolge, z. B. ["Claude", "ChatGPT"].
+    var providers: [String]? = nil
+    /// Anbieter und Modell, die zuletzt geantwortet haben.
+    var model: String? = nil
 }
 
 nonisolated struct PlaceLookupSource: Codable, Hashable {

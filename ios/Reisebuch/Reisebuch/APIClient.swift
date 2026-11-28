@@ -213,11 +213,30 @@ nonisolated struct APIClient {
 
     /// Lädt eine Datei hoch (POST /trips/:id/documents?background=1), Body aus einer Datei gestreamt.
     func uploadDocument(tripId: String, itemId: String? = nil, file: URL, filename: String) async throws -> Upload.Outcome {
+        var path = "/api/trips/\(Self.pathID(tripId))/documents?background=1"
+        if let itemId { path += "&itemId=\(Self.pathID(itemId))" }
+        let (status, data) = try await uploadMultipart(path: path, file: file, filename: filename)
+        return Upload.outcome(status: status, response: try? JSONDecoder().decode(UploadResponse.self, from: data))
+    }
+
+    /// Nur speichern, ohne Analyse (für „zusammen auswerten“): POST /trips/:id/attachments.
+    func uploadAttachment(tripId: String, file: URL, filename: String) async throws -> Attachment {
+        let (_, data) = try await uploadMultipart(path: "/api/trips/\(Self.pathID(tripId))/attachments", file: file, filename: filename)
+        return try Self.decode(Attachment.self, from: data)
+    }
+
+    /// Mehrere hochgeladene Dateien als eine Unterlage auswerten (erste führt), im Hintergrund.
+    func analyzeGroup(tripId: String, attachmentIds: [String]) async throws -> Upload.Outcome {
+        let body = try JSONEncoder().encode(Upload.groupBody(attachmentIds))
+        let data = try await perform("POST", "/api/trips/\(Self.pathID(tripId))/documents/group?background=1", body: body, long: true)
+        _ = data
+        return .background
+    }
+
+    private func uploadMultipart(path: String, file: URL, filename: String) async throws -> (Int, Data) {
         guard Upload.fileSize(file) <= Upload.maxBytes else {
             throw APIError.other("„\(filename)“ ist größer als 25 MB.")
         }
-        var path = "/api/trips/\(Self.pathID(tripId))/documents?background=1"
-        if let itemId { path += "&itemId=\(Self.pathID(itemId))" }
         guard let url = URL(string: baseURL.absoluteString + path) else { throw APIError.invalidAddress }
         let boundary = "Reisebuch-\(UUID().uuidString)"
         let body = try Upload.writeBody(from: file, filename: filename, mime: Upload.mime(for: filename), boundary: boundary)
@@ -229,7 +248,13 @@ nonisolated struct APIClient {
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         let (data, response) = try await Self.mapErrors { try await Self.longSession.upload(for: request, fromFile: body) }
         let http = try Self.check(response, data)
-        return Upload.outcome(status: http.statusCode, response: try? JSONDecoder().decode(UploadResponse.self, from: data))
+        return (http.statusCode, data)
+    }
+
+    // MARK: KI (0.8.0)
+
+    func me() async throws -> User {
+        try await send("GET", "/api/me")
     }
 
     // MARK: Benachrichtigungen (APNs)
@@ -263,18 +288,18 @@ nonisolated struct APIClient {
 
     // MARK: Grundlage
 
-    private struct EmptyBody: Encodable {}
-    private struct EmptyResponse: Decodable {}
+    struct EmptyBody: Encodable {}
+    struct EmptyResponse: Decodable {}
 
-    private static func pathID(_ id: String) -> String {
+    static func pathID(_ id: String) -> String {
         id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
     }
 
-    private func send<Response: Decodable>(_ method: String, _ path: String, authorized: Bool = true) async throws -> Response {
+    func send<Response: Decodable>(_ method: String, _ path: String, authorized: Bool = true) async throws -> Response {
         try await send(method, path, body: Optional<EmptyBody>.none, authorized: authorized)
     }
 
-    private func send<Body: Encodable, Response: Decodable>(_ method: String, _ path: String, body: Body?,
+    func send<Body: Encodable, Response: Decodable>(_ method: String, _ path: String, body: Body?,
                                                            authorized: Bool = true) async throws -> Response {
         let bodyData = try body.map { try JSONEncoder().encode($0) }
         let data = try await perform(method, path, body: bodyData, authorized: authorized)
@@ -283,7 +308,7 @@ nonisolated struct APIClient {
     }
 
     /// Führt die Anfrage aus und gibt die rohe Antwort zurück; Fehler werden zu APIError.
-    private func perform(_ method: String, _ path: String, body: Data?, authorized: Bool = true, long: Bool = false) async throws -> Data {
+    func perform(_ method: String, _ path: String, body: Data?, authorized: Bool = true, long: Bool = false) async throws -> Data {
         guard let url = URL(string: baseURL.absoluteString + path) else { throw APIError.invalidAddress }
         var request = URLRequest(url: url)
         request.httpMethod = method

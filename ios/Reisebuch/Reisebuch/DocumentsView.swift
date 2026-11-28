@@ -2,15 +2,14 @@
 //  DocumentsView.swift
 //  Reisebuch
 //
-//  Dokumente einer Reise (Auftrag 0.7.0): Liste mit Status, Ansehen mit Quick Look, Hinzufügen aus Dateien, Fotos oder Scanner
-//  (hochgeladen mit ?background=1, die KI liest im Hintergrund und meldet sich per Mitteilung), Löschen, Vorschläge prüfen und
-//  übernehmen. Web-Recherche und „zusammen auswerten“ bleiben in der Web-App.
+//  Dokumente einer Reise (Auftrag 0.7.0, erweitert in 0.8.0): Liste mit Status, Ansehen mit Quick Look, Hinzufügen (Dateien, Fotos,
+//  Scanner, Text; einzeln oder zusammen ausgewertet), Löschen. Vorschläge prüfen wie DocReview.tsx: je Vorschlag übernehmen/überspringen,
+//  vor dem Übernehmen bearbeiten (nur im Speicher), Recherche im Internet wie ResearchPanel.tsx, Reisename aus dem Vorschlag der KI.
 //
 
-import PhotosUI
 import QuickLook
 import SwiftUI
-import UniformTypeIdentifiers
+import UIKit
 import VisionKit
 
 // MARK: - Zeile im Ablauf
@@ -42,6 +41,17 @@ struct DocumentsLinkSection: View {
     }
 }
 
+/// Reisename aus dem Vorschlag der KI übernehmen, solange die Reise „Neue Reise“ heißt (wie die Web-App beim Start aus Dokumenten).
+enum TitleAdoption {
+    static func run(session: AppSession, edit: EditContext, suggestion: String?) async -> Bool {
+        guard let title = TripTitle.adopt(current: edit.tripTitle, suggestion: suggestion) else { return false }
+        guard (try? await session.call { try await $0.patchTrip(tripId: edit.tripId, ["title": .string(title)]) }) != nil else { return false }
+        _ = try? await session.fetchTrips()
+        await edit.reload()
+        return true
+    }
+}
+
 // MARK: - Liste
 
 struct DocumentsView: View {
@@ -52,15 +62,12 @@ struct DocumentsView: View {
     @State private var attachments: [Attachment]
     @State private var message: String?
     @State private var errorText: String?
-    @State private var uploading = false
     @State private var previewURL: URL?
     @State private var loadingId: String?
     @State private var reviewId: ReviewTarget?
-    @State private var showImporter = false
-    @State private var showPhotos = false
-    @State private var photoItems: [PhotosPickerItem] = []
-    @State private var showScanner = false
+    @State private var showAdd = false
     @State private var toDelete: Attachment?
+    @State private var titleChecked = false
 
     struct ReviewTarget: Identifiable { let id: String }
 
@@ -79,9 +86,6 @@ struct DocumentsView: View {
             }
             if let message {
                 Section { Label(message, systemImage: "checkmark.circle").foregroundStyle(.secondary) }
-            }
-            if uploading {
-                Section { HStack { ProgressView(); Text("Wird hochgeladen …") } }
             }
             if visible.isEmpty {
                 Section { Text("Noch keine Dokumente.").foregroundStyle(.secondary) }
@@ -104,21 +108,13 @@ struct DocumentsView: View {
         .toolbar {
             if edit.canEdit {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button("Aus Dateien", systemImage: "folder") { showImporter = true }
-                        Button("Aus Fotos", systemImage: "photo") { showPhotos = true }
-                        if VNDocumentCameraViewController.isSupported {
-                            Button("Scannen", systemImage: "doc.viewfinder") { showScanner = true }
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("Dokument hinzufügen")
-                    .disabled(uploading)
+                    Button { showAdd = true } label: { Image(systemName: "plus") }
+                        .accessibilityLabel("Dokumente hinzufügen")
                 }
             }
         }
         .refreshable { await reload() }
+        .task { await adoptTitleIfNeeded() }
         .task(id: DocumentStatus.anyPending(attachments)) {
             // Solange etwas gelesen wird und die Liste sichtbar ist: alle 5 s neu laden.
             while DocumentStatus.anyPending(attachments) && !Task.isCancelled {
@@ -134,21 +130,11 @@ struct DocumentsView: View {
         .sheet(item: $reviewId) { target in
             DocReviewView(attachmentId: target.id, edit: edit) { Task { await reload() } }
         }
-        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.pdf, .image, .plainText, .item],
-                      allowsMultipleSelection: true) { result in
-            if case let .success(urls) = result { Task { await uploadFiles(urls) } }
-        }
-        .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: 10, matching: .images)
-        .onChange(of: photoItems) { _, items in
-            guard !items.isEmpty else { return }
-            Task { await uploadPhotos(items) }
-        }
-        .fullScreenCover(isPresented: $showScanner) {
-            DocumentScanner { url in
-                showScanner = false
-                if let url { Task { await upload([(url, url.lastPathComponent)], cleanup: true) } }
+        .sheet(isPresented: $showAdd) {
+            AddDocumentsView(tripId: edit.tripId) { text in
+                message = text
+                Task { await reload() }
             }
-            .ignoresSafeArea()
         }
         .confirmationDialog("„\(toDelete?.filename ?? "")“ löschen?", isPresented: Binding(get: { toDelete != nil },
                                                                                           set: { if !$0 { toDelete = nil } }),
@@ -189,6 +175,16 @@ struct DocumentsView: View {
         if let detail = try? await session.fetchTripDetail(tripId: edit.tripId) {
             attachments = detail.attachments ?? []
         }
+        await adoptTitleIfNeeded()
+    }
+
+    /// Heißt die Reise noch „Neue Reise“: Namensvorschlag der ersten fertigen Analyse übernehmen.
+    private func adoptTitleIfNeeded() async {
+        guard !titleChecked, edit.tripTitle == TripTitle.placeholder,
+              let first = attachments.first(where: { $0.analysisStatus == "done" }) else { return }
+        guard let view = try? await session.call({ try await $0.analysis(attachmentId: first.id) }) else { return }
+        titleChecked = true
+        _ = await TitleAdoption.run(session: session, edit: edit, suggestion: view.suggestedTripTitle)
     }
 
     /// Mit Token laden, in einen eigenen temporären Ordner legen und mit Quick Look zeigen.
@@ -198,9 +194,7 @@ struct DocumentsView: View {
         defer { loadingId = nil }
         do {
             let data = try await session.call { try await $0.downloadAttachment(id: a.id) }
-            let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ansehen-\(UUID().uuidString)", isDirectory: true)
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let url = dir.appendingPathComponent(Upload.safeFilename(a.filename))
+            let url = DocumentUploader.tempURL(a.filename)
             try data.write(to: url, options: .completeFileProtection)
             previewURL = url
         } catch {
@@ -217,63 +211,6 @@ struct DocumentsView: View {
         } catch {
             errorText = SaveError.text(error)
         }
-    }
-
-    private func uploadFiles(_ urls: [URL]) async {
-        var files: [(URL, String)] = []
-        for url in urls {
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            // In den eigenen temporären Ordner kopieren (der Zugriff gilt nur hier).
-            let copy = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString)-\(url.lastPathComponent)")
-            do {
-                try FileManager.default.copyItem(at: url, to: copy)
-                files.append((copy, url.lastPathComponent))
-            } catch {
-                errorText = "„\(url.lastPathComponent)“ ließ sich nicht lesen."
-            }
-        }
-        await upload(files, cleanup: true)
-    }
-
-    /// Fotos als JPEG (HEIC kann der Server nicht lesen).
-    private func uploadPhotos(_ items: [PhotosPickerItem]) async {
-        photoItems = []
-        var files: [(URL, String)] = []
-        for (n, item) in items.enumerated() {
-            guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data),
-                  let jpeg = image.jpegData(compressionQuality: 0.85) else {
-                errorText = "Ein Foto ließ sich nicht lesen."
-                continue
-            }
-            let name = items.count == 1 ? "Foto.jpg" : "Foto-\(n + 1).jpg"
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString)-\(name)")
-            if (try? jpeg.write(to: url)) != nil { files.append((url, name)) }
-        }
-        await upload(files, cleanup: true)
-    }
-
-    private func upload(_ files: [(URL, String)], cleanup: Bool) async {
-        guard !files.isEmpty else { return }
-        errorText = nil
-        message = nil
-        uploading = true
-        defer { uploading = false }
-        var outcomes: [Upload.Outcome] = []
-        for (url, name) in files {
-            defer { if cleanup { try? FileManager.default.removeItem(at: url) } }
-            do {
-                outcomes.append(try await session.call {
-                    try await $0.uploadDocument(tripId: edit.tripId, file: url, filename: name)
-                })
-            } catch {
-                errorText = "„\(name)“: \(SaveError.text(error))"
-            }
-        }
-        if !outcomes.isEmpty {
-            message = Upload.message(outcomes.contains(.background) ? .background : .saved)
-        }
-        await reload()
     }
 }
 
@@ -300,11 +237,10 @@ struct DocumentScanner: UIViewControllerRepresentable {
         func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFinishWith scan: VNDocumentCameraScan) {
             guard scan.pageCount > 0 else { onFinish(nil); return }
             let first = scan.imageOfPage(at: 0)
-            let bounds = CGRect(origin: .zero, size: first.size)
             let f = DateFormatter()
             f.dateFormat = "yyyy-MM-dd HH.mm"
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("Scan \(f.string(from: Date())).pdf")
-            let renderer = UIGraphicsPDFRenderer(bounds: bounds)
+            let url = DocumentUploader.tempURL("Scan \(f.string(from: Date())).pdf")
+            let renderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: first.size))
             do {
                 try renderer.writePDF(to: url) { ctx in
                     for i in 0..<scan.pageCount {
@@ -336,11 +272,21 @@ struct DocReviewView: View {
     let edit: EditContext
     let onDone: () -> Void
 
+    struct Row {
+        let proposal: ItemProposal
+        var data: [String: JSONValue]
+        var apply: Bool
+        var edited = false
+    }
+
     @State private var view: AnalysisView?
-    @State private var apply: [Bool] = []
+    @State private var rows: [Row] = []
     @State private var applyCruise = false
     @State private var errorText: String?
     @State private var busy: String?
+    @State private var editing: EditingRow?
+
+    struct EditingRow: Identifiable { let id: Int }
 
     var body: some View {
         NavigationStack {
@@ -369,6 +315,15 @@ struct DocReviewView: View {
             }
             .task { await load() }
             .interactiveDismissDisabled(busy != nil)
+            .sheet(item: $editing) { target in
+                if target.id < rows.count, let item = ProposalEdit.item(from: rows[target.id].data) {
+                    ItemFormView(ctx: edit, item: item, onSubmit: { payload in
+                        rows[target.id].data = ProposalEdit.replaceData(original: rows[target.id].data, payload: payload)
+                        rows[target.id].edited = true
+                        rows[target.id].apply = true
+                    }, onSaved: { _ in })
+                }
+            }
         }
     }
 
@@ -386,11 +341,16 @@ struct DocReviewView: View {
         }
         if v.status != "done" {
             Section {
-                Text(DocumentStatus.text(v.attachment ?? Attachment(id: attachmentId, tripId: nil, itemId: nil, filename: "",
-                                                                     mime: nil, size: nil, createdAt: nil,
-                                                                     analysisStatus: v.status, analysisError: nil))
+                Text(DocumentStatus.text(Attachment(id: attachmentId, tripId: nil, itemId: nil, filename: "", mime: nil, size: nil,
+                                                    createdAt: nil, analysisStatus: v.status, analysisError: v.attachment?.analysisError))
                      ?? "Keine offenen Vorschläge.")
                     .foregroundStyle(.secondary)
+            }
+        }
+        if v.status == "done" && AIFeatures(status: session.aiStatus, role: edit.isEditor ? "editor" : "viewer").showResearch {
+            ResearchSection(attachmentId: attachmentId, analysis: v, edits: rows.contains { $0.edited },
+                            canRoute: edit.tripKind == nil || edit.tripKind == "cruise" || !edit.cruises.isEmpty) {
+                Task { await load() }
             }
         }
         if let cruise = v.cruise {
@@ -400,16 +360,14 @@ struct DocReviewView: View {
                 Text("Kreuzfahrt")
             }
         }
-        ForEach(Array((v.items ?? []).enumerated()), id: \.offset) { n, p in
+        ForEach(Array(rows.enumerated()), id: \.offset) { n, row in
             Section {
-                proposalRow(p, index: n)
+                proposalRow(row, index: n)
             }
         }
         if v.status == "done" && edit.isEditor {
             Section {
                 Button("Verwerfen (Datei bleibt)") { Task { await dismissAnalysis() } }.disabled(busy != nil)
-            } footer: {
-                Text("Ändern nach dem Übernehmen im Eintrag. Web-Recherche und „zusammen auswerten“ gibt es in der Web-App.")
             }
         }
         if edit.isEditor {
@@ -422,33 +380,46 @@ struct DocReviewView: View {
     }
 
     @ViewBuilder
-    private func proposalRow(_ p: ItemProposal, index n: Int) -> some View {
-        let d = p.data
+    private func proposalRow(_ row: Row, index n: Int) -> some View {
+        let d = row.data
+        let p = row.proposal
         let type = Labels.itemType(DocReviewLogic.text(d, "type") ?? "")
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("\(type.icon) \(type.label)").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Text(DocReviewLogic.confidenceText(p.confidence)).font(.caption.bold())
-                    .foregroundStyle(p.confidence == "low" ? Color.red : p.confidence == "high" ? Color.green : Color.orange)
+                if row.edited {
+                    Text("bearbeitet").font(.caption.bold()).foregroundStyle(.blue)
+                } else {
+                    Text(DocReviewLogic.confidenceText(p.confidence)).font(.caption.bold())
+                        .foregroundStyle(p.confidence == "low" ? Color.red : p.confidence == "high" ? Color.green : Color.orange)
+                }
             }
             Text(DocReviewLogic.text(d, "title") ?? "Ohne Titel").font(.headline)
             if let when = when(d) { Text(when).font(.subheadline) }
             if let loc = DocReviewLogic.text(d, "location") { Text(loc).font(.subheadline).foregroundStyle(.secondary) }
             if let place = placeLine(d) { Text(place).font(.subheadline.bold()) }
             if let cost = d["cost"]?.text { Text("Preis \(cost) \(DocReviewLogic.text(d, "currency") ?? "")").font(.caption) }
+            if d["cruiseDayId"]?.text != nil { Text("⚓ Einem Hafentag zugeordnet").font(.caption).foregroundStyle(.secondary) }
             if let m = p.match {
                 Text("Aktualisiert: \(m.title ?? "vorhandener Eintrag")").font(.caption.bold()).foregroundStyle(.blue)
                 ForEach(Array((m.changes ?? []).enumerated()), id: \.offset) { _, c in
                     Text("· \(c)").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            ForEach(Array((p.problems ?? []).enumerated()), id: \.offset) { _, problem in
-                Text(problem).font(.caption).foregroundStyle(.red)
+            if !row.edited {
+                ForEach(Array((p.problems ?? []).enumerated()), id: \.offset) { _, problem in
+                    Text(problem).font(.caption).foregroundStyle(.red)
+                }
+                if !(p.problems ?? []).isEmpty {
+                    Text("Bitte über „Bearbeiten“ korrigieren.").font(.caption).foregroundStyle(.red)
+                }
             }
         }
-        if edit.isEditor && n < apply.count {
-            Toggle(p.match != nil ? "Aktualisieren" : "Übernehmen", isOn: $apply[n])
+        if edit.isEditor && view?.status == "done" {
+            Toggle(p.match != nil ? "Aktualisieren" : "Übernehmen", isOn: $rows[n].apply)
+                .disabled(!row.edited && !(p.problems ?? []).isEmpty)
+            Button("Bearbeiten") { editing = EditingRow(id: n) }
         }
     }
 
@@ -466,8 +437,9 @@ struct DocReviewView: View {
                 Text(problem).font(.caption).foregroundStyle(.red)
             }
         }
-        if edit.isEditor {
+        if edit.isEditor && view?.status == "done" {
             Toggle(c.match != nil ? "Zusammenführen" : "Anlegen", isOn: $applyCruise)
+                .disabled(!(c.problems ?? []).isEmpty)
         }
     }
 
@@ -493,9 +465,10 @@ struct DocReviewView: View {
         errorText = nil
         do {
             let v = try await session.call { try await $0.analysis(attachmentId: attachmentId) }
-            apply = (v.items ?? []).map(DocReviewLogic.defaultApply)
+            rows = (v.items ?? []).map { Row(proposal: $0, data: $0.data, apply: DocReviewLogic.defaultApply($0)) }
             applyCruise = v.cruise.map(DocReviewLogic.defaultApply) ?? false
             view = v
+            if v.status == "done" { _ = await TitleAdoption.run(session: session, edit: edit, suggestion: v.suggestedTripTitle) }
         } catch {
             errorText = SaveError.text(error)
         }
@@ -503,7 +476,10 @@ struct DocReviewView: View {
 
     private func applyNow() async {
         guard let v = view else { return }
-        let items = (v.items ?? []).enumerated().map { (proposal: $0.element, apply: $0.offset < apply.count && apply[$0.offset]) }
+        let items = rows.map { row in
+            (proposal: ItemProposal(index: row.proposal.index, data: row.data, confidence: row.proposal.confidence,
+                                    match: row.proposal.match, problems: row.proposal.problems), apply: row.apply)
+        }
         let body = DocReviewLogic.applyBody(items: items, cruise: v.cruise.map { (proposal: $0, apply: applyCruise) })
         await run("Wird übernommen …") {
             try await session.call { try await $0.applyAnalysis(attachmentId: attachmentId, body) }
@@ -534,6 +510,211 @@ struct DocReviewView: View {
         busy = label
         defer { busy = nil }
         do { try await work() } catch { errorText = SaveError.text(error) }
+    }
+}
+
+// MARK: - Recherche im Internet
+
+private struct ResearchSection: View {
+    @Environment(AppSession.self) private var session
+    let attachmentId: String
+    let analysis: AnalysisView
+    /// Es gibt bearbeitete Vorschläge (gehen beim Übernehmen der Recherche verloren).
+    let edits: Bool
+    let canRoute: Bool
+    let onAccepted: () -> Void
+
+    @State private var research: Research?
+    @State private var loaded = false
+    @State private var url = ""
+    @State private var picked: Set<String> = []
+    @State private var busy = false
+    @State private var errorText: String?
+    @State private var confirmAccept = false
+
+    var body: some View {
+        Section {
+            if !loaded {
+                ProgressView()
+            } else if let research {
+                stateView(research)
+            } else {
+                Text("Die KI sucht im Internet nach dem, was fehlt (Verbindungen, Zeiten, Telefonnummern, bei Kreuzfahrten auch den Reiseverlauf). Du siehst die Funde mit Quelle zuerst hier und entscheidest, was übernommen wird.")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                TextField("Link zur Reise (optional), https://…", text: $url)
+                    .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                if canRoute {
+                    Button("🧭 Reiseverlauf suchen") { Task { await start("route") } }.disabled(busy)
+                }
+                Button("Lücken füllen") { Task { await start("gaps") } }.disabled(busy)
+                Text("Mit Link liest die KI genau diese Seite. Dafür gehen Schiff, Orte und Reisedaten aus der Analyse (und dein Link) an die Websuche des eingestellten KI-Anbieters. Das Dokument selbst wird nicht erneut gesendet.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if let errorText { Text(errorText).font(.footnote).foregroundStyle(.red) }
+        } header: {
+            Text("Im Internet ergänzen (optional)")
+        } footer: {
+            Text("Funde aus dem Internet sind mit „bitte prüfen“ markiert. Nichts wird ohne „Übernehmen“ gespeichert.")
+        }
+        .task { await load() }
+        .task(id: research?.status) {
+            while Polling.shouldContinue(research?.status) && !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(3))
+                if Task.isCancelled { break }
+                if let r = try? await session.call({ try await $0.research(attachmentId: attachmentId) }).research,
+                   !Polling.shouldContinue(r.status) {
+                    research = r
+                    picked = Set(ResearchLogic.open(r).map(\.id))
+                }
+            }
+        }
+        .confirmationDialog("Deine Änderungen an den Vorschlägen gehen dabei verloren, weil die Vorschläge neu aufgebaut werden.",
+                            isPresented: $confirmAccept, titleVisibility: .visible) {
+            Button("Trotzdem übernehmen") { Task { await accept() } }
+        }
+    }
+
+    @ViewBuilder
+    private func stateView(_ r: Research) -> some View {
+        switch r.status {
+        case "pending":
+            HStack {
+                ProgressView()
+                Text(r.mode == "route" ? "Sucht den Reiseverlauf … das dauert ein bis zwei Minuten." : "Recherchiert … das dauert ein bis zwei Minuten.")
+                    .font(.subheadline)
+            }
+        case "failed":
+            Text(r.error ?? "Die Recherche ist fehlgeschlagen.").foregroundStyle(.red)
+            if let d = r.diagnostics { DiagnosticsView(d: d) }
+            Button("Erneut versuchen") { Task { await start(r.mode ?? "gaps") } }.disabled(busy)
+            Button("Schließen") { Task { await discard() } }.disabled(busy)
+        default:
+            let open = ResearchLogic.open(r)
+            if let s = r.summary, !s.isEmpty { Text(s) }
+            if open.isEmpty {
+                Text((r.suggestions ?? []).isEmpty ? "Es wurden keine verwertbaren Ergänzungen gefunden. Mit einem Link zur Reise klappt es oft besser."
+                                                    : "Alle Funde sind übernommen.")
+                    .foregroundStyle(.secondary)
+            }
+            if let d = r.diagnostics { DiagnosticsView(d: d) }
+            ForEach(open) { s in suggestionRow(s) }
+            Text("Aus dem Internet, nicht aus deinen Unterlagen. Zeiten und Nummern bitte kurz gegen die Quelle prüfen.")
+                .font(.caption).foregroundStyle(.secondary)
+            if !open.isEmpty {
+                Button("Ausgewählte übernehmen (\(picked.count))") {
+                    if edits { confirmAccept = true } else { Task { await accept() } }
+                }
+                .disabled(busy || picked.isEmpty)
+            }
+            Button(open.isEmpty ? "Schließen" : "Verwerfen", role: .destructive) { Task { await discard() } }.disabled(busy)
+        }
+    }
+
+    @ViewBuilder
+    private func suggestionRow(_ s: ResearchSuggestion) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle(isOn: Binding(get: { picked.contains(s.id) }, set: { if $0 { picked.insert(s.id) } else { picked.remove(s.id) } })) {
+                VStack(alignment: .leading) {
+                    Text(s.title).bold()
+                    Text(targetLabel(s)).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            if let note = s.note { Text(note).font(.subheadline) }
+            ForEach(Array((s.route?.days ?? []).enumerated()), id: \.offset) { _, d in
+                Text("\(Fmt.local(d.date)) · \(d.kind == "sea" ? "Seetag" : [d.portName, d.country].compactMap { $0 }.joined(separator: ", "))\([d.arrival, d.departure].compactMap { $0 }.isEmpty ? "" : " · " + [d.arrival, d.departure].compactMap { $0 }.joined(separator: " – "))")
+                    .font(.caption)
+            }
+            ForEach(Array((s.fields ?? []).enumerated()), id: \.offset) { _, f in
+                Text("\(ResearchLogic.fieldLabels[f.field] ?? f.field): \(f.value)").font(.caption)
+            }
+            ForEach(Array((s.details ?? []).enumerated()), id: \.offset) { _, d in
+                Text("\(d.key): \(d.value)").font(.caption)
+            }
+            ForEach(Array((s.infos ?? []).enumerated()), id: \.offset) { _, i in
+                Text("\(i.label): \(i.value) · bitte prüfen").font(.caption).foregroundStyle(.orange)
+            }
+            ForEach(Array((s.sources ?? []).enumerated()), id: \.offset) { _, src in
+                if let link = URL(string: src.url) {
+                    Link("Quelle: \(link.host() ?? src.url)", destination: link).font(.caption)
+                }
+            }
+        }
+    }
+
+    private func targetLabel(_ s: ResearchSuggestion) -> String {
+        guard let t = s.target else { return "" }
+        switch t.kind {
+        case "item":
+            let items = analysis.items ?? []
+            return t.index < items.count ? (DocReviewLogic.text(items[t.index].data, "title") ?? "Eintrag") : "Eintrag"
+        case "day":
+            return "Hafentag"
+        default:
+            return "Kreuzfahrt \(analysis.cruise.flatMap { DocReviewLogic.text($0.data, "shipName") } ?? s.route?.shipName ?? "")"
+        }
+    }
+
+    private func load() async {
+        research = try? await session.call({ try await $0.research(attachmentId: attachmentId) }).research
+        if let r = research { picked = Set(ResearchLogic.open(r).map(\.id)) }
+        loaded = true
+    }
+
+    private func start(_ mode: String) async {
+        let checked = ResearchLogic.validURL(url)
+        if let e = checked.error { errorText = e; return }
+        errorText = nil
+        busy = true
+        defer { busy = false }
+        do {
+            research = try await session.call { try await $0.startResearch(attachmentId: attachmentId, mode: mode, url: checked.url) }.research
+        } catch {
+            errorText = SaveError.text(error)
+        }
+    }
+
+    private func accept() async {
+        errorText = nil
+        busy = true
+        defer { busy = false }
+        do {
+            try await session.call { try await $0.acceptResearch(attachmentId: attachmentId, ids: Array(picked)) }
+            await load()
+            onAccepted()
+        } catch {
+            errorText = SaveError.text(error)
+        }
+    }
+
+    private func discard() async {
+        busy = true
+        defer { busy = false }
+        do {
+            try await session.call { try await $0.dismissResearch(attachmentId: attachmentId) }
+            research = nil
+            picked = []
+        } catch {
+            errorText = SaveError.text(error)
+        }
+    }
+}
+
+/// „Was wurde gesucht?“
+private struct DiagnosticsView: View {
+    let d: ResearchDiagnostics
+    @State private var open = false
+
+    var body: some View {
+        DisclosureGroup("Was wurde gesucht?", isExpanded: $open) {
+            Text("Suchanfragen: " + ((d.queries ?? []).isEmpty ? "keine" : (d.queries ?? []).map { "„\($0)“" }.joined(separator: " · ")))
+                .font(.caption)
+            if let f = d.fetched, !f.isEmpty { Text("Gelesene Seiten: " + f.joined(separator: ", ")).font(.caption) }
+            Text("Gefundene Quellen: \(d.sourcesFound ?? 0)"
+                 + ((d.droppedNoSource ?? 0) > 0 ? " · \(d.droppedNoSource ?? 0) Fund ohne prüfbare Quelle verworfen" : "")
+                 + ((d.droppedInvalid ?? 0) > 0 ? " · \(d.droppedInvalid ?? 0) unbrauchbar" : ""))
+                .font(.caption)
+            if let n = d.notes, !n.isEmpty { Text(n).font(.caption).foregroundStyle(.secondary) }
+        }
     }
 }
 

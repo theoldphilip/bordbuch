@@ -267,7 +267,7 @@ struct CruiseDayDetailView: View {
             if let edit, let cruise {
                 // Nach dem Speichern oder Löschen zurück zum Ablauf, der den neuen Stand zeigt.
                 CruiseDayFormView(cruise: cruise, day: day, ctx: EditContext(
-                    tripId: edit.tripId, tripKind: edit.tripKind, cruises: edit.cruises, defaultTz: edit.defaultTz,
+                    tripId: edit.tripId, tripTitle: edit.tripTitle, tripKind: edit.tripKind, cruises: edit.cruises, defaultTz: edit.defaultTz,
                     suggestedTz: edit.suggestedTz, isEditor: edit.isEditor, isOwner: edit.isOwner, canEdit: edit.canEdit,
                     reload: { await edit.reload(); dismiss() }))
             }

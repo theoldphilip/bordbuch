@@ -12,6 +12,8 @@ import SwiftUI
 /// Was die Formulare einer Reise brauchen.
 struct EditContext {
     let tripId: String
+    /// Aktueller Titel (für die Übernahme des Namensvorschlags der KI).
+    var tripTitle: String = ""
     let tripKind: String?
     let cruises: [CruiseSummary]
     let defaultTz: String
@@ -264,6 +266,8 @@ struct ItemFormView: View {
 
     let ctx: EditContext
     let original: Item?
+    /// Gesetzt beim Bearbeiten eines KI-Vorschlags: gibt die Daten zurück, statt zu speichern.
+    let onSubmit: (([String: JSONValue]) -> Void)?
     let onSaved: (Item) -> Void
 
     @State private var type: String
@@ -285,9 +289,11 @@ struct ItemFormView: View {
     @State private var error: String?
     @State private var busy = false
 
-    init(ctx: EditContext, item: Item? = nil, initialType: String? = nil, onSaved: @escaping (Item) -> Void) {
+    init(ctx: EditContext, item: Item? = nil, initialType: String? = nil, onSubmit: (([String: JSONValue]) -> Void)? = nil,
+         onSaved: @escaping (Item) -> Void) {
         self.ctx = ctx
         self.original = item
+        self.onSubmit = onSubmit
         self.onSaved = onSaved
         let t = item?.type ?? initialType ?? "flight"
         let s = LocalTime.split(item?.startLocal)
@@ -400,12 +406,12 @@ struct ItemFormView: View {
                     TextField("Notizen", text: $notes, axis: .vertical).lineLimit(3...8)
                 }
             }
-            .navigationTitle(original == nil ? "Neuer Eintrag" : "Eintrag bearbeiten")
+            .navigationTitle(onSubmit != nil ? "Vorschlag bearbeiten" : original == nil ? "Neuer Eintrag" : "Eintrag bearbeiten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    if busy { ProgressView() } else { Button("Speichern") { Task { await save() } } }
+                    if busy { ProgressView() } else { Button(onSubmit != nil ? "Fertig" : "Speichern") { Task { await save() } } }
                 }
             }
             .interactiveDismissDisabled(busy)
@@ -470,6 +476,12 @@ struct ItemFormView: View {
         error = nil
         let p = payload()
         guard var body = p.body else { error = p.error; return }
+        if let onSubmit {
+            // Vorschlag: nur im Speicher ersetzen, gesendet wird erst mit „Übernehmen“.
+            onSubmit(body)
+            dismiss()
+            return
+        }
         busy = true
         defer { busy = false }
         do {
@@ -492,6 +504,7 @@ struct ItemFormView: View {
 
 // MARK: - Reise
 
+/// Neue Reise (von Hand oder aus Dokumenten wie Trips.tsx) bzw. Reise bearbeiten.
 struct TripFormView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
@@ -506,6 +519,14 @@ struct TripFormView: View {
     @State private var notes: String
     @State private var error: String?
     @State private var busy = false
+    /// "ai" = aus Dokumenten, "manual" = von Hand (nur bei neuer Reise).
+    @State private var mode = "manual"
+    @State private var modeChosen = false
+    @State private var files: [PendingFile] = []
+    @State private var grouped = false
+    @State private var progress: String?
+    /// Reise ist angelegt, aber nicht alles ließ sich hochladen: „Zur Reise“ statt erneut anlegen.
+    @State private var created: TripInfo?
 
     init(trip: TripInfo? = nil, onSaved: @escaping (TripInfo) -> Void) {
         original = trip
@@ -517,65 +538,127 @@ struct TripFormView: View {
         _notes = State(initialValue: trip?.notes ?? "")
     }
 
+    private var aiAvailable: Bool { original == nil && AIFeatures(status: session.aiStatus, role: nil).aiImport }
+    private var aiMode: Bool { aiAvailable && mode == "ai" }
+
     var body: some View {
         NavigationStack {
             Form {
                 FormErrorSection(error: error)
-                Section {
-                    TextField("Titel, z. B. Mittelmeer Mai 2027", text: $title)
-                }
-                Section("Art der Reise") {
-                    ForEach(ItemKinds.tripKinds, id: \.kind) { k in
-                        Button {
-                            kind = k.kind
-                        } label: {
-                            HStack(alignment: .top) {
-                                Text(k.icon)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(k.label).foregroundStyle(.primary)
-                                    Text(k.hint).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if kind == k.kind { Image(systemName: "checkmark").foregroundStyle(.tint) }
-                            }
+                if aiAvailable {
+                    Section {
+                        Picker("Weg", selection: $mode) {
+                            Text("Aus Dokumenten").tag("ai")
+                            Text("Von Hand").tag("manual")
                         }
+                        .pickerStyle(.segmented)
+                        .disabled(busy || created != nil)
+                    }
+                }
+                if aiMode {
+                    Section {
+                        Text("Lade die Buchungen oder den Reiseplan hoch (Kreuzfahrt, Flüge, Hotels, Mietwagen, Parkplatz, Transfers, Programm einer Rundreise). Die KI baut daraus die Reise auf. Du prüfst alles, bevor etwas gespeichert wird.")
+                            .font(.subheadline)
+                    }
+                    InputCollectorSection(files: $files, grouped: $grouped, disabled: busy || created != nil)
+                    Section {
+                        Text("Die Dokumente werden zur Analyse an den eingestellten KI-Anbieter gesendet.")
+                            .font(.footnote).foregroundStyle(.secondary)
                     }
                 }
                 Section {
-                    OptionalDateField(label: "Beginn", date: $startDate)
-                    OptionalDateField(label: "Ende", date: $endDate, fallback: startDate)
+                    TextField(aiMode ? "Name (optional, sonst schlägt ihn die KI vor)" : "Titel, z. B. Mittelmeer Mai 2027", text: $title)
+                }
+                Section {
+                    if aiMode {
+                        kindRow(kind: "auto", label: "Automatisch erkennen", icon: "✨", hint: "Nach den hochgeladenen Dokumenten")
+                    }
+                    ForEach(ItemKinds.tripKinds, id: \.kind) { k in
+                        kindRow(kind: k.kind, label: k.label, icon: k.icon, hint: k.hint)
+                    }
                 } header: {
-                    Text("Zeitraum")
+                    Text("Art der Reise")
                 } footer: {
-                    Text("Freiwillig. Ohne Angabe ergibt sich der Zeitraum aus den Einträgen.")
+                    if kind == "auto" {
+                        Text("Die App erkennt aus den Dokumenten, ob es eine Kreuzfahrt, ein Städtetrip oder eine Rundreise ist. Du kannst es danach ändern.")
+                    }
+                }
+                if !aiMode {
+                    Section {
+                        OptionalDateField(label: "Beginn", date: $startDate)
+                        OptionalDateField(label: "Ende", date: $endDate, fallback: startDate)
+                    } header: {
+                        Text("Zeitraum")
+                    } footer: {
+                        Text("Freiwillig. Ohne Angabe ergibt sich der Zeitraum aus den Einträgen.")
+                    }
                 }
                 if original != nil {
                     Section("Notizen") {
                         TextField("Notizen", text: $notes, axis: .vertical).lineLimit(3...8)
                     }
                 }
+                if let progress {
+                    Section { HStack { ProgressView(); Text(progress) } }
+                }
             }
             .navigationTitle(original == nil ? "Neue Reise" : "Reise bearbeiten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() }.disabled(busy) }
                 ToolbarItem(placement: .confirmationAction) {
-                    if busy { ProgressView() } else { Button(original == nil ? "Anlegen" : "Speichern") { Task { await save() } } }
+                    if busy {
+                        ProgressView()
+                    } else if let created {
+                        Button("Zur Reise") { onSaved(created); dismiss() }
+                    } else {
+                        Button(original != nil ? "Speichern" : aiMode ? "Mit KI aufbauen" : "Anlegen") { Task { await save() } }
+                    }
                 }
             }
             .interactiveDismissDisabled(busy)
+            .onAppear {
+                guard !modeChosen else { return }
+                modeChosen = true
+                if aiAvailable { mode = "ai"; kind = "auto" }
+            }
+            .onChange(of: mode) { _, m in
+                if m == "ai" && original == nil { kind = "auto" } else if kind == "auto" { kind = "cruise" }
+            }
         }
+    }
+
+    private func kindRow(kind k: String, label: String, icon: String, hint: String) -> some View {
+        Button {
+            kind = k
+        } label: {
+            HStack(alignment: .top) {
+                Text(icon)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label).foregroundStyle(.primary)
+                    Text(hint).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if kind == k { Image(systemName: "checkmark").foregroundStyle(.tint) }
+            }
+        }
+        .disabled(busy || created != nil)
     }
 
     private func save() async {
         error = nil
         let t = title.trimmingCharacters(in: .whitespaces)
-        guard !t.isEmpty else { error = "Bitte einen Namen eingeben."; return }
+        if !aiMode && t.isEmpty { error = "Bitte einen Namen eingeben."; return }
+        if aiMode && files.isEmpty { error = "Bitte mindestens ein Dokument, ein Foto oder Text hinzufügen, oder wechsle zu „Von Hand“."; return }
         if let s = startDate, let e = endDate, e < s { error = "Das Ende liegt vor dem Beginn."; return }
-        var body: [String: JSONValue] = ["title": .string(t), "kind": .string(kind),
-                                         "startDate": EditMerge.text(startDate), "endDate": EditMerge.text(endDate)]
+        let sendKind = kind == "auto" ? "city" : kind
+        var body: [String: JSONValue] = ["title": .string(t.isEmpty ? TripTitle.placeholder : t), "kind": .string(sendKind)]
+        if !aiMode {
+            body["startDate"] = EditMerge.text(startDate)
+            body["endDate"] = EditMerge.text(endDate)
+        }
         busy = true
-        defer { busy = false }
+        defer { busy = false; progress = nil }
         do {
             if let original {
                 body["notes"] = EditMerge.text(notes)
@@ -586,12 +669,25 @@ struct TripFormView: View {
                 if !changed.isEmpty { try await session.call { try await $0.patchTrip(tripId: original.id, changed) } }
                 onSaved(TripInfo(id: original.id, title: t, kind: kind, startDate: startDate, endDate: endDate,
                                  notes: notes.isEmpty ? nil : notes))
-            } else {
-                let detail = try await session.call { try await $0.createTrip(body) }
-                guard let trip = detail.trip else { throw APIError.decoding("Feld trip fehlt") }
-                onSaved(trip)
+                _ = try? await session.fetchTrips()
+                dismiss()
+                return
+            }
+            let detail = try await session.call { try await $0.createTrip(body) }
+            guard let trip = detail.trip else { throw APIError.decoding("Feld trip fehlt") }
+            if aiMode {
+                progress = "Lädt hoch …"
+                let result = await DocumentUploader.upload(session: session, tripId: trip.id, files: files, grouped: grouped)
+                files = []
+                if !result.errors.isEmpty {
+                    _ = try? await session.fetchTrips()
+                    error = result.errors.joined(separator: "\n")
+                    created = trip
+                    return
+                }
             }
             _ = try? await session.fetchTrips()
+            onSaved(trip)
             dismiss()
         } catch {
             self.error = SaveError.text(error)

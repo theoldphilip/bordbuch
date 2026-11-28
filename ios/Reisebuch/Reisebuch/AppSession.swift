@@ -18,6 +18,8 @@ final class AppSession {
         static let server = "serverAddress"
         static let displayName = "displayName"
         static let placeLookup = "placeLookupAvailable"
+        static let isAdmin = "isAdmin"
+        static let aiStatus = "aiStatus"
     }
 
     private(set) var serverAddress: String
@@ -29,6 +31,10 @@ final class AppSession {
     private(set) var isOffline = false
     /// Server bietet die Reisetag-Abfrage an (GET /api/ai/status); offline gilt der letzte bekannte Wert.
     private(set) var placeLookupAvailable: Bool
+    /// Letzter bekannter Stand von GET /api/ai/status (offline gilt der gespeicherte).
+    private(set) var aiStatus: AIStatus?
+    /// Admin (aus Anmeldung bzw. GET /me); steuert die Admin-Bereiche der Einstellungen.
+    private(set) var isAdmin: Bool
     /// Reisen, deren Ansichtsmodus aufgehoben ist; nur im Speicher, gilt bis zum Beenden der App.
     var unlockedTrips: Set<String> = []
     /// Zählt hoch, wenn die Reiseliste im Zwischenspeicher neu ist (die Liste zeigt sie dann).
@@ -50,6 +56,8 @@ final class AppSession {
         keychainMigration = Keychain.migrate()
         token = Keychain.readToken()
         placeLookupAvailable = defaults.bool(forKey: Keys.placeLookup)
+        isAdmin = defaults.bool(forKey: Keys.isAdmin)
+        aiStatus = defaults.data(forKey: Keys.aiStatus).flatMap { try? JSONDecoder().decode(AIStatus.self, from: $0) }
         if token != nil { SharedStore.save(server: serverAddress, displayName: displayName) }
     }
 
@@ -76,6 +84,8 @@ final class AppSession {
         displayName = response.user.displayName
         token = response.token
         loginNotice = nil
+        isAdmin = response.user.isAdmin == true
+        UserDefaults.standard.set(isAdmin, forKey: Keys.isAdmin)
         SharedStore.save(server: address, displayName: response.user.displayName)
     }
 
@@ -109,13 +119,25 @@ final class AppSession {
         ResponseCache.clear()
         WidgetFeed.clear()
         token = nil
+        isAdmin = false
+        UserDefaults.standard.removeObject(forKey: Keys.isAdmin)
         onLocalLogout?()
     }
 
     // MARK: - KI-Status
 
     func refreshAIStatus() async {
+        if let me = try? await call({ try await $0.me() }) {
+            isAdmin = me.isAdmin == true
+            UserDefaults.standard.set(isAdmin, forKey: Keys.isAdmin)
+            if me.displayName != displayName {
+                displayName = me.displayName
+                UserDefaults.standard.set(displayName, forKey: Keys.displayName)
+            }
+        }
         guard let status = try? await call({ try await $0.aiStatus() }) else { return }
+        aiStatus = status
+        UserDefaults.standard.set(try? JSONEncoder().encode(status), forKey: Keys.aiStatus)
         placeLookupAvailable = status.placeLookup == true
         UserDefaults.standard.set(placeLookupAvailable, forKey: Keys.placeLookup)
     }

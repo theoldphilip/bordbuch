@@ -39,6 +39,8 @@ final class ShareModel {
     var files: [SharedFile] = []
     var errorText: String?
     var creatingTrip = false
+    /// Mehrere Dateien als eine Unterlage auswerten (Vorbelegung an bei mehreren Bildern).
+    var grouped = false
 
     init(context: NSExtensionContext?) {
         self.context = context
@@ -54,6 +56,7 @@ final class ShareModel {
 
     func start() async {
         await collectFiles()
+        grouped = Upload.defaultGrouped(filenames: files.map(\.filename))
         await loadTrips()
     }
 
@@ -211,6 +214,34 @@ final class ShareModel {
         phase = .uploading
         var outcomes: [Upload.Outcome] = []
         var remaining: [SharedFile] = []
+        if grouped && files.count >= 2 {
+            // Zusammen: erst alle speichern, dann als eine Unterlage auswerten (erste führt).
+            var ids: [String] = []
+            for f in files {
+                do {
+                    ids.append(try await client.uploadAttachment(tripId: tripId, file: f.url, filename: f.filename).id)
+                    try? FileManager.default.removeItem(at: f.url)
+                } catch APIError.unreachable {
+                    remaining.append(f)
+                    errorText = "Server nicht erreichbar (VPN an?)."
+                } catch {
+                    remaining.append(f)
+                    errorText = "„\(f.filename)“: \(error.localizedDescription)"
+                }
+            }
+            if ids.count > 1 {
+                do { outcomes.append(try await client.analyzeGroup(tripId: tripId, attachmentIds: ids)) } catch {
+                    errorText = "Zusammen auswerten: \(error.localizedDescription)"
+                }
+            } else if let id = ids.first {
+                // Nur eine angekommen: einzeln lesen lassen.
+                _ = try? await client.reanalyze(attachmentId: id)
+                outcomes.append(.saved)
+            }
+            files = remaining
+            finishUpload(outcomes: outcomes, remaining: remaining)
+            return
+        }
         for f in files {
             do {
                 outcomes.append(try await client.uploadDocument(tripId: tripId, file: f.url, filename: f.filename))
@@ -224,11 +255,17 @@ final class ShareModel {
             }
         }
         files = remaining
-        if remaining.isEmpty {
+        finishUpload(outcomes: outcomes, remaining: remaining)
+    }
+
+    private func finishUpload(outcomes: [Upload.Outcome], remaining: [SharedFile]) {
+        if remaining.isEmpty && errorText == nil {
             let text = outcomes.contains(.background) ? "Wird gelesen, du bekommst eine Mitteilung." : "Gespeichert."
             phase = .done(text)
-            try? await Task.sleep(for: .seconds(1.5))
-            finish()
+            Task {
+                try? await Task.sleep(for: .seconds(1.5))
+                finish()
+            }
         } else {
             // Nichts verloren: die übrigen Dateien bleiben, die Erweiterung bleibt offen.
             phase = .ready
@@ -295,6 +332,9 @@ struct ShareView: View {
             }
             ForEach(model.files) { f in
                 LabeledContent(f.filename, value: ByteCountFormatter.string(fromByteCount: Int64(f.size), countStyle: .file))
+            }
+            if model.files.count > 1 {
+                Toggle("Gehören zu einer Buchung (zusammen auswerten)", isOn: $model.grouped)
             }
         }
     }

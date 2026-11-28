@@ -34,7 +34,8 @@ struct DocumentTests {
     @Test func defaultsAndApplyBody() throws {
         let v = try analysis(sample)
         let items = try #require(v.items)
-        #expect(items.map(DocReviewLogic.defaultApply) == [true, true, false, false])
+        // Wie DocReview.tsx: nur Probleme führen zu „überspringen“, auch „unsicher“ wird übernommen (seit 0.8.0).
+        #expect(items.map(DocReviewLogic.defaultApply) == [true, true, true, false])
         let cruise = try #require(v.cruise)
         #expect(DocReviewLogic.defaultApply(cruise))
 
@@ -50,7 +51,7 @@ struct DocumentTests {
         guard case let .object(data)? = first["data"], case let .object(details)? = data["details"] else { Issue.record("data"); return }
         #expect(details["x"] == .number(1) && details["gate"] == .string("B12"))
         #expect(second["action"] == .string("update") && second["itemId"] == .string("i9"))
-        #expect(third["action"] == .string("skip"))
+        #expect(third["action"] == .string("create"))
         guard case let .object(c)? = body["cruise"] else { Issue.record("cruise"); return }
         #expect(c["action"] == .string("update") && c["cruiseId"] == .string("c1"))
 
