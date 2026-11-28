@@ -61,9 +61,8 @@ Trennungsprüfung, `git pull --rebase origin main`, `git config user.email` = no
 - Build grün, keine Warnungen (auch Archiv-Log).
 - Unit-Tests: Zusammenführen der `details` (unbekannte Schlüssel bleiben, leeres Feld entfernt den Schlüssel), nur geänderte Felder im
   `PATCH`, Zeit + Zeitzone als Text (`2027-05-08T09:40` bzw. nur Datum), Anzahlung nur bei „Anzahlung“, Ansichtsmodus-Regel. Gegenprobe.
-- Simulator mit **`scripts/dev/fake-server.ts`** (echter Server, leere Datenbank; Node prüfen, nicht installieren) oder deinem Beispielserver:
-  Reise anlegen, Einträge jeder Art anlegen, ändern, löschen; Reise löschen; Antworten im Protokoll prüfen; Ablauf zeigt die Änderungen;
-  als Betrachter keine Knöpfe; offline kein Speichern.
+- **Keine Prüfung im Simulator** (Philips Entscheidung vom 28.11.2026): keine Klick-Tests, kein Beispielserver, keine UI-Tests. Build und
+  Unit-Tests bleiben Pflicht. Philip prüft auf dem iPhone; deshalb `STAND.md` → „Was Philip testen soll“ besonders genau.
 - **IPA ist freigegeben** nach `ios/Installation/0.6.0-b6/`, letzte drei behalten, Profil wie bisher.
 - `STAND.md` („Was Philip testen soll“: neue Reise, Eintrag anlegen/ändern/löschen, Gate ändern und Mitteilung bei einem anderen
   Mitglied, Ansichtsmodus), „Neu in 0.6.0“ in `ios/CLAUDE.md`, Auftrag nach `ios/Auftraege/`, committen, pull, push. Dann weiter mit

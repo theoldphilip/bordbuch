@@ -5,7 +5,7 @@ Version **0.7.0, Build 7** (Regel 2: App, Widget **und** die neue Teilen-Erweite
 
 Server **0.12.0** (Architekt) bringt dafür `POST /trips/:id/documents?background=1`: sofort 202, Auswertung im Hintergrund, danach eine
 Mitteilung mit `documentId` (API.md „Dokument-Analyse (KI)“ und „iPhone-App (APNs)“). Ob 0.12.0 auf der Synology läuft, zeigt
-`GET /api/version`; für den Simulator nimm `scripts/dev/fake-server.ts` (Fake-KI) aus dem aktuellen Repo.
+`GET /api/version`.
 
 ## Teil 0: Vorher
 1. Trennungsprüfung, `git pull --rebase origin main`, `git config user.email` = noreply.
@@ -68,10 +68,8 @@ Mitteilung mit `documentId` (API.md „Dokument-Analyse (KI)“ und „iPhone-Ap
 - Build grün für App, Widget, Erweiterung, Tests; keine Warnungen (auch Archiv-Log).
 - Unit-Tests: Auswahl übernehmen/überspringen und Aufbau des `apply`-Bodys (create/update/skip, cruise), Status-Texte, Erkennung von
   `documentId` im `userInfo`, Mehrteil-Body (Dateiname, MIME-Typ), Umzug des Tokens (mit Test-Schlüsselbund oder abstrahiert). Gegenprobe.
-- Simulator mit `scripts/dev/fake-server.ts` (Fake-KI liefert Vorschläge): Dokument hinzufügen (Datei und Foto), Status „Wird gelesen“ →
-  „Vorschläge prüfen“, übernehmen, Eintrag erscheint; Verwerfen; Teilen aus *Dateien* und *Fotos* in eine bestehende und eine neue Reise;
-  Mitteilung mit `documentId` per `xcrun simctl push` antippen → Vorschläge offen. Token-Umzug: mit 0.6.0 anmelden, auf 0.7.0 aktualisieren,
-  App bleibt angemeldet.
+- **Keine Prüfung im Simulator** (Philips Entscheidung vom 28.11.2026): keine Klick-Tests, kein Beispielserver, keine UI-Tests. Build und
+  Unit-Tests bleiben Pflicht. Philip prüft auf dem iPhone; deshalb `STAND.md` → „Was Philip testen soll“ besonders genau.
 - **IPA ist freigegeben** nach `ios/Installation/0.7.0-b7/`, letzte drei behalten. Profile in `STAND.md`: App (`aps-environment`
   `production`), Widget, **neu** Erweiterung (Name, App Group). `project.pbxproj` nach dem Export unverändert.
 - `STAND.md` („Was Philip testen soll“: Teilen einer Buchungsmail/PDF aus Mail oder Dateien, Mitteilung abwarten, Vorschläge übernehmen;

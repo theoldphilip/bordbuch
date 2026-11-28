@@ -8,6 +8,8 @@ IPA, `STAND.md`, Auftrag nach `ios/Auftraege/`, Commit, Push. Dann ohne Rückfra
 Schritten von Philip (Capability, Target) oder bei einer echten Rückfrage (Regel 8). `STAND.md` beschreibt immer den zuletzt
 erledigten Auftrag; ältere Rückgaben stehen in der Git-Historie.
 
+**In allen drei Aufträgen gilt: keine Prüfung im Simulator** (nur Build und Unit-Tests), siehe jeweils Teil „Prüfen“.
+
 ## Teil 0: Vorher
 1. Trennungsprüfung aus `ios/CLAUDE.md`, `git pull --rebase origin main`, `git config user.email` = noreply (Regel 7).
 2. Neue Capability legt **Philip** an (Regel 5). Anleitung geben, auf „fertig“ warten:
@@ -72,9 +74,8 @@ Ein Ort wird geplant, wenn sein Zeitpunkt **in den nächsten 36 Stunden** liegt 
 - Unit-Tests für die Auswahl: Flug mit `from` → Suchtext und Text mit Gate; ohne Ortsfelder nur Uhrzeit; Zeitfenster 36 h (35 h dabei,
   37 h nicht, vorbei nicht); Hotel-Fenster; Einschiffungstag; höchstens 20, die frühesten; Kennungen stabil. Gegenprobe (Logik absichtlich
   ändern, Test wird rot, zurück).
-- Simulator mit Beispielserver (Scratchpad): Schalter an, Erlaubnisse, Liste „Geplant“ zeigt die Orte; `xcrun simctl location booted
-  set <lat>,<lon>` auf den Flughafen setzen → Mitteilung erscheint, Antippen öffnet die Reise. Wenn der Simulator Standort-Trigger nicht
-  auslöst, so in `STAND.md` vermerken (dann auf dem iPhone prüfen).
+- **Keine Prüfung im Simulator** (Philips Entscheidung vom 28.11.2026): keine Klick-Tests, kein Beispielserver, keine UI-Tests. Build und
+  Unit-Tests bleiben Pflicht. Philip prüft auf dem iPhone; deshalb `STAND.md` → „Was Philip testen soll“ besonders genau.
 - **IPA ist freigegeben**, nach `ios/Installation/0.5.0-b5/` mit `SHA256.txt`, nur die letzten drei Versionen behalten. Profil: weiterhin
   `aps-environment` = `production`. `project.pbxproj` nach dem Export unverändert.
 - `STAND.md` mit „Was Philip testen soll“ (Schalter an → Liste „Geplant“ ansehen; am Reisetag am Ort), „Neu in 0.5.0“ in `ios/CLAUDE.md`,
